@@ -5,6 +5,8 @@ import TopBar from "./TopBar";
 import SideNav from "./SideNav";
 import SettingsModal from "./SettingsModal";
 import Footer from "./Footer";
+import { ThoughtSpotContent } from "../types/thoughtspot";
+import { CustomMenu } from "../types/thoughtspot";
 
 interface StandardMenu {
   id: string;
@@ -61,6 +63,10 @@ interface AppContextType {
     field: string,
     value: string | boolean
   ) => void;
+  customMenus: CustomMenu[];
+  addCustomMenu: (menu: CustomMenu) => void;
+  updateCustomMenu: (id: string, menu: CustomMenu) => void;
+  deleteCustomMenu: (id: string) => void;
   clearAllConfigurations: () => void;
   openSettingsWithTab: (tab?: string, subTab?: string) => void;
 }
@@ -81,6 +87,7 @@ const STORAGE_KEYS = {
   APP_CONFIG: "tse-demo-builder-app-config",
   STANDARD_MENUS: "tse-demo-builder-standard-menus",
   FULL_APP_CONFIG: "tse-demo-builder-full-app-config",
+  CUSTOM_MENUS: "tse-demo-builder-custom-menus",
 };
 
 // Utility functions for localStorage
@@ -153,6 +160,11 @@ export default function Layout({ children }: LayoutProps) {
       ]) as StandardMenu[]
   );
 
+  // Custom menus state
+  const [customMenus, setCustomMenus] = useState<CustomMenu[]>(
+    () => loadFromStorage(STORAGE_KEYS.CUSTOM_MENUS, []) as CustomMenu[]
+  );
+
   // Home page configuration state
   const [homePageConfig, setHomePageConfig] = useState<HomePageConfig>(
     () =>
@@ -187,6 +199,10 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.STANDARD_MENUS, standardMenus);
   }, [standardMenus]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.CUSTOM_MENUS, customMenus);
+  }, [customMenus]);
 
   // Update Full App icon to new icon if it's still using the old one
   useEffect(() => {
@@ -286,6 +302,18 @@ export default function Layout({ children }: LayoutProps) {
     setFullAppConfig(config);
   };
 
+  const addCustomMenu = (menu: CustomMenu) => {
+    setCustomMenus((prev) => [...prev, menu]);
+  };
+
+  const updateCustomMenu = (id: string, menu: CustomMenu) => {
+    setCustomMenus((prev) => prev.map((m) => (m.id === id ? menu : m)));
+  };
+
+  const deleteCustomMenu = (id: string) => {
+    setCustomMenus((prev) => prev.filter((m) => m.id !== id));
+  };
+
   const clearAllConfigurations = () => {
     // Reset to default values
     setStandardMenus([
@@ -304,6 +332,8 @@ export default function Layout({ children }: LayoutProps) {
       { id: "search", icon: "🔎", name: "Search", enabled: true },
       { id: "full-app", icon: "🌐", name: "Full App", enabled: true },
     ]);
+
+    setCustomMenus([]);
 
     setHomePageConfig({
       type: "html",
@@ -336,6 +366,10 @@ export default function Layout({ children }: LayoutProps) {
     updateFullAppConfig,
     standardMenus,
     updateStandardMenu,
+    customMenus,
+    addCustomMenu,
+    updateCustomMenu,
+    deleteCustomMenu,
     clearAllConfigurations,
     openSettingsWithTab,
   };
@@ -358,6 +392,7 @@ export default function Layout({ children }: LayoutProps) {
           <SideNav
             onSettingsClick={() => setIsSettingsOpen(true)}
             standardMenus={standardMenus}
+            customMenus={customMenus}
           />
 
           {/* Content Area */}
@@ -389,6 +424,10 @@ export default function Layout({ children }: LayoutProps) {
             updateAppConfig={updateAppConfig}
             fullAppConfig={fullAppConfig}
             updateFullAppConfig={updateFullAppConfig}
+            customMenus={customMenus}
+            addCustomMenu={addCustomMenu}
+            updateCustomMenu={updateCustomMenu}
+            deleteCustomMenu={deleteCustomMenu}
             clearAllConfigurations={clearAllConfigurations}
             initialTab={settingsInitialTab}
             initialSubTab={settingsInitialSubTab}

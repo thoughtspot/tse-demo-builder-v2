@@ -30,6 +30,7 @@ export default function FavoritesPage() {
       onContentOpen={handleContentOpen}
       fetchFavorites={true}
       favoritesConfig={favoritesConfig}
+      showDirectContent={true}
     />
   );
 }

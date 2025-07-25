@@ -66,6 +66,10 @@ interface SettingsModalProps {
   updateAppConfig: (config: AppConfig) => void;
   fullAppConfig: FullAppConfig;
   updateFullAppConfig: (config: FullAppConfig) => void;
+  customMenus: CustomMenu[];
+  addCustomMenu: (menu: CustomMenu) => void;
+  updateCustomMenu: (id: string, menu: CustomMenu) => void;
+  deleteCustomMenu: (id: string) => void;
   clearAllConfigurations?: () => void;
   initialTab?: string;
   initialSubTab?: string;
@@ -79,17 +83,18 @@ interface Tab {
 
 interface CustomMenu {
   id: string;
-  icon: string;
   name: string;
-  worksheetId: string;
-  content: CustomMenuContent[];
-}
-
-interface CustomMenuContent {
-  id: string;
-  menuName: string;
-  guid: string;
-  type: "Liveboard" | "Answer";
+  description: string;
+  icon: string;
+  enabled: boolean;
+  contentSelection: {
+    type: "specific" | "tag";
+    specificContent?: {
+      liveboards: string[];
+      answers: string[];
+    };
+    tagIdentifiers?: string[];
+  };
 }
 
 function StandardMenusContent({
@@ -1589,6 +1594,729 @@ function StandardMenusContent({
   );
 }
 
+function CustomMenusContent({
+  customMenus,
+  addCustomMenu,
+  updateCustomMenu,
+  deleteCustomMenu,
+}: {
+  customMenus: CustomMenu[];
+  addCustomMenu: (menu: CustomMenu) => void;
+  updateCustomMenu: (id: string, menu: CustomMenu) => void;
+  deleteCustomMenu: (id: string) => void;
+}) {
+  const [editingMenu, setEditingMenu] = useState<CustomMenu | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [availableLiveboards, setAvailableLiveboards] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [availableAnswers, setAvailableAnswers] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [availableTags, setAvailableTags] = useState<
+    Array<{ id: string; name: string; color: string }>
+  >([]);
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
+
+  // Filter states
+  const [liveboardFilter, setLiveboardFilter] = useState("");
+  const [answerFilter, setAnswerFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
+
+  // Filtered lists
+  const filteredLiveboards = availableLiveboards.filter((liveboard) =>
+    liveboard.name.toLowerCase().includes(liveboardFilter.toLowerCase())
+  );
+
+  const filteredAnswers = availableAnswers.filter((answer) =>
+    answer.name.toLowerCase().includes(answerFilter.toLowerCase())
+  );
+
+  const filteredTags = availableTags.filter((tag) =>
+    tag.name.toLowerCase().includes(tagFilter.toLowerCase())
+  );
+
+  // Load available content and tags
+  useEffect(() => {
+    const loadContent = async () => {
+      try {
+        setIsLoadingContent(true);
+        const { fetchLiveboards, fetchAnswers, fetchTags } = await import(
+          "../services/thoughtspotApi"
+        );
+
+        const [liveboards, answers, tags] = await Promise.all([
+          fetchLiveboards(),
+          fetchAnswers(),
+          fetchTags(),
+        ]);
+
+        setAvailableLiveboards(
+          liveboards.map((l) => ({ id: l.id, name: l.name }))
+        );
+        setAvailableAnswers(answers.map((a) => ({ id: a.id, name: a.name })));
+        setAvailableTags(tags);
+      } catch (error) {
+        console.error("Failed to load content:", error);
+      } finally {
+        setIsLoadingContent(false);
+      }
+    };
+
+    loadContent();
+  }, []);
+
+  const handleCreateMenu = () => {
+    const newMenu: CustomMenu = {
+      id: `custom-${Date.now()}`,
+      name: "",
+      description: "",
+      icon: "📋",
+      enabled: false,
+      contentSelection: {
+        type: "specific",
+        specificContent: {
+          liveboards: [],
+          answers: [],
+        },
+      },
+    };
+    setEditingMenu(newMenu);
+    setIsCreating(true);
+  };
+
+  const handleSaveMenu = () => {
+    if (editingMenu && editingMenu.name.trim()) {
+      if (isCreating) {
+        addCustomMenu(editingMenu);
+      } else {
+        updateCustomMenu(editingMenu.id, editingMenu);
+      }
+      setEditingMenu(null);
+      setIsCreating(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMenu(null);
+    setIsCreating(false);
+  };
+
+  const handleEditMenu = (menu: CustomMenu) => {
+    setEditingMenu({ ...menu });
+    setIsCreating(false);
+  };
+
+  const handleDeleteMenu = (id: string) => {
+    if (confirm("Are you sure you want to delete this custom menu?")) {
+      deleteCustomMenu(id);
+    }
+  };
+
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "24px",
+        }}
+      >
+        <h3 style={{ fontSize: "20px", fontWeight: "bold", margin: 0 }}>
+          Custom Menus Configuration
+        </h3>
+        <button
+          onClick={handleCreateMenu}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: "#3182ce",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "14px",
+            fontWeight: "500",
+          }}
+        >
+          Create New Menu
+        </button>
+      </div>
+
+      {isLoadingContent && (
+        <div style={{ textAlign: "center", padding: "20px", color: "#6b7280" }}>
+          Loading available content...
+        </div>
+      )}
+
+      {editingMenu && (
+        <div
+          style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
+            padding: "20px",
+            marginBottom: "20px",
+            backgroundColor: "#f9fafb",
+          }}
+        >
+          <h4
+            style={{
+              marginBottom: "16px",
+              fontSize: "16px",
+              fontWeight: "600",
+            }}
+          >
+            {isCreating ? "Create New Menu" : "Edit Menu"}
+          </h4>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "16px",
+              marginBottom: "16px",
+            }}
+          >
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "4px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Menu Name *
+              </label>
+              <input
+                type="text"
+                value={editingMenu.name}
+                onChange={(e) =>
+                  setEditingMenu({ ...editingMenu, name: e.target.value })
+                }
+                placeholder="Enter menu name"
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "4px",
+                  fontSize: "14px",
+                }}
+              />
+            </div>
+
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "4px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Icon
+              </label>
+              <input
+                type="text"
+                value={editingMenu.icon}
+                onChange={(e) =>
+                  setEditingMenu({ ...editingMenu, icon: e.target.value })
+                }
+                placeholder="📋"
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "4px",
+                  fontSize: "14px",
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: "16px" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "4px",
+                fontSize: "14px",
+                fontWeight: "500",
+              }}
+            >
+              Description
+            </label>
+            <textarea
+              value={editingMenu.description}
+              onChange={(e) =>
+                setEditingMenu({ ...editingMenu, description: e.target.value })
+              }
+              placeholder="Enter menu description"
+              rows={2}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                border: "1px solid #d1d5db",
+                borderRadius: "4px",
+                fontSize: "14px",
+                resize: "vertical",
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: "16px" }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={editingMenu.enabled}
+                onChange={(e) =>
+                  setEditingMenu({ ...editingMenu, enabled: e.target.checked })
+                }
+                style={{ cursor: "pointer" }}
+              />
+              <span style={{ fontSize: "14px" }}>Show in navigation</span>
+            </label>
+          </div>
+
+          <div style={{ marginBottom: "16px" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "8px",
+                fontSize: "14px",
+                fontWeight: "500",
+              }}
+            >
+              Content Selection Method
+            </label>
+            <div style={{ display: "flex", gap: "16px" }}>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="contentType"
+                  checked={editingMenu.contentSelection.type === "specific"}
+                  onChange={() =>
+                    setEditingMenu({
+                      ...editingMenu,
+                      contentSelection: {
+                        type: "specific",
+                        specificContent: { liveboards: [], answers: [] },
+                      },
+                    })
+                  }
+                  style={{ cursor: "pointer" }}
+                />
+                <span style={{ fontSize: "14px" }}>
+                  Select specific content
+                </span>
+              </label>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="contentType"
+                  checked={editingMenu.contentSelection.type === "tag"}
+                  onChange={() =>
+                    setEditingMenu({
+                      ...editingMenu,
+                      contentSelection: {
+                        type: "tag",
+                        tagIdentifiers: [],
+                      },
+                    })
+                  }
+                  style={{ cursor: "pointer" }}
+                />
+                <span style={{ fontSize: "14px" }}>Filter by tags</span>
+              </label>
+            </div>
+          </div>
+
+          {editingMenu.contentSelection.type === "specific" && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "16px",
+                marginBottom: "16px",
+              }}
+            >
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                  }}
+                >
+                  Liveboards
+                </label>
+                <input
+                  type="text"
+                  placeholder="Filter liveboards..."
+                  value={liveboardFilter}
+                  onChange={(e) => setLiveboardFilter(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                    marginBottom: "8px",
+                  }}
+                />
+                <select
+                  multiple
+                  value={
+                    editingMenu.contentSelection.specificContent?.liveboards ||
+                    []
+                  }
+                  onChange={(e) => {
+                    const selected = Array.from(
+                      e.target.selectedOptions,
+                      (option) => option.value
+                    );
+                    setEditingMenu({
+                      ...editingMenu,
+                      contentSelection: {
+                        ...editingMenu.contentSelection,
+                        specificContent: {
+                          ...editingMenu.contentSelection.specificContent!,
+                          liveboards: selected,
+                        },
+                      },
+                    });
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                    minHeight: "100px",
+                  }}
+                >
+                  {filteredLiveboards.map((liveboard) => (
+                    <option key={liveboard.id} value={liveboard.id}>
+                      {liveboard.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                  }}
+                >
+                  Answers
+                </label>
+                <input
+                  type="text"
+                  placeholder="Filter answers..."
+                  value={answerFilter}
+                  onChange={(e) => setAnswerFilter(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                    marginBottom: "8px",
+                  }}
+                />
+                <select
+                  multiple
+                  value={
+                    editingMenu.contentSelection.specificContent?.answers || []
+                  }
+                  onChange={(e) => {
+                    const selected = Array.from(
+                      e.target.selectedOptions,
+                      (option) => option.value
+                    );
+                    setEditingMenu({
+                      ...editingMenu,
+                      contentSelection: {
+                        ...editingMenu.contentSelection,
+                        specificContent: {
+                          ...editingMenu.contentSelection.specificContent!,
+                          answers: selected,
+                        },
+                      },
+                    });
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                    minHeight: "100px",
+                  }}
+                >
+                  {filteredAnswers.map((answer) => (
+                    <option key={answer.id} value={answer.id}>
+                      {answer.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {editingMenu.contentSelection.type === "tag" && (
+            <div style={{ marginBottom: "16px" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Tags
+              </label>
+              <input
+                type="text"
+                placeholder="Filter tags..."
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "4px",
+                  fontSize: "14px",
+                  marginBottom: "8px",
+                }}
+              />
+              <select
+                multiple
+                value={editingMenu.contentSelection.tagIdentifiers || []}
+                onChange={(e) => {
+                  const selected = Array.from(
+                    e.target.selectedOptions,
+                    (option) => option.value
+                  );
+                  setEditingMenu({
+                    ...editingMenu,
+                    contentSelection: {
+                      ...editingMenu.contentSelection,
+                      tagIdentifiers: selected,
+                    },
+                  });
+                }}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "4px",
+                  fontSize: "14px",
+                  minHeight: "100px",
+                }}
+              >
+                {filteredTags.map((tag) => (
+                  <option key={tag.id} value={tag.name}>
+                    {tag.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div
+            style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}
+          >
+            <button
+              onClick={handleCancelEdit}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: "#6b7280",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "14px",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveMenu}
+              disabled={!editingMenu.name.trim()}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: editingMenu.name.trim()
+                  ? "#3182ce"
+                  : "#9ca3af",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: editingMenu.name.trim() ? "pointer" : "not-allowed",
+                fontSize: "14px",
+              }}
+            >
+              {isCreating ? "Create" : "Save"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ flex: 1, overflow: "auto" }}>
+        {customMenus.length === 0 ? (
+          <div
+            style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}
+          >
+            <p>No custom menus created yet.</p>
+            <p>Click "Create New Menu" to get started.</p>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: "16px" }}>
+            {customMenus.map((menu) => (
+              <div
+                key={menu.id}
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "8px",
+                  padding: "16px",
+                  backgroundColor: "white",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    marginBottom: "8px",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <span style={{ fontSize: "20px" }}>{menu.icon}</span>
+                    <div>
+                      <h4
+                        style={{
+                          margin: 0,
+                          fontSize: "16px",
+                          fontWeight: "600",
+                        }}
+                      >
+                        {menu.name}
+                      </h4>
+                      {menu.description && (
+                        <p
+                          style={{
+                            margin: "4px 0 0 0",
+                            fontSize: "14px",
+                            color: "#6b7280",
+                          }}
+                        >
+                          {menu.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <span
+                      style={{
+                        padding: "4px 8px",
+                        backgroundColor: menu.enabled ? "#dcfce7" : "#fef2f2",
+                        color: menu.enabled ? "#166534" : "#dc2626",
+                        borderRadius: "4px",
+                        fontSize: "12px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      {menu.enabled ? "Enabled" : "Disabled"}
+                    </span>
+                    <button
+                      onClick={() => handleEditMenu(menu)}
+                      style={{
+                        padding: "4px 8px",
+                        backgroundColor: "#3182ce",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteMenu(menu.id)}
+                      style={{
+                        padding: "4px 8px",
+                        backgroundColor: "#dc2626",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                  <strong>Content:</strong>{" "}
+                  {menu.contentSelection.type === "specific" ? (
+                    <>
+                      {`${
+                        menu.contentSelection.specificContent?.liveboards
+                          .length || 0
+                      } liveboards, ${
+                        menu.contentSelection.specificContent?.answers.length ||
+                        0
+                      } answers`}
+                    </>
+                  ) : (
+                    <>
+                      {menu.contentSelection.tagIdentifiers?.length || 0} tags
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsModal({
   isOpen,
   onClose,
@@ -1600,11 +2328,17 @@ export default function SettingsModal({
   updateAppConfig,
   fullAppConfig,
   updateFullAppConfig,
+  customMenus,
+  addCustomMenu,
+  updateCustomMenu,
+  deleteCustomMenu,
   clearAllConfigurations,
   initialTab,
   initialSubTab,
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState(initialTab || "configuration");
+
+  console.log("SettingsModal render - customMenus:", customMenus);
 
   const tabs: Tab[] = [
     {
@@ -1838,6 +2572,18 @@ export default function SettingsModal({
           initialSubTab={initialSubTab}
           fullAppConfig={fullAppConfig}
           updateFullAppConfig={updateFullAppConfig}
+        />
+      ),
+    },
+    {
+      id: "custom-menus",
+      name: "Custom Menus",
+      content: (
+        <CustomMenusContent
+          customMenus={customMenus}
+          addCustomMenu={addCustomMenu}
+          updateCustomMenu={updateCustomMenu}
+          deleteCustomMenu={deleteCustomMenu}
         />
       ),
     },

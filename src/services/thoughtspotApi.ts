@@ -21,7 +21,106 @@ interface ThoughtSpotUser {
   display_name: string;
 }
 
+interface ThoughtSpotTag {
+  id: string;
+  name: string;
+  color: string;
+  deleted: boolean;
+  hidden: boolean;
+  external: boolean;
+  deprecated: boolean;
+  creation_time_in_millis: number;
+  modification_time_in_millis: number;
+  author_id: string;
+  modifier_id: string;
+  owner_id: string;
+}
+
 type ThoughtSpotSearchResponse = ThoughtSpotMetadata[];
+
+// Search parameters interface
+interface SearchParams {
+  metadataTypes?: string[];
+  includeStats?: boolean;
+  tagIdentifiers?: string[];
+  metadataIds?: string[];
+  userName?: string;
+  isFavorite?: boolean;
+  recordOffset?: number;
+  recordSize?: number;
+}
+
+// Consolidated search function
+async function searchMetadata(
+  params: SearchParams = {}
+): Promise<ThoughtSpotSearchResponse> {
+  const {
+    metadataTypes = [],
+    includeStats = false,
+    tagIdentifiers = [],
+    metadataIds = [],
+    userName,
+    isFavorite = false,
+    recordOffset = 0,
+    recordSize = -1,
+  } = params;
+
+  const searchData: Record<string, unknown> = {
+    dependent_object_version: "V1",
+    include_details: false,
+    include_headers: true,
+    record_offset: recordOffset,
+    record_size: recordSize,
+    include_stats: includeStats,
+    include_discoverable_objects: true,
+    show_resolved_parameters: false,
+  };
+
+  // Add metadata types and/or IDs
+  if (metadataTypes.length > 0 || metadataIds.length > 0) {
+    const metadataArray: Array<{ type?: string; identifier?: string }> = [];
+
+    // If we have specific IDs, create objects with both identifier and type
+    if (metadataIds.length > 0) {
+      // For specific IDs, we include both identifier and type (if types are provided)
+      metadataIds.forEach((id) => {
+        const metadataObj: { identifier: string; type?: string } = {
+          identifier: id,
+        };
+        // If we have types, use the first one (assuming all IDs are of the same type)
+        // In practice, you might want to pass type information along with the IDs
+        if (metadataTypes.length > 0) {
+          metadataObj.type = metadataTypes[0];
+        }
+        metadataArray.push(metadataObj);
+      });
+    } else {
+      // If no specific IDs, just add types for all content of those types
+      metadataArray.push(...metadataTypes.map((type) => ({ type })));
+    }
+
+    searchData.metadata = metadataArray;
+  }
+
+  // Add tag identifiers if provided
+  if (tagIdentifiers.length > 0) {
+    searchData.tag_identifiers = tagIdentifiers;
+  }
+
+  // Add user filter if provided
+  if (userName) {
+    searchData.author_identifiers = [userName];
+  }
+
+  // Add favorite filter if provided
+  if (isFavorite) {
+    searchData.is_favorite = true;
+  }
+
+  console.log("Search request:", searchData);
+
+  return await makeThoughtSpotApiCall("/metadata/search", searchData);
+}
 
 import { ThoughtSpotContent } from "../types/thoughtspot";
 
@@ -85,30 +184,45 @@ async function makeThoughtSpotGetCall(
   }
 }
 
+async function makeThoughtSpotTagsCall(
+  endpoint: string,
+  data: Record<string, unknown>
+): Promise<ThoughtSpotTag[]> {
+  try {
+    const response = await fetch(`${THOUGHTSPOT_BASE_URL}${endpoint}`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      credentials: "include", // Include session cookies
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `API call failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const responseData = await response.json();
+    console.log("Raw tags API response:", responseData); // Debug log
+    return responseData;
+  } catch (error) {
+    console.error("ThoughtSpot tags API call failed:", error);
+    throw error;
+  }
+}
+
 export async function fetchLiveboards(): Promise<ThoughtSpotContent[]> {
   try {
-    const response: ThoughtSpotSearchResponse = await makeThoughtSpotApiCall(
-      "/metadata/search",
-      {
-        dependent_object_version: "V1",
-        include_details: false,
-        include_headers: true,
-        record_offset: 0,
-        record_size: -1,
-        include_stats: false,
-        include_discoverable_objects: true,
-        show_resolved_parameters: false,
-        metadata: [
-          {
-            type: "LIVEBOARD",
-          },
-        ],
-      }
-    );
+    const response = await searchMetadata({
+      metadataTypes: ["LIVEBOARD"],
+      includeStats: false,
+    });
 
-    console.log("Liveboards API response:", response); // Debug log
+    console.log("Liveboards API response:", response);
 
-    // Check if response exists and is an array
     if (!response || !Array.isArray(response)) {
       console.warn("No metadata array in response, returning empty array");
       return [];
@@ -127,7 +241,6 @@ export async function fetchLiveboards(): Promise<ThoughtSpotContent[]> {
       .sort((a, b) => a.name.localeCompare(b.name));
   } catch (error) {
     console.error("Failed to fetch liveboards:", error);
-    // Return empty array on error
     return [];
   }
 }
@@ -136,28 +249,13 @@ export async function fetchLiveboardsWithStats(): Promise<
   ThoughtSpotContent[]
 > {
   try {
-    const response: ThoughtSpotSearchResponse = await makeThoughtSpotApiCall(
-      "/metadata/search",
-      {
-        dependent_object_version: "V1",
-        include_details: false,
-        include_headers: true,
-        record_offset: 0,
-        record_size: -1,
-        include_stats: true,
-        include_discoverable_objects: true,
-        show_resolved_parameters: false,
-        metadata: [
-          {
-            type: "LIVEBOARD",
-          },
-        ],
-      }
-    );
+    const response = await searchMetadata({
+      metadataTypes: ["LIVEBOARD"],
+      includeStats: true,
+    });
 
-    console.log("Liveboards with stats API response:", response); // Debug log
+    console.log("Liveboards with stats API response:", response);
 
-    // Check if response exists and is an array
     if (!response || !Array.isArray(response)) {
       console.warn("No metadata array in response, returning empty array");
       return [];
@@ -177,7 +275,6 @@ export async function fetchLiveboardsWithStats(): Promise<
       .sort((a, b) => a.name.localeCompare(b.name));
   } catch (error) {
     console.error("Failed to fetch liveboards with stats:", error);
-    // Return empty array on error
     return [];
   }
 }
@@ -699,5 +796,160 @@ export async function fetchUserContentWithStats(userName: string): Promise<{
       liveboards: [],
       answers: [],
     };
+  }
+}
+
+export async function fetchTags(): Promise<
+  Array<{
+    id: string;
+    name: string;
+    color: string;
+  }>
+> {
+  try {
+    const response = await makeThoughtSpotTagsCall("/tags/search", {});
+
+    if (!response || !Array.isArray(response)) {
+      console.warn("No tags array in response, returning empty array");
+      return [];
+    }
+
+    return response
+      .filter((tag: ThoughtSpotTag) => !tag.deleted && !tag.hidden)
+      .map((tag: ThoughtSpotTag) => ({
+        id: tag.id,
+        name: tag.name,
+        color: tag.color,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    console.error("Failed to fetch tags:", error);
+    return [];
+  }
+}
+
+export async function fetchContentByTags(tagIdentifiers: string[]): Promise<{
+  liveboards: ThoughtSpotContent[];
+  answers: ThoughtSpotContent[];
+}> {
+  try {
+    console.log("Fetching content by tags:", tagIdentifiers);
+
+    const response = await searchMetadata({
+      metadataTypes: ["LIVEBOARD", "ANSWER"],
+      includeStats: true,
+      tagIdentifiers: tagIdentifiers,
+    });
+
+    console.log("Content by tags API response:", response);
+
+    if (!response || !Array.isArray(response)) {
+      console.warn("No metadata array in response, returning empty arrays");
+      return { liveboards: [], answers: [] };
+    }
+
+    const liveboards: ThoughtSpotContent[] = [];
+    const answers: ThoughtSpotContent[] = [];
+
+    response.forEach((item) => {
+      const contentItem = {
+        id: item.metadata_id,
+        name: item.metadata_name,
+        type: item.metadata_type.toLowerCase() as "liveboard" | "answer",
+        description: item.metadata_header?.description,
+        authorName: item.metadata_header?.authorName,
+        created: item.metadata_header?.created,
+        modified: item.metadata_header?.modified,
+        lastAccessed: item.stats?.last_accessed,
+      };
+
+      if (item.metadata_type === "LIVEBOARD") {
+        liveboards.push(contentItem);
+      } else if (item.metadata_type === "ANSWER") {
+        answers.push(contentItem);
+      }
+    });
+
+    console.log(
+      `Found ${liveboards.length} liveboards and ${answers.length} answers for tags:`,
+      tagIdentifiers
+    );
+
+    return {
+      liveboards: liveboards.sort((a, b) => a.name.localeCompare(b.name)),
+      answers: answers.sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  } catch (error) {
+    console.error("Failed to fetch content by tags:", error);
+    return { liveboards: [], answers: [] };
+  }
+}
+
+export async function fetchContentByIds(
+  liveboardIds: string[],
+  answerIds: string[]
+): Promise<{
+  liveboards: ThoughtSpotContent[];
+  answers: ThoughtSpotContent[];
+}> {
+  try {
+    console.log(
+      "Fetching content by IDs - Liveboards:",
+      liveboardIds,
+      "Answers:",
+      answerIds
+    );
+
+    const allIds = [...liveboardIds, ...answerIds];
+    if (allIds.length === 0) {
+      return { liveboards: [], answers: [] };
+    }
+
+    const response = await searchMetadata({
+      metadataTypes: ["LIVEBOARD", "ANSWER"],
+      includeStats: true,
+      metadataIds: allIds,
+    });
+
+    console.log("Content by IDs API response:", response);
+
+    if (!response || !Array.isArray(response)) {
+      console.warn("No metadata array in response, returning empty arrays");
+      return { liveboards: [], answers: [] };
+    }
+
+    const liveboards: ThoughtSpotContent[] = [];
+    const answers: ThoughtSpotContent[] = [];
+
+    response.forEach((item) => {
+      const contentItem = {
+        id: item.metadata_id,
+        name: item.metadata_name,
+        type: item.metadata_type.toLowerCase() as "liveboard" | "answer",
+        description: item.metadata_header?.description,
+        authorName: item.metadata_header?.authorName,
+        created: item.metadata_header?.created,
+        modified: item.metadata_header?.modified,
+        lastAccessed: item.stats?.last_accessed,
+      };
+
+      if (item.metadata_type === "LIVEBOARD") {
+        liveboards.push(contentItem);
+      } else if (item.metadata_type === "ANSWER") {
+        answers.push(contentItem);
+      }
+    });
+
+    console.log(
+      `Found ${liveboards.length} liveboards and ${answers.length} answers for specific IDs`
+    );
+
+    return {
+      liveboards: liveboards.sort((a, b) => a.name.localeCompare(b.name)),
+      answers: answers.sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  } catch (error) {
+    console.error("Failed to fetch content by IDs:", error);
+    return { liveboards: [], answers: [] };
   }
 }

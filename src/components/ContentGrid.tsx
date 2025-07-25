@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import ContentCard from "./ContentCard";
 import EmbedModal from "./EmbedModal";
+import ThoughtSpotEmbed from "./ThoughtSpotEmbed";
 import { ThoughtSpotContent } from "../types/thoughtspot";
 
 interface ContentGridProps {
@@ -21,6 +22,18 @@ interface ContentGridProps {
     contentType?: "Answer" | "Liveboard";
     namePattern?: string;
   };
+  showDirectContent?: boolean;
+  onBackClick?: () => void;
+  customContent?: {
+    contentSelection: {
+      type: "specific" | "tag";
+      specificContent?: {
+        liveboards: string[];
+        answers: string[];
+      };
+      tagIdentifiers?: string[];
+    };
+  };
 }
 
 export default function ContentGrid({
@@ -33,6 +46,9 @@ export default function ContentGrid({
   fetchUserContent = false,
   favoritesConfig,
   userContentConfig,
+  showDirectContent = false,
+  onBackClick,
+  customContent,
 }: ContentGridProps) {
   const [content, setContent] = useState<ThoughtSpotContent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +56,7 @@ export default function ContentGrid({
   const [selectedContent, setSelectedContent] =
     useState<ThoughtSpotContent | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showContentDirectly, setShowContentDirectly] = useState(false);
 
   useEffect(() => {
     const fetchContent = async () => {
@@ -51,13 +68,43 @@ export default function ContentGrid({
           fetchAllThoughtSpotContentWithStats,
           fetchFavoritesWithStats,
           fetchUserContentWithStats,
+          fetchContentByTags,
+          fetchContentByIds,
           getCurrentUser,
         } = await import("../services/thoughtspotApi");
 
         let liveboards: ThoughtSpotContent[] = [];
         let answers: ThoughtSpotContent[] = [];
 
-        if (fetchUserContent) {
+        if (customContent) {
+          // Handle custom content based on selection type
+          if (
+            customContent.contentSelection.type === "tag" &&
+            customContent.contentSelection.tagIdentifiers &&
+            customContent.contentSelection.tagIdentifiers.length > 0
+          ) {
+            console.log(
+              "Fetching custom content for tags:",
+              customContent.contentSelection.tagIdentifiers
+            );
+            const tagContent = await fetchContentByTags(
+              customContent.contentSelection.tagIdentifiers
+            );
+            liveboards = tagContent.liveboards;
+            answers = tagContent.answers;
+          } else if (
+            customContent.contentSelection.type === "specific" &&
+            customContent.contentSelection.specificContent
+          ) {
+            // For specific content, fetch only the selected content by IDs
+            const specificContent = await fetchContentByIds(
+              customContent.contentSelection.specificContent.liveboards,
+              customContent.contentSelection.specificContent.answers
+            );
+            liveboards = specificContent.liveboards;
+            answers = specificContent.answers;
+          }
+        } else if (fetchUserContent) {
           const currentUser = await getCurrentUser();
           if (currentUser) {
             const userContent = await fetchUserContentWithStats(
@@ -137,11 +184,29 @@ export default function ContentGrid({
     };
 
     fetchContent();
-  }, [fetchFavorites, fetchUserContent, favoritesConfig, userContentConfig]);
+  }, [
+    fetchFavorites,
+    fetchUserContent,
+    favoritesConfig,
+    userContentConfig,
+    customContent,
+  ]);
 
   const handleContentOpen = (content: ThoughtSpotContent) => {
-    setSelectedContent(content);
-    setIsModalOpen(true);
+    console.log(
+      "ContentGrid handleContentOpen called with showDirectContent:",
+      showDirectContent
+    );
+
+    if (showDirectContent) {
+      console.log("Setting content to show directly");
+      setSelectedContent(content);
+      setShowContentDirectly(true);
+    } else {
+      console.log("Setting content to show in modal");
+      setSelectedContent(content);
+      setIsModalOpen(true);
+    }
 
     if (onContentOpen) {
       onContentOpen(content);
@@ -152,6 +217,96 @@ export default function ContentGrid({
     setIsModalOpen(false);
     setSelectedContent(null);
   };
+
+  const handleBackToGrid = () => {
+    setShowContentDirectly(false);
+    setSelectedContent(null);
+  };
+
+  // If showing content directly, render the content view
+  if (showDirectContent && showContentDirectly && selectedContent) {
+    return (
+      <div>
+        <div style={{ marginBottom: "24px" }}>
+          <button
+            onClick={handleBackToGrid}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#6b7280",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            ← Back to {title}
+          </button>
+        </div>
+        <div
+          style={{
+            backgroundColor: "#f7fafc",
+            padding: "24px",
+            borderRadius: "8px",
+            border: "1px solid #e2e8f0",
+          }}
+        >
+          <h2
+            style={{
+              fontSize: "24px",
+              fontWeight: "600",
+              marginBottom: "16px",
+            }}
+          >
+            {selectedContent.name}
+          </h2>
+          {selectedContent.description && (
+            <p
+              style={{
+                color: "#4a5568",
+                lineHeight: "1.6",
+                marginBottom: "24px",
+              }}
+            >
+              {selectedContent.description}
+            </p>
+          )}
+          <div
+            style={{
+              border: "1px solid #e2e8f0",
+              borderRadius: "8px",
+              padding: "16px",
+              backgroundColor: "white",
+              minHeight: "400px",
+            }}
+          >
+            <ThoughtSpotEmbed
+              content={selectedContent}
+              width="100%"
+              height="600px"
+              onLoad={() =>
+                console.log(
+                  "Content loaded successfully for:",
+                  selectedContent.name
+                )
+              }
+              onError={(error) =>
+                console.error(
+                  "Content load error for",
+                  selectedContent.name,
+                  ":",
+                  error
+                )
+              }
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -254,6 +409,12 @@ export default function ContentGrid({
 
   return (
     <div>
+      <h1
+        style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "24px" }}
+      >
+        {title}
+      </h1>
+
       <div
         style={{
           backgroundColor: "#f7fafc",

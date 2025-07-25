@@ -32,6 +32,8 @@ export default function ThoughtSpotEmbed({
         setIsLoading(true);
         setError(null);
 
+        console.log("Initializing ThoughtSpot embed for content:", content);
+
         const { LiveboardEmbed, SearchEmbed } = await import(
           "@thoughtspot/visual-embed-sdk"
         );
@@ -39,6 +41,7 @@ export default function ThoughtSpotEmbed({
         let embedInstance;
 
         if (content.type === "liveboard") {
+          console.log("Creating LiveboardEmbed with ID:", content.id);
           embedInstance = new LiveboardEmbed(embedRef.current, {
             liveboardId: content.id,
             frameParams: {
@@ -47,6 +50,7 @@ export default function ThoughtSpotEmbed({
             },
           });
         } else if (content.type === "answer") {
+          console.log("Creating SearchEmbed with answerId:", content.id);
           embedInstance = new SearchEmbed(embedRef.current, {
             answerId: content.id,
             frameParams: {
@@ -56,6 +60,7 @@ export default function ThoughtSpotEmbed({
           });
         } else if (content.type === "model") {
           // For models, use SearchEmbed with dataSource
+          console.log("Creating SearchEmbed with dataSource:", content.id);
           embedInstance = new SearchEmbed(embedRef.current, {
             dataSource: content.id,
             frameParams: {
@@ -67,7 +72,9 @@ export default function ThoughtSpotEmbed({
 
         if (embedInstance) {
           embedInstanceRef.current = embedInstance;
+          console.log("Rendering embed instance...");
           await embedInstance.render();
+          console.log("Embed rendered successfully");
           setIsLoading(false);
           onLoad?.();
         }

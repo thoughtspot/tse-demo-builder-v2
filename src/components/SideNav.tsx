@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
+import { CustomMenu } from "../types/thoughtspot";
 
 interface StandardMenu {
   id: string;
@@ -18,23 +19,26 @@ interface NavItem {
   name: string;
   icon: string;
   route: string;
+  isCustom?: boolean;
 }
 
 interface SideNavProps {
   onSettingsClick?: () => void;
   standardMenus: StandardMenu[];
+  customMenus: CustomMenu[];
 }
 
 export default function SideNav({
   onSettingsClick,
   standardMenus,
+  customMenus,
 }: SideNavProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isHovered, setIsHovered] = useState(false);
 
   // Create navigation items from enabled standard menus
-  const navItems: NavItem[] = standardMenus
+  const standardNavItems: NavItem[] = standardMenus
     .filter((menu) => menu.enabled)
     .map((menu) => {
       // Map menu IDs to routes
@@ -52,8 +56,23 @@ export default function SideNav({
         name: menu.name,
         icon: menu.icon,
         route: routeMap[menu.id] || "/",
+        isCustom: false,
       };
     });
+
+  // Create navigation items from enabled custom menus
+  const customNavItems: NavItem[] = customMenus
+    .filter((menu) => menu.enabled)
+    .map((menu) => ({
+      id: menu.id,
+      name: menu.name,
+      icon: menu.icon,
+      route: `/custom/${menu.id}`,
+      isCustom: true,
+    }));
+
+  // Combine standard and custom nav items
+  const navItems: NavItem[] = [...standardNavItems, ...customNavItems];
 
   const handleNavClick = (route: string) => {
     router.push(route);
@@ -96,6 +115,7 @@ export default function SideNav({
               fontWeight: pathname === item.route ? "600" : "400",
               transition: "all 0.2s",
               justifyContent: isHovered ? "flex-start" : "center",
+              borderLeft: item.isCustom ? "3px solid #10b981" : "none",
             }}
             onMouseEnter={(e) => {
               if (pathname !== item.route) {

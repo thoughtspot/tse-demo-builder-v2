@@ -7,9 +7,9 @@ import { ThoughtSpotContent } from "../../types/thoughtspot";
 export default function MyReportsPage() {
   const { standardMenus } = useAppContext();
 
-  // Get My Reports configuration from standard menus
+  // Get my-reports configuration from standard menus
   const myReportsMenu = standardMenus.find((m) => m.id === "my-reports");
-  const userContentConfig = myReportsMenu
+  const myReportsConfig = myReportsMenu
     ? {
         contentType: myReportsMenu.contentType,
         namePattern: myReportsMenu.namePattern,
@@ -24,12 +24,13 @@ export default function MyReportsPage() {
   return (
     <ContentGrid
       title="My Reports"
-      subtitle="Personal Reports"
-      description="View and manage your personal reports. These are reports that you have created or have been assigned to you."
-      emptyMessage="No reports found. Create your first report to get started."
+      subtitle="Your Created Content"
+      description="Access and manage all the reports, liveboards, and answers you've created. Click on any item to open it directly."
+      emptyMessage="You haven't created any content yet. Start building your first report or liveboard."
       onContentOpen={handleContentOpen}
       fetchUserContent={true}
-      userContentConfig={userContentConfig}
+      userContentConfig={myReportsConfig}
+      showDirectContent={true}
     />
   );
 }
