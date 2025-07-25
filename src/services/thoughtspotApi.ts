@@ -117,8 +117,6 @@ async function searchMetadata(
     searchData.is_favorite = true;
   }
 
-  console.log("Search request:", searchData);
-
   return await makeThoughtSpotApiCall("/metadata/search", searchData);
 }
 
@@ -149,7 +147,6 @@ async function makeThoughtSpotApiCall(
     }
 
     const responseData = await response.json();
-    console.log("Raw API response:", responseData); // Debug log
     return responseData;
   } catch (error) {
     console.error("ThoughtSpot API call failed:", error);
@@ -176,7 +173,6 @@ async function makeThoughtSpotGetCall(
     }
 
     const responseData = await response.json();
-    console.log("Raw GET API response:", responseData); // Debug log
     return responseData;
   } catch (error) {
     console.error("ThoughtSpot GET API call failed:", error);
@@ -206,7 +202,6 @@ async function makeThoughtSpotTagsCall(
     }
 
     const responseData = await response.json();
-    console.log("Raw tags API response:", responseData); // Debug log
     return responseData;
   } catch (error) {
     console.error("ThoughtSpot tags API call failed:", error);
@@ -220,8 +215,6 @@ export async function fetchLiveboards(): Promise<ThoughtSpotContent[]> {
       metadataTypes: ["LIVEBOARD"],
       includeStats: false,
     });
-
-    console.log("Liveboards API response:", response);
 
     if (!response || !Array.isArray(response)) {
       console.warn("No metadata array in response, returning empty array");
@@ -253,8 +246,6 @@ export async function fetchLiveboardsWithStats(): Promise<
       metadataTypes: ["LIVEBOARD"],
       includeStats: true,
     });
-
-    console.log("Liveboards with stats API response:", response);
 
     if (!response || !Array.isArray(response)) {
       console.warn("No metadata array in response, returning empty array");
@@ -299,8 +290,6 @@ export async function fetchAnswers(): Promise<ThoughtSpotContent[]> {
         ],
       }
     );
-
-    console.log("Answers API response:", response); // Debug log
 
     // Check if response exists and is an array
     if (!response || !Array.isArray(response)) {
@@ -347,8 +336,6 @@ export async function fetchAnswersWithStats(): Promise<ThoughtSpotContent[]> {
       }
     );
 
-    console.log("Answers with stats API response:", response); // Debug log
-
     // Check if response exists and is an array
     if (!response || !Array.isArray(response)) {
       console.warn("No metadata array in response, returning empty array");
@@ -394,8 +381,6 @@ export async function fetchModels(): Promise<ThoughtSpotContent[]> {
         ],
       }
     );
-
-    console.log("Models API response:", response); // Debug log
 
     // Check if response exists and is an array
     if (!response || !Array.isArray(response)) {
@@ -447,8 +432,6 @@ export async function fetchWorksheets(): Promise<ThoughtSpotContent[]> {
         ],
       }
     );
-
-    console.log("Worksheets API response:", response); // Debug log
 
     // Check if response exists and is an array
     if (!response || !Array.isArray(response)) {
@@ -547,8 +530,6 @@ export async function fetchFavoriteLiveboardsWithStats(): Promise<
       }
     );
 
-    console.log("Favorite liveboards with stats API response:", response); // Debug log
-
     // Check if response exists and is an array
     if (!response || !Array.isArray(response)) {
       console.warn("No metadata array in response, returning empty array");
@@ -599,8 +580,6 @@ export async function fetchFavoriteAnswersWithStats(): Promise<
         ],
       }
     );
-
-    console.log("Favorite answers with stats API response:", response); // Debug log
 
     // Check if response exists and is an array
     if (!response || !Array.isArray(response)) {
@@ -697,8 +676,6 @@ export async function fetchUserLiveboardsWithStats(
       }
     );
 
-    console.log("User liveboards with stats API response:", response); // Debug log
-
     // Check if response exists and is an array
     if (!response || !Array.isArray(response)) {
       console.warn("No metadata array in response, returning empty array");
@@ -747,8 +724,6 @@ export async function fetchUserAnswersWithStats(
         ],
       }
     );
-
-    console.log("User answers with stats API response:", response); // Debug log
 
     // Check if response exists and is an array
     if (!response || !Array.isArray(response)) {
@@ -833,15 +808,11 @@ export async function fetchContentByTags(tagIdentifiers: string[]): Promise<{
   answers: ThoughtSpotContent[];
 }> {
   try {
-    console.log("Fetching content by tags:", tagIdentifiers);
-
     const response = await searchMetadata({
       metadataTypes: ["LIVEBOARD", "ANSWER"],
       includeStats: true,
       tagIdentifiers: tagIdentifiers,
     });
-
-    console.log("Content by tags API response:", response);
 
     if (!response || !Array.isArray(response)) {
       console.warn("No metadata array in response, returning empty arrays");
@@ -869,11 +840,6 @@ export async function fetchContentByTags(tagIdentifiers: string[]): Promise<{
         answers.push(contentItem);
       }
     });
-
-    console.log(
-      `Found ${liveboards.length} liveboards and ${answers.length} answers for tags:`,
-      tagIdentifiers
-    );
 
     return {
       liveboards: liveboards.sort((a, b) => a.name.localeCompare(b.name)),
@@ -893,13 +859,6 @@ export async function fetchContentByIds(
   answers: ThoughtSpotContent[];
 }> {
   try {
-    console.log(
-      "Fetching content by IDs - Liveboards:",
-      liveboardIds,
-      "Answers:",
-      answerIds
-    );
-
     const allIds = [...liveboardIds, ...answerIds];
     if (allIds.length === 0) {
       return { liveboards: [], answers: [] };
@@ -910,8 +869,6 @@ export async function fetchContentByIds(
       includeStats: true,
       metadataIds: allIds,
     });
-
-    console.log("Content by IDs API response:", response);
 
     if (!response || !Array.isArray(response)) {
       console.warn("No metadata array in response, returning empty arrays");
@@ -939,10 +896,6 @@ export async function fetchContentByIds(
         answers.push(contentItem);
       }
     });
-
-    console.log(
-      `Found ${liveboards.length} liveboards and ${answers.length} answers for specific IDs`
-    );
 
     return {
       liveboards: liveboards.sort((a, b) => a.name.localeCompare(b.name)),

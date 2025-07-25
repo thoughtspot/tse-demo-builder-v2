@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import HomePage from "./pages/HomePage";
 import FavoritesPage from "./pages/FavoritesPage";
 import MyReportsPage from "./pages/MyReportsPage";
@@ -8,6 +8,7 @@ import SpotterPage from "./pages/SpotterPage";
 import SearchPage from "./pages/SearchPage";
 import FullAppPage from "./pages/FullAppPage";
 import ReportsPage from "./pages/ReportsPage";
+import IconPicker from "./IconPicker";
 
 interface StandardMenu {
   id: string;
@@ -258,30 +259,6 @@ function StandardMenusContent({
 
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-
-  // Unicode icon grid
-  const iconGrid = [
-    // Navigation & Home
-    ["🏠", "🏡", "🏘️", "🏚️", "🏗️", "🏭", "🏢", "🏬", "🏣", "🏤", "🏥", "🏦"],
-    // Stars & Favorites
-    ["⭐", "🌟", "✨", "💫", "⭐️", "🌟", "💎", "💍", "💎", "💎", "💎", "💎"],
-    // Documents & Reports
-    ["📊", "📈", "📉", "📋", "📄", "📑", "📚", "📖", "📕", "📗", "📘", "📙"],
-    // Search & Discovery
-    ["🔍", "🔎", "🔐", "🔓", "🔒", "🔑", "🗝️", "🔑", "🔑", "🔑", "🔑", "🔑"],
-    // Technology & Apps
-    ["📱", "📲", "💻", "🖥️", "🖨️", "⌨️", "🖱️", "🖲️", "💽", "💾", "💿", "📀"],
-    // Business & Finance
-    ["💰", "💵", "💸", "💳", "💴", "💶", "💷", "🪙", "💱", "💲", "💲", "💲"],
-    // Communication
-    ["📞", "📟", "📠", "📡", "📺", "📻", "🎙️", "🎚️", "🎛️", "🧭", "⏱️", "⏲️"],
-    // Tools & Settings
-    ["⚙️", "🔧", "🔨", "🔩", "🔪", "🗡️", "⚔️", "🛡️", "🔫", "🏹", "🪃", "🪃"],
-    // Data & Analytics
-    ["📊", "📈", "📉", "📋", "📄", "📑", "📚", "📖", "📕", "📗", "📘", "📙"],
-    // Miscellaneous
-    ["🎯", "🎲", "🎮", "🎰", "🎳", "🎨", "🎭", "🎪", "🎟️", "🎫", "🎗️", "🎖️"],
-  ];
 
   const openIconPicker = (menuId: string) => {
     setActiveMenuId(menuId);
@@ -1489,107 +1466,17 @@ function StandardMenusContent({
         </div>
       )}
 
-      {/* Icon Picker Popup */}
-      {showIconPicker && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={closeIconPicker}
-        >
-          <div
-            style={{
-              backgroundColor: "white",
-              borderRadius: "8px",
-              padding: "24px",
-              maxWidth: "600px",
-              maxHeight: "400px",
-              overflow: "auto",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "16px",
-              }}
-            >
-              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "600" }}>
-                Select Icon
-              </h3>
-              <button
-                onClick={closeIconPicker}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: "20px",
-                  cursor: "pointer",
-                  padding: "4px",
-                }}
-              >
-                ×
-              </button>
-            </div>
-
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
-            >
-              {iconGrid.map((row, rowIndex) => (
-                <div
-                  key={rowIndex}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(12, 1fr)",
-                    gap: "8px",
-                  }}
-                >
-                  {row.map((icon, iconIndex) => (
-                    <button
-                      key={iconIndex}
-                      onClick={() => selectIcon(icon)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        width: "40px",
-                        height: "40px",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: "6px",
-                        backgroundColor: "white",
-                        fontSize: "20px",
-                        cursor: "pointer",
-                        transition: "all 0.2s",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "#f3f4f6";
-                        e.currentTarget.style.borderColor = "#d1d5db";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "white";
-                        e.currentTarget.style.borderColor = "#e5e7eb";
-                      }}
-                      title={icon}
-                    >
-                      {icon}
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Icon Picker */}
+      <IconPicker
+        isOpen={showIconPicker}
+        onClose={closeIconPicker}
+        onSelect={selectIcon}
+        currentIcon={
+          activeMenuId
+            ? standardMenus.find((m) => m.id === activeMenuId)?.icon
+            : undefined
+        }
+      />
     </div>
   );
 }
@@ -1599,13 +1486,27 @@ function CustomMenusContent({
   addCustomMenu,
   updateCustomMenu,
   deleteCustomMenu,
+  onUnsavedChange,
+  onEditingMenuChange,
+  onSaveMenu,
+  onCancelEdit,
+  ref,
 }: {
   customMenus: CustomMenu[];
   addCustomMenu: (menu: CustomMenu) => void;
   updateCustomMenu: (id: string, menu: CustomMenu) => void;
   deleteCustomMenu: (id: string) => void;
+  onUnsavedChange?: (hasChanges: boolean) => void;
+  onEditingMenuChange?: (menu: CustomMenu | null) => void;
+  onSaveMenu?: () => void;
+  onCancelEdit?: () => void;
+  ref?: React.RefObject<{
+    saveMenu: () => void;
+    cancelEdit: () => void;
+  } | null>;
 }) {
   const [editingMenu, setEditingMenu] = useState<CustomMenu | null>(null);
+  const [originalMenu, setOriginalMenu] = useState<CustomMenu | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [availableLiveboards, setAvailableLiveboards] = useState<
     Array<{ id: string; name: string }>
@@ -1617,6 +1518,33 @@ function CustomMenusContent({
     Array<{ id: string; name: string; color: string }>
   >([]);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
+
+  // Icon picker state
+  const [showIconPicker, setShowIconPicker] = useState(false);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  const openIconPicker = (menuId: string) => {
+    setActiveMenuId(menuId);
+    setShowIconPicker(true);
+  };
+
+  const selectIcon = (icon: string) => {
+    if (activeMenuId && editingMenu) {
+      const updatedMenu = { ...editingMenu, icon };
+      setEditingMenu(updatedMenu);
+      // Only update the global state if we're editing an existing menu (not creating)
+      if (!isCreating) {
+        updateCustomMenu(editingMenu.id, updatedMenu);
+      }
+    }
+    setShowIconPicker(false);
+    setActiveMenuId(null);
+  };
+
+  const closeIconPicker = () => {
+    setShowIconPicker(false);
+    setActiveMenuId(null);
+  };
 
   // Filter states
   const [liveboardFilter, setLiveboardFilter] = useState("");
@@ -1672,7 +1600,7 @@ function CustomMenusContent({
       name: "",
       description: "",
       icon: "📋",
-      enabled: false,
+      enabled: true,
       contentSelection: {
         type: "specific",
         specificContent: {
@@ -1682,29 +1610,45 @@ function CustomMenusContent({
       },
     };
     setEditingMenu(newMenu);
+    setOriginalMenu(null); // No original for new menus
     setIsCreating(true);
   };
 
   const handleSaveMenu = () => {
     if (editingMenu && editingMenu.name.trim()) {
+      console.log(
+        "Saving menu from form:",
+        editingMenu.name,
+        "isCreating:",
+        isCreating
+      );
       if (isCreating) {
         addCustomMenu(editingMenu);
       } else {
         updateCustomMenu(editingMenu.id, editingMenu);
       }
       setEditingMenu(null);
+      setOriginalMenu(null);
       setIsCreating(false);
+      onUnsavedChange?.(false);
+      onSaveMenu?.();
     }
   };
 
   const handleCancelEdit = () => {
     setEditingMenu(null);
+    setOriginalMenu(null);
     setIsCreating(false);
+    onUnsavedChange?.(false);
+    onCancelEdit?.();
   };
 
   const handleEditMenu = (menu: CustomMenu) => {
     setEditingMenu({ ...menu });
+    setOriginalMenu({ ...menu }); // Store original for comparison
     setIsCreating(false);
+    // Don't set unsaved changes immediately - wait for actual changes
+    onUnsavedChange?.(false);
   };
 
   const handleDeleteMenu = (id: string) => {
@@ -1712,6 +1656,96 @@ function CustomMenusContent({
       deleteCustomMenu(id);
     }
   };
+
+  // Check if there are actual changes
+  const hasChanges = useCallback(() => {
+    if (!editingMenu) return false;
+
+    if (isCreating) {
+      // For new menus, check if any field has been filled
+      const hasNewMenuChanges =
+        editingMenu.name.trim() !== "" ||
+        editingMenu.description.trim() !== "" ||
+        editingMenu.icon !== "📋" ||
+        (editingMenu.contentSelection.specificContent?.liveboards?.length ||
+          0) > 0 ||
+        (editingMenu.contentSelection.specificContent?.answers?.length || 0) >
+          0 ||
+        (editingMenu.contentSelection.tagIdentifiers?.length || 0) > 0;
+      console.log("New menu changes detected:", hasNewMenuChanges, {
+        name: editingMenu.name.trim(),
+        description: editingMenu.description.trim(),
+        icon: editingMenu.icon,
+        liveboards:
+          editingMenu.contentSelection.specificContent?.liveboards?.length || 0,
+        answers:
+          editingMenu.contentSelection.specificContent?.answers?.length || 0,
+        tags: editingMenu.contentSelection.tagIdentifiers?.length || 0,
+      });
+      return hasNewMenuChanges;
+    } else {
+      // For existing menus, compare with original
+      if (!originalMenu) {
+        console.log("No original menu to compare against");
+        return false;
+      }
+
+      const hasExistingMenuChanges =
+        editingMenu.name !== originalMenu.name ||
+        editingMenu.description !== originalMenu.description ||
+        editingMenu.icon !== originalMenu.icon ||
+        editingMenu.enabled !== originalMenu.enabled ||
+        editingMenu.contentSelection.type !==
+          originalMenu.contentSelection.type ||
+        JSON.stringify(editingMenu.contentSelection.specificContent) !==
+          JSON.stringify(originalMenu.contentSelection.specificContent) ||
+        JSON.stringify(editingMenu.contentSelection.tagIdentifiers) !==
+          JSON.stringify(originalMenu.contentSelection.tagIdentifiers);
+
+      console.log("Existing menu changes detected:", hasExistingMenuChanges, {
+        nameChanged: editingMenu.name !== originalMenu.name,
+        descriptionChanged:
+          editingMenu.description !== originalMenu.description,
+        iconChanged: editingMenu.icon !== originalMenu.icon,
+        enabledChanged: editingMenu.enabled !== originalMenu.enabled,
+        typeChanged:
+          editingMenu.contentSelection.type !==
+          originalMenu.contentSelection.type,
+      });
+
+      return hasExistingMenuChanges;
+    }
+  }, [editingMenu, originalMenu, isCreating]);
+
+  // Track changes to the editing menu
+  useEffect(() => {
+    if (editingMenu) {
+      const changes = hasChanges();
+      console.log("useEffect triggered - hasChanges:", changes);
+      onUnsavedChange?.(changes);
+    } else {
+      console.log("useEffect triggered - no editing menu");
+      onUnsavedChange?.(false);
+    }
+    onEditingMenuChange?.(editingMenu);
+  }, [
+    editingMenu,
+    originalMenu,
+    isCreating,
+    hasChanges,
+    onUnsavedChange,
+    onEditingMenuChange,
+  ]);
+
+  // Expose functions through ref
+  useEffect(() => {
+    if (ref) {
+      ref.current = {
+        saveMenu: handleSaveMenu,
+        cancelEdit: handleCancelEdit,
+      };
+    }
+  }, [ref, editingMenu, isCreating]);
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -1728,13 +1762,14 @@ function CustomMenusContent({
         </h3>
         <button
           onClick={handleCreateMenu}
+          disabled={editingMenu !== null}
           style={{
             padding: "8px 16px",
-            backgroundColor: "#3182ce",
+            backgroundColor: editingMenu !== null ? "#9ca3af" : "#3182ce",
             color: "white",
             border: "none",
             borderRadius: "6px",
-            cursor: "pointer",
+            cursor: editingMenu !== null ? "not-allowed" : "pointer",
             fontSize: "14px",
             fontWeight: "500",
           }}
@@ -1816,21 +1851,41 @@ function CustomMenusContent({
               >
                 Icon
               </label>
-              <input
-                type="text"
-                value={editingMenu.icon}
-                onChange={(e) =>
-                  setEditingMenu({ ...editingMenu, icon: e.target.value })
-                }
-                placeholder="📋"
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "4px",
-                  fontSize: "14px",
-                }}
-              />
+              <div style={{ display: "flex", gap: "8px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "40px",
+                    height: "40px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "4px",
+                    backgroundColor: "white",
+                    fontSize: "20px",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => openIconPicker(editingMenu.id)}
+                  title="Click to select icon"
+                >
+                  {editingMenu.icon}
+                </div>
+                <input
+                  type="text"
+                  value={editingMenu.icon}
+                  onChange={(e) =>
+                    setEditingMenu({ ...editingMenu, icon: e.target.value })
+                  }
+                  placeholder="📋"
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                  }}
+                />
+              </div>
             </div>
           </div>
 
@@ -2148,42 +2203,6 @@ function CustomMenusContent({
               </select>
             </div>
           )}
-
-          <div
-            style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}
-          >
-            <button
-              onClick={handleCancelEdit}
-              style={{
-                padding: "8px 16px",
-                backgroundColor: "#6b7280",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontSize: "14px",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveMenu}
-              disabled={!editingMenu.name.trim()}
-              style={{
-                padding: "8px 16px",
-                backgroundColor: editingMenu.name.trim()
-                  ? "#3182ce"
-                  : "#9ca3af",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                cursor: editingMenu.name.trim() ? "pointer" : "not-allowed",
-                fontSize: "14px",
-              }}
-            >
-              {isCreating ? "Create" : "Save"}
-            </button>
-          </div>
         </div>
       )}
 
@@ -2193,7 +2212,7 @@ function CustomMenusContent({
             style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}
           >
             <p>No custom menus created yet.</p>
-            <p>Click "Create New Menu" to get started.</p>
+            <p>Click &quot;Create New Menu&quot; to get started.</p>
           </div>
         ) : (
           <div style={{ display: "grid", gap: "16px" }}>
@@ -2313,6 +2332,19 @@ function CustomMenusContent({
           </div>
         )}
       </div>
+
+      {/* Icon Picker */}
+      <IconPicker
+        isOpen={showIconPicker}
+        onClose={closeIconPicker}
+        onSelect={selectIcon}
+        currentIcon={
+          activeMenuId
+            ? editingMenu?.icon ||
+              customMenus.find((m) => m.id === activeMenuId)?.icon
+            : undefined
+        }
+      />
     </div>
   );
 }
@@ -2337,8 +2369,56 @@ export default function SettingsModal({
   initialSubTab,
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState(initialTab || "configuration");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [pendingCustomMenuSave, setPendingCustomMenuSave] =
+    useState<CustomMenu | null>(null);
+  const [isEditingCustomMenu, setIsEditingCustomMenu] = useState(false);
+  const [isCreatingCustomMenu, setIsCreatingCustomMenu] = useState(false);
 
-  console.log("SettingsModal render - customMenus:", customMenus);
+  // Track changes in configuration
+  const handleConfigChange = () => {
+    // Only track unsaved changes for custom menus, not general configuration
+    // General configuration changes are saved automatically
+  };
+
+  const handleClose = () => {
+    // Only check for unsaved changes in custom menu editing
+    const hasUnsavedCustomMenu =
+      pendingCustomMenuSave && pendingCustomMenuSave.name.trim();
+
+    if (hasUnsavedCustomMenu) {
+      setShowUnsavedDialog(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleCancelClose = () => {
+    // Close the unsaved changes dialog and return to editing
+    setShowUnsavedDialog(false);
+  };
+
+  const handleConfirmClose = () => {
+    // Close the dialog and discard all unsaved changes
+    setShowUnsavedDialog(false);
+    setHasUnsavedChanges(false);
+    setPendingCustomMenuSave(null);
+    onClose();
+  };
+
+  const customMenuRef = useRef<{
+    saveMenu: () => void;
+    cancelEdit: () => void;
+  }>(null);
+
+  const handleCustomMenuSave = () => {
+    customMenuRef.current?.saveMenu();
+  };
+
+  const handleCustomMenuCancel = () => {
+    customMenuRef.current?.cancelEdit();
+  };
 
   const tabs: Tab[] = [
     {
@@ -2379,12 +2459,13 @@ export default function SettingsModal({
                 <input
                   type="url"
                   value={appConfig.thoughtspotUrl}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     updateAppConfig({
                       ...appConfig,
                       thoughtspotUrl: e.target.value,
-                    })
-                  }
+                    });
+                    handleConfigChange();
+                  }}
                   placeholder="https://your-instance.thoughtspot.cloud/"
                   style={{
                     width: "100%",
@@ -2419,12 +2500,13 @@ export default function SettingsModal({
                 <input
                   type="text"
                   value={appConfig.applicationName}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     updateAppConfig({
                       ...appConfig,
                       applicationName: e.target.value,
-                    })
-                  }
+                    });
+                    handleConfigChange();
+                  }}
                   placeholder="TSE Demo Builder"
                   style={{
                     width: "100%",
@@ -2515,7 +2597,6 @@ export default function SettingsModal({
                     border: "1px solid #d1d5db",
                     borderRadius: "4px",
                     fontSize: "14px",
-                    fontFamily: "monospace",
                     resize: "vertical",
                   }}
                 />
@@ -2584,6 +2665,17 @@ export default function SettingsModal({
           addCustomMenu={addCustomMenu}
           updateCustomMenu={updateCustomMenu}
           deleteCustomMenu={deleteCustomMenu}
+          onUnsavedChange={setHasUnsavedChanges}
+          onEditingMenuChange={(menu) => {
+            setPendingCustomMenuSave(menu);
+            setIsEditingCustomMenu(menu !== null);
+            setIsCreatingCustomMenu(
+              menu !== null && !customMenus.find((m) => m.id === menu?.id)
+            );
+          }}
+          onSaveMenu={handleCustomMenuSave}
+          onCancelEdit={handleCustomMenuCancel}
+          ref={customMenuRef}
         />
       ),
     },
@@ -2605,7 +2697,7 @@ export default function SettingsModal({
         justifyContent: "center",
         zIndex: 1000,
       }}
-      onClick={onClose}
+      onClick={showUnsavedDialog ? undefined : handleClose}
     >
       <div
         style={{
@@ -2641,13 +2733,14 @@ export default function SettingsModal({
             Settings
           </h2>
           <button
-            onClick={onClose}
+            onClick={showUnsavedDialog ? undefined : handleClose}
             style={{
               background: "none",
               border: "none",
               fontSize: "24px",
-              cursor: "pointer",
+              cursor: showUnsavedDialog ? "not-allowed" : "pointer",
               padding: "4px",
+              opacity: showUnsavedDialog ? 0.5 : 1,
             }}
           >
             ×
@@ -2706,23 +2799,149 @@ export default function SettingsModal({
           }}
         >
           <div style={{ display: "flex", gap: "12px" }}>
-            <button
-              onClick={onClose}
-              style={{
-                padding: "8px 16px",
-                backgroundColor: "#6b7280",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontSize: "14px",
-              }}
-            >
-              Close
-            </button>
+            {/* Custom Menu Save/Cancel buttons - only show when editing */}
+            {isEditingCustomMenu && (
+              <>
+                <button
+                  onClick={handleCustomMenuCancel}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: "#6b7280",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCustomMenuSave}
+                  disabled={!pendingCustomMenuSave?.name.trim()}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: pendingCustomMenuSave?.name.trim()
+                      ? "#3182ce"
+                      : "#9ca3af",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: pendingCustomMenuSave?.name.trim()
+                      ? "pointer"
+                      : "not-allowed",
+                    fontSize: "14px",
+                  }}
+                >
+                  {isCreatingCustomMenu ? "Create" : "Save"}
+                </button>
+              </>
+            )}
+
+            {/* Close button - only show when not editing custom menu */}
+            {!isEditingCustomMenu && (
+              <button
+                onClick={showUnsavedDialog ? undefined : handleClose}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: showUnsavedDialog ? "#9ca3af" : "#6b7280",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: showUnsavedDialog ? "not-allowed" : "pointer",
+                  fontSize: "14px",
+                }}
+              >
+                Close
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Unsaved Changes Dialog */}
+      {showUnsavedDialog && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: "8px",
+              padding: "24px",
+              maxWidth: "400px",
+              width: "90%",
+            }}
+          >
+            <h3
+              style={{
+                margin: "0 0 16px 0",
+                fontSize: "18px",
+                fontWeight: "600",
+              }}
+            >
+              Unsaved Changes
+            </h3>
+            <p
+              style={{
+                margin: "0 0 24px 0",
+                fontSize: "14px",
+                color: "#6b7280",
+              }}
+            >
+              You have unsaved changes that will be lost if you close the
+              dialog.
+            </p>
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                onClick={handleCancelClose}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#6b7280",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmClose}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#dc2626",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { CustomMenu } from "../types/thoughtspot";
 
 interface StandardMenu {
@@ -26,57 +26,197 @@ interface SideNavProps {
   onSettingsClick?: () => void;
   standardMenus: StandardMenu[];
   customMenus: CustomMenu[];
+  menuOrder?: string[];
+  onMenuOrderChange?: (newMenuOrder: string[]) => void;
 }
 
 export default function SideNav({
   onSettingsClick,
   standardMenus,
   customMenus,
+  menuOrder,
+  onMenuOrderChange,
 }: SideNavProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isHovered, setIsHovered] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+  const [showDragHandles, setShowDragHandles] = useState(false);
 
-  // Create navigation items from enabled standard menus
-  const standardNavItems: NavItem[] = standardMenus
+  // Create a map of all enabled menus for easy lookup
+  const allMenus = new Map<
+    string,
+    { menu: StandardMenu | CustomMenu; isCustom: boolean }
+  >();
+
+  // Add enabled standard menus
+  standardMenus
     .filter((menu) => menu.enabled)
-    .map((menu) => {
-      // Map menu IDs to routes
-      const routeMap: { [key: string]: string } = {
-        home: "/",
-        favorites: "/favorites",
-        "my-reports": "/my-reports",
-        spotter: "/spotter",
-        search: "/search",
-        "full-app": "/full-app",
-      };
-
-      return {
-        id: menu.id,
-        name: menu.name,
-        icon: menu.icon,
-        route: routeMap[menu.id] || "/",
-        isCustom: false,
-      };
+    .forEach((menu) => {
+      allMenus.set(menu.id, { menu, isCustom: false });
     });
 
-  // Create navigation items from enabled custom menus
-  const customNavItems: NavItem[] = customMenus
+  // Add enabled custom menus
+  customMenus
     .filter((menu) => menu.enabled)
-    .map((menu) => ({
-      id: menu.id,
-      name: menu.name,
-      icon: menu.icon,
-      route: `/custom/${menu.id}`,
-      isCustom: true,
-    }));
+    .forEach((menu) => {
+      allMenus.set(menu.id, { menu, isCustom: true });
+    });
 
-  // Combine standard and custom nav items
-  const navItems: NavItem[] = [...standardNavItems, ...customNavItems];
+  // Create navigation items based on menuOrder or default order
+  const createNavItems = (): NavItem[] => {
+    if (menuOrder && menuOrder.length > 0) {
+      // Use the stored order
+      const orderedItems: NavItem[] = [];
+
+      menuOrder.forEach((id) => {
+        const menuData = allMenus.get(id);
+        if (!menuData) return;
+
+        const { menu, isCustom } = menuData;
+
+        if (isCustom) {
+          const customMenu = menu as CustomMenu;
+          orderedItems.push({
+            id: customMenu.id,
+            name: customMenu.name,
+            icon: customMenu.icon,
+            route: `/custom/${customMenu.id}`,
+            isCustom: true,
+          });
+        } else {
+          const standardMenu = menu as StandardMenu;
+          const routeMap: { [key: string]: string } = {
+            home: "/",
+            favorites: "/favorites",
+            "my-reports": "/my-reports",
+            spotter: "/spotter",
+            search: "/search",
+            "full-app": "/full-app",
+          };
+
+          orderedItems.push({
+            id: standardMenu.id,
+            name: standardMenu.name,
+            icon: standardMenu.icon,
+            route: routeMap[standardMenu.id] || "/",
+            isCustom: false,
+          });
+        }
+      });
+
+      return orderedItems;
+    } else {
+      // Default order: standard menus first, then custom menus
+      const standardNavItems: NavItem[] = standardMenus
+        .filter((menu) => menu.enabled)
+        .map((menu) => {
+          const routeMap: { [key: string]: string } = {
+            home: "/",
+            favorites: "/favorites",
+            "my-reports": "/my-reports",
+            spotter: "/spotter",
+            search: "/search",
+            "full-app": "/full-app",
+          };
+
+          return {
+            id: menu.id,
+            name: menu.name,
+            icon: menu.icon,
+            route: routeMap[menu.id] || "/",
+            isCustom: false,
+          };
+        });
+
+      const customNavItems: NavItem[] = customMenus
+        .filter((menu) => menu.enabled)
+        .map((menu) => ({
+          id: menu.id,
+          name: menu.name,
+          icon: menu.icon,
+          route: `/custom/${menu.id}`,
+          isCustom: true,
+        }));
+
+      return [...standardNavItems, ...customNavItems];
+    }
+  };
+
+  const navItems = createNavItems();
 
   const handleNavClick = (route: string) => {
     router.push(route);
   };
+
+  // Drag and drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, itemId: string) => {
+    setIsDragging(true);
+    setDraggedItemId(itemId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", itemId);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, itemId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverItemId(itemId);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverItemId(null);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent, targetItemId: string) => {
+      e.preventDefault();
+      const draggedId = e.dataTransfer.getData("text/plain");
+
+      if (draggedId === targetItemId) return;
+
+      // Find the dragged item
+      const draggedItem = navItems.find((item) => item.id === draggedId);
+      const targetItem = navItems.find((item) => item.id === targetItemId);
+
+      if (!draggedItem || !targetItem) return;
+
+      // Reorder the items
+      const newNavItems = [...navItems];
+      const draggedIndex = newNavItems.findIndex(
+        (item) => item.id === draggedId
+      );
+      const targetIndex = newNavItems.findIndex(
+        (item) => item.id === targetItemId
+      );
+
+      // Remove dragged item from its current position
+      newNavItems.splice(draggedIndex, 1);
+
+      // Insert dragged item at target position
+      newNavItems.splice(targetIndex, 0, draggedItem);
+
+      // Update the menu order
+      if (onMenuOrderChange) {
+        // Extract the new order from the reordered navigation items
+        const newMenuOrder = newNavItems.map((item) => item.id);
+        onMenuOrderChange(newMenuOrder);
+      }
+
+      setIsDragging(false);
+      setDraggedItemId(null);
+      setDragOverItemId(null);
+    },
+    [navItems, standardMenus, customMenus, onMenuOrderChange]
+  );
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+    setDraggedItemId(null);
+    setDragOverItemId(null);
+  }, []);
 
   return (
     <div
@@ -91,46 +231,117 @@ export default function SideNav({
         transition: "width 0.3s ease",
         overflow: "hidden",
       }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={() => {
+        setIsHovered(true);
+        setShowDragHandles(true);
+      }}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setShowDragHandles(false);
+      }}
     >
       {/* Navigation Items */}
       <div style={{ flex: 1 }}>
         {navItems.map((item) => (
-          <button
+          <div
             key={item.id}
-            onClick={() => handleNavClick(item.route)}
+            draggable
+            onDragStart={(e) => handleDragStart(e, item.id)}
+            onDragOver={(e) => handleDragOver(e, item.id)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, item.id)}
+            onDragEnd={handleDragEnd}
             style={{
-              width: "100%",
-              padding: isHovered ? "12px 24px" : "12px 16px",
-              border: "none",
-              background: pathname === item.route ? "#3182ce" : "transparent",
-              color: pathname === item.route ? "white" : "#4a5568",
-              cursor: "pointer",
-              textAlign: "left",
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              fontSize: "14px",
-              fontWeight: pathname === item.route ? "600" : "400",
-              transition: "all 0.2s",
-              justifyContent: isHovered ? "flex-start" : "center",
-              borderLeft: item.isCustom ? "3px solid #10b981" : "none",
-            }}
-            onMouseEnter={(e) => {
-              if (pathname !== item.route) {
-                e.currentTarget.style.backgroundColor = "#edf2f7";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (pathname !== item.route) {
-                e.currentTarget.style.backgroundColor = "transparent";
-              }
+              position: "relative",
+              opacity: draggedItemId === item.id ? 0.5 : 1,
+              transform:
+                draggedItemId === item.id ? "rotate(2deg) scale(0.98)" : "none",
+              transition: "all 0.2s ease",
+              boxShadow:
+                draggedItemId === item.id
+                  ? "0 4px 12px rgba(0,0,0,0.15)"
+                  : "none",
             }}
           >
-            <span style={{ fontSize: "18px" }}>{item.icon}</span>
-            {isHovered && <span>{item.name}</span>}
-          </button>
+            {/* Drop indicator */}
+            {dragOverItemId === item.id && draggedItemId !== item.id && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: "3px",
+                  backgroundColor: "#3182ce",
+                  zIndex: 10,
+                  boxShadow: "0 0 4px rgba(49, 130, 206, 0.5)",
+                }}
+              />
+            )}
+
+            <button
+              onClick={() => handleNavClick(item.route)}
+              style={{
+                width: "100%",
+                padding: isHovered ? "12px 24px" : "12px 16px",
+                border: "none",
+                background: pathname === item.route ? "#3182ce" : "transparent",
+                color: pathname === item.route ? "white" : "#4a5568",
+                cursor: "pointer",
+                textAlign: "left",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                fontSize: "14px",
+                fontWeight: pathname === item.route ? "600" : "400",
+                transition: "all 0.2s",
+                justifyContent: isHovered ? "flex-start" : "center",
+                borderLeft: item.isCustom ? "3px solid #10b981" : "none",
+                position: "relative",
+              }}
+              onMouseEnter={(e) => {
+                if (pathname !== item.route) {
+                  e.currentTarget.style.backgroundColor = "#edf2f7";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (pathname !== item.route) {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }
+              }}
+            >
+              <span style={{ fontSize: "18px" }}>{item.icon}</span>
+              {isHovered && <span>{item.name}</span>}
+
+              {/* Drag handle */}
+              {showDragHandles && isHovered && (
+                <div
+                  style={{
+                    marginLeft: "auto",
+                    cursor: "grab",
+                    opacity: 0.6,
+                    fontSize: "12px",
+                    userSelect: "none",
+                    padding: "2px",
+                    borderRadius: "3px",
+                    transition: "opacity 0.2s",
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = "1";
+                    e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = "0.6";
+                    e.currentTarget.style.backgroundColor = "transparent";
+                  }}
+                  title="Drag to reorder"
+                >
+                  ⋮⋮
+                </div>
+              )}
+            </button>
+          </div>
         ))}
       </div>
 

@@ -18,7 +18,6 @@ export default function MyReportsPage() {
 
   const handleContentOpen = (content: ThoughtSpotContent) => {
     // Handle opening content - could navigate to a dedicated view or show in modal
-    console.log("Opening content:", content);
   };
 
   return (

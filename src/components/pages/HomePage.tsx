@@ -28,27 +28,24 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
   // Use context if available, otherwise fall back to props
   let contextConfig: HomePageConfig | undefined;
   let contextUpdate: ((config: HomePageConfig) => void) | undefined;
+  let appName = "TSE Demo Builder";
 
   try {
     const context = useAppContext();
-    console.log("HomePage - All standard menus:", context.standardMenus);
     // Get home page configuration from standard menus
     const homeMenu = context.standardMenus.find((m) => m.id === "home");
-    console.log("HomePage - Found home menu:", homeMenu);
     if (homeMenu && homeMenu.homePageType) {
       contextConfig = {
         type: homeMenu.homePageType,
         value: homeMenu.homePageValue || "",
       };
-      console.log("HomePage - Using home menu config:", contextConfig);
     } else {
       // Fallback to old homePageConfig if available
       contextConfig = context.homePageConfig;
-      console.log("HomePage - Using fallback config:", contextConfig);
     }
     contextUpdate = context.updateHomePageConfig;
+    appName = context.appConfig.applicationName || "TSE Demo Builder";
   } catch (error) {
-    console.log("HomePage - Context not available, using props");
     // Context not available, use props
   }
 
@@ -56,14 +53,8 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
   const homePageConfig = contextConfig ||
     config || {
       type: "html",
-      value:
-        "<div style='padding: 20px; text-align: center;'><h1>Welcome to TSE Demo Builder</h1><p>Configure your home page content in the settings.</p></div>",
+      value: `<div style='padding: 20px; text-align: center;'><h1>Welcome to ${appName}</h1><p>Configure your home page content in the settings.</p></div>`,
     };
-
-  // Debug logging
-  console.log("HomePage config:", homePageConfig);
-  console.log("HomePage config type:", homePageConfig.type);
-  console.log("HomePage config value:", homePageConfig.value);
 
   // ThoughtSpot content data - will be populated from API or fallback to mock data
   const [thoughtSpotContent, setThoughtSpotContent] = useState<

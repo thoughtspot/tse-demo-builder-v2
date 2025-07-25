@@ -18,6 +18,15 @@ A modern React/Next.js application with Chakra UI for building and managing repo
 - **Spotter**: Search and discovery functionality
 - **Settings**: Application configuration (accessible via gear icon)
 
+#### Menu Reordering
+The left navigation supports drag and drop reordering of menu items:
+- **Hover** over the navigation to reveal drag handles (⋮⋮)
+- **Drag** any menu item to reorder it within the navigation
+- **Mixed ordering** allows standard and custom menus to be interleaved
+- **Order is automatically saved** to localStorage and persists across sessions
+- **Works with both standard and custom menus**
+- **Disabled menu items** are automatically moved to the bottom of their respective lists
+
 ### Settings Panel
 The settings modal includes:
 - **General**: Basic application settings

@@ -83,10 +83,6 @@ export default function ContentGrid({
             customContent.contentSelection.tagIdentifiers &&
             customContent.contentSelection.tagIdentifiers.length > 0
           ) {
-            console.log(
-              "Fetching custom content for tags:",
-              customContent.contentSelection.tagIdentifiers
-            );
             const tagContent = await fetchContentByTags(
               customContent.contentSelection.tagIdentifiers
             );
@@ -193,17 +189,10 @@ export default function ContentGrid({
   ]);
 
   const handleContentOpen = (content: ThoughtSpotContent) => {
-    console.log(
-      "ContentGrid handleContentOpen called with showDirectContent:",
-      showDirectContent
-    );
-
     if (showDirectContent) {
-      console.log("Setting content to show directly");
       setSelectedContent(content);
       setShowContentDirectly(true);
     } else {
-      console.log("Setting content to show in modal");
       setSelectedContent(content);
       setIsModalOpen(true);
     }
@@ -287,12 +276,7 @@ export default function ContentGrid({
               content={selectedContent}
               width="100%"
               height="600px"
-              onLoad={() =>
-                console.log(
-                  "Content loaded successfully for:",
-                  selectedContent.name
-                )
-              }
+              onLoad={() => {}}
               onError={(error) =>
                 console.error(
                   "Content load error for",

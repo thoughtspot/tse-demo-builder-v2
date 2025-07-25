@@ -88,6 +88,7 @@ const STORAGE_KEYS = {
   STANDARD_MENUS: "tse-demo-builder-standard-menus",
   FULL_APP_CONFIG: "tse-demo-builder-full-app-config",
   CUSTOM_MENUS: "tse-demo-builder-custom-menus",
+  MENU_ORDER: "tse-demo-builder-menu-order",
 };
 
 // Utility functions for localStorage
@@ -165,6 +166,11 @@ export default function Layout({ children }: LayoutProps) {
     () => loadFromStorage(STORAGE_KEYS.CUSTOM_MENUS, []) as CustomMenu[]
   );
 
+  // Menu order state - tracks the order of enabled menu IDs
+  const [menuOrder, setMenuOrder] = useState<string[]>(
+    () => loadFromStorage(STORAGE_KEYS.MENU_ORDER, []) as string[]
+  );
+
   // Home page configuration state
   const [homePageConfig, setHomePageConfig] = useState<HomePageConfig>(
     () =>
@@ -204,6 +210,10 @@ export default function Layout({ children }: LayoutProps) {
     saveToStorage(STORAGE_KEYS.CUSTOM_MENUS, customMenus);
   }, [customMenus]);
 
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.MENU_ORDER, menuOrder);
+  }, [menuOrder]);
+
   // Update Full App icon to new icon if it's still using the old one
   useEffect(() => {
     const fullAppMenu = standardMenus.find((menu) => menu.id === "full-app");
@@ -224,11 +234,16 @@ export default function Layout({ children }: LayoutProps) {
     saveToStorage(STORAGE_KEYS.FULL_APP_CONFIG, fullAppConfig);
   }, [fullAppConfig]);
 
+  // Update document title when application name changes
+  useEffect(() => {
+    const title = appConfig.applicationName || "TSE Demo Builder";
+    document.title = title;
+  }, [appConfig.applicationName]);
+
   // ThoughtSpot initialization
   useEffect(() => {
     const initializeThoughtSpot = async () => {
       if (!appConfig.thoughtspotUrl) {
-        console.log("ThoughtSpot URL not configured, skipping initialization");
         return;
       }
 
@@ -237,17 +252,10 @@ export default function Layout({ children }: LayoutProps) {
           "@thoughtspot/visual-embed-sdk"
         );
 
-        console.log(
-          "Initializing ThoughtSpot with URL:",
-          appConfig.thoughtspotUrl
-        );
-
         init({
           thoughtSpotHost: appConfig.thoughtspotUrl,
           authType: AuthType.None,
         });
-
-        console.log("ThoughtSpot initialized successfully");
       } catch (error) {
         console.error("Failed to initialize ThoughtSpot:", error);
       }
@@ -280,14 +288,30 @@ export default function Layout({ children }: LayoutProps) {
     field: string,
     value: string | boolean
   ) => {
-    console.log(`Updating standard menu: ${id}.${field} = ${value}`);
     setStandardMenus((prev) => {
       const updated = prev.map((menu) =>
         menu.id === id ? { ...menu, [field]: value } : menu
       );
-      console.log("Updated standard menus:", updated);
       return updated;
     });
+
+    // Update menu order if the enabled field is being changed
+    if (field === "enabled") {
+      setMenuOrder((prev) => {
+        const isInOrder = prev.includes(id);
+        const isEnabled = value as boolean;
+
+        if (isEnabled && !isInOrder) {
+          // Add to menu order if enabled and not already there
+          return [...prev, id];
+        } else if (!isEnabled && isInOrder) {
+          // Remove from menu order if disabled
+          return prev.filter((menuId) => menuId !== id);
+        }
+
+        return prev;
+      });
+    }
   };
 
   const updateHomePageConfig = (config: HomePageConfig) => {
@@ -303,15 +327,40 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const addCustomMenu = (menu: CustomMenu) => {
+    console.log("addCustomMenu called with:", menu.name, "id:", menu.id);
     setCustomMenus((prev) => [...prev, menu]);
+
+    // If the menu is enabled, add it to the menu order
+    if (menu.enabled) {
+      setMenuOrder((prev) => [...prev, menu.id]);
+    }
   };
 
   const updateCustomMenu = (id: string, menu: CustomMenu) => {
     setCustomMenus((prev) => prev.map((m) => (m.id === id ? menu : m)));
+
+    // Update menu order based on enabled status
+    setMenuOrder((prev) => {
+      const isInOrder = prev.includes(id);
+      const isEnabled = menu.enabled;
+
+      if (isEnabled && !isInOrder) {
+        // Add to menu order if enabled and not already there
+        return [...prev, id];
+      } else if (!isEnabled && isInOrder) {
+        // Remove from menu order if disabled
+        return prev.filter((menuId) => menuId !== id);
+      }
+
+      return prev;
+    });
   };
 
   const deleteCustomMenu = (id: string) => {
     setCustomMenus((prev) => prev.filter((m) => m.id !== id));
+
+    // Remove from menu order
+    setMenuOrder((prev) => prev.filter((menuId) => menuId !== id));
   };
 
   const clearAllConfigurations = () => {
@@ -353,6 +402,9 @@ export default function Layout({ children }: LayoutProps) {
       hideHomepageLeftNav: false,
     });
 
+    // Reset menu order
+    setMenuOrder([]);
+
     // Clear localStorage
     clearAllStorage();
   };
@@ -381,7 +433,8 @@ export default function Layout({ children }: LayoutProps) {
       >
         {/* Top Bar */}
         <TopBar
-          title="TSE Demo Builder"
+          title={appConfig.applicationName || "TSE Demo Builder"}
+          logoUrl={appConfig.logo || "/ts.png"}
           currentUser={currentUser}
           onUserChange={handleUserChange}
         />
@@ -393,6 +446,8 @@ export default function Layout({ children }: LayoutProps) {
             onSettingsClick={() => setIsSettingsOpen(true)}
             standardMenus={standardMenus}
             customMenus={customMenus}
+            menuOrder={menuOrder}
+            onMenuOrderChange={setMenuOrder}
           />
 
           {/* Content Area */}
