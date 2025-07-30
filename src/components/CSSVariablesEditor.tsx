@@ -1,0 +1,198 @@
+"use client";
+
+import { useState, useEffect } from "react";
+
+interface CSSVariablesEditorProps {
+  variables: Record<string, string>;
+  onChange: (variables: Record<string, string>) => void;
+  title: string;
+  description?: string;
+}
+
+export default function CSSVariablesEditor({
+  variables,
+  onChange,
+  title,
+  description,
+}: CSSVariablesEditorProps) {
+  const [jsonInput, setJsonInput] = useState("");
+  const [isValid, setIsValid] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const jsonString = JSON.stringify(variables, null, 2);
+      setJsonInput(jsonString);
+      setIsValid(true);
+      setError(null);
+    } catch (err) {
+      setError("Failed to format variables");
+    }
+  }, [variables]);
+
+  const handleJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setJsonInput(newValue);
+
+    if (newValue.trim() === "") {
+      setIsValid(true);
+      setError(null);
+      onChange({});
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(newValue);
+      if (typeof parsed === "object" && parsed !== null) {
+        // Validate that all values are strings
+        const isValidObject = Object.values(parsed).every(
+          (value) => typeof value === "string"
+        );
+
+        if (isValidObject) {
+          setIsValid(true);
+          setError(null);
+          onChange(parsed);
+        } else {
+          setIsValid(false);
+          setError("All values must be strings");
+        }
+      } else {
+        setIsValid(false);
+        setError("Must be a valid JSON object");
+      }
+    } catch (err) {
+      setIsValid(false);
+      setError("Invalid JSON format");
+    }
+  };
+
+  const handleFormat = () => {
+    try {
+      const parsed = JSON.parse(jsonInput);
+      const formatted = JSON.stringify(parsed, null, 2);
+      setJsonInput(formatted);
+      setIsValid(true);
+      setError(null);
+    } catch (err) {
+      setError("Cannot format invalid JSON");
+    }
+  };
+
+  const handleReset = () => {
+    const defaultVariables = {
+      "--ts-var-button--secondary-background": "#F0EBFF",
+      "--ts-var-button--secondary--hover-background": "#E3D9FC",
+      "--ts-var-root-background": "#F7F5FF",
+    };
+    onChange(defaultVariables);
+  };
+
+  return (
+    <div style={{ marginBottom: "24px" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "8px",
+        }}
+      >
+        <h4
+          style={{
+            fontSize: "16px",
+            fontWeight: "600",
+            margin: 0,
+          }}
+        >
+          {title}
+        </h4>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button
+            onClick={handleFormat}
+            style={{
+              padding: "4px 8px",
+              backgroundColor: "#6b7280",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "12px",
+            }}
+          >
+            Format
+          </button>
+          <button
+            onClick={handleReset}
+            style={{
+              padding: "4px 8px",
+              backgroundColor: "#f59e0b",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "12px",
+            }}
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
+      {description && (
+        <p
+          style={{
+            fontSize: "14px",
+            color: "#6b7280",
+            marginBottom: "16px",
+          }}
+        >
+          {description}
+        </p>
+      )}
+
+      <textarea
+        value={jsonInput}
+        onChange={handleJsonChange}
+        placeholder={`{
+  "--ts-var-button--secondary-background": "#F0EBFF",
+  "--ts-var-button--secondary--hover-background": "#E3D9FC",
+  "--ts-var-root-background": "#F7F5FF"
+}`}
+        style={{
+          width: "100%",
+          minHeight: "200px",
+          padding: "12px",
+          border: `1px solid ${isValid ? "#d1d5db" : "#dc2626"}`,
+          borderRadius: "4px",
+          fontSize: "14px",
+          fontFamily: "monospace",
+          resize: "vertical",
+          lineHeight: "1.5",
+        }}
+      />
+
+      {error && (
+        <p
+          style={{
+            margin: "4px 0 0 0",
+            fontSize: "12px",
+            color: "#dc2626",
+          }}
+        >
+          {error}
+        </p>
+      )}
+
+      <p
+        style={{
+          margin: "4px 0 0 0",
+          fontSize: "12px",
+          color: "#6b7280",
+        }}
+      >
+        Enter CSS variables as a JSON object with string values
+      </p>
+    </div>
+  );
+}

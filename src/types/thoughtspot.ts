@@ -30,3 +30,36 @@ export interface ThoughtSpotTag {
   name: string;
   color: string;
 }
+
+// Styling configuration types
+export interface ApplicationStyles {
+  topBar: {
+    backgroundColor: string;
+    foregroundColor: string;
+    logoUrl?: string;
+  };
+  sidebar: {
+    backgroundColor: string;
+    foregroundColor: string;
+  };
+  footer: {
+    backgroundColor: string;
+    foregroundColor: string;
+  };
+  dialogs: {
+    backgroundColor: string;
+    foregroundColor: string;
+  };
+}
+
+export interface EmbeddedContentCustomization {
+  strings: Record<string, string>;
+  stringIDs: Record<string, string>;
+  cssUrl?: string;
+  customCSS: Record<string, string>;
+}
+
+export interface StylingConfig {
+  application: ApplicationStyles;
+  embeddedContent: EmbeddedContentCustomization;
+}

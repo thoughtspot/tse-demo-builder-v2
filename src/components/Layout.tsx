@@ -5,8 +5,9 @@ import TopBar from "./TopBar";
 import SideNav from "./SideNav";
 import SettingsModal from "./SettingsModal";
 import Footer from "./Footer";
-import { ThoughtSpotContent } from "../types/thoughtspot";
-import { CustomMenu } from "../types/thoughtspot";
+import SessionChecker from "./SessionChecker";
+import { CustomMenu, StylingConfig } from "../types/thoughtspot";
+import { setThoughtSpotBaseUrl } from "../services/thoughtspotApi";
 
 interface StandardMenu {
   id: string;
@@ -67,8 +68,15 @@ interface AppContextType {
   addCustomMenu: (menu: CustomMenu) => void;
   updateCustomMenu: (id: string, menu: CustomMenu) => void;
   deleteCustomMenu: (id: string) => void;
+  stylingConfig: StylingConfig;
+  updateStylingConfig: (config: StylingConfig) => void;
   clearAllConfigurations: () => void;
   openSettingsWithTab: (tab?: string, subTab?: string) => void;
+  exportConfiguration: (customName?: string) => void;
+  importConfiguration: (file: File) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -89,6 +97,78 @@ const STORAGE_KEYS = {
   FULL_APP_CONFIG: "tse-demo-builder-full-app-config",
   CUSTOM_MENUS: "tse-demo-builder-custom-menus",
   MENU_ORDER: "tse-demo-builder-menu-order",
+  STYLING_CONFIG: "tse-demo-builder-styling-config",
+};
+
+// Default configuration values
+const DEFAULT_CONFIG = {
+  standardMenus: [
+    {
+      id: "home",
+      icon: "🏠",
+      name: "Home",
+      enabled: true,
+      homePageType: "html" as const,
+      homePageValue:
+        "<div style='padding: 20px; text-align: center;'><h1>Welcome to TSE Demo Builder</h1><p>Configure your home page content in the settings.</p></div>",
+    },
+    { id: "favorites", icon: "⭐", name: "Favorites", enabled: true },
+    { id: "my-reports", icon: "📊", name: "My Reports", enabled: true },
+    { id: "spotter", icon: "🔍", name: "Spotter", enabled: true },
+    { id: "search", icon: "🔎", name: "Search", enabled: true },
+    { id: "full-app", icon: "🌐", name: "Full App", enabled: true },
+  ] as StandardMenu[],
+  customMenus: [] as CustomMenu[],
+  menuOrder: [
+    "home",
+    "favorites",
+    "my-reports",
+    "spotter",
+    "search",
+    "full-app",
+  ] as string[],
+  homePageConfig: {
+    type: "html" as const,
+    value:
+      "<div style='padding: 20px; text-align: center;'><h1>Welcome to TSE Demo Builder</h1><p>Configure your home page content in the settings.</p></div>",
+  } as HomePageConfig,
+  appConfig: {
+    thoughtspotUrl: "https://se-thoughtspot-cloud.thoughtspot.cloud/",
+    applicationName: "TSE Demo Builder",
+    logo: "",
+    earlyAccessFlags: "",
+  } as AppConfig,
+  fullAppConfig: {
+    showPrimaryNavbar: false,
+    hideHomepageLeftNav: false,
+  } as FullAppConfig,
+  stylingConfig: {
+    application: {
+      topBar: {
+        backgroundColor: "#ffffff",
+        foregroundColor: "#1a202c",
+        logoUrl: "",
+      },
+      sidebar: {
+        backgroundColor: "#f7fafc",
+        foregroundColor: "#4a5568",
+      },
+      footer: {
+        backgroundColor: "#f7fafc",
+        foregroundColor: "#4a5568",
+      },
+      dialogs: {
+        backgroundColor: "#ffffff",
+        foregroundColor: "#1a202c",
+      },
+    },
+    embeddedContent: {
+      strings: {},
+      stringIDs: {},
+      cssUrl: "",
+      customCSS: {},
+    },
+  } as StylingConfig,
 };
 
 // Utility functions for localStorage
@@ -123,6 +203,120 @@ const clearAllStorage = (): void => {
     });
   } catch (error) {
     console.error("Failed to clear localStorage:", error);
+  }
+};
+
+// Configuration export/import utilities
+const exportConfiguration = (
+  config: {
+    standardMenus: StandardMenu[];
+    customMenus: CustomMenu[];
+    menuOrder: string[];
+    homePageConfig: HomePageConfig;
+    appConfig: AppConfig;
+    fullAppConfig: FullAppConfig;
+    stylingConfig: StylingConfig;
+  },
+  customName?: string
+) => {
+  const exportData = {
+    version: "1.0.0",
+    timestamp: new Date().toISOString(),
+    description: "TSE Demo Builder Configuration Export",
+    ...config,
+  };
+
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+    type: "application/json",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+
+  // Use custom name if provided, otherwise use default naming
+  const fileName = customName
+    ? `${customName}.json`
+    : `tse-demo-builder-config-${new Date().toISOString().split("T")[0]}.json`;
+
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+const importConfiguration = async (
+  file: File
+): Promise<{
+  success: boolean;
+  data?: {
+    standardMenus: StandardMenu[];
+    customMenus: CustomMenu[];
+    menuOrder: string[];
+    homePageConfig: HomePageConfig;
+    appConfig: AppConfig;
+    fullAppConfig: FullAppConfig;
+    stylingConfig: StylingConfig;
+  };
+  error?: string;
+}> => {
+  try {
+    const text = await file.text();
+    const imported = JSON.parse(text);
+
+    // Validate basic structure
+    if (!imported.version || !imported.timestamp) {
+      return { success: false, error: "Invalid configuration file format" };
+    }
+
+    // Validate required fields exist
+    const requiredFields = [
+      "standardMenus",
+      "homePageConfig",
+      "appConfig",
+      "fullAppConfig",
+      "stylingConfig",
+    ];
+    for (const field of requiredFields) {
+      if (!imported[field]) {
+        return { success: false, error: `Missing required field: ${field}` };
+      }
+    }
+
+    // Merge with defaults to handle missing fields gracefully
+    const mergedConfig = {
+      standardMenus: imported.standardMenus || DEFAULT_CONFIG.standardMenus,
+      customMenus: imported.customMenus || DEFAULT_CONFIG.customMenus,
+      menuOrder: imported.menuOrder || DEFAULT_CONFIG.menuOrder,
+      homePageConfig: imported.homePageConfig || DEFAULT_CONFIG.homePageConfig,
+      appConfig: imported.appConfig || DEFAULT_CONFIG.appConfig,
+      fullAppConfig: imported.fullAppConfig || DEFAULT_CONFIG.fullAppConfig,
+      stylingConfig: imported.stylingConfig || DEFAULT_CONFIG.stylingConfig,
+    };
+
+    // Validate that the imported data has the correct structure
+    if (!Array.isArray(mergedConfig.standardMenus)) {
+      return { success: false, error: "Invalid standardMenus format" };
+    }
+
+    if (!Array.isArray(mergedConfig.customMenus)) {
+      return { success: false, error: "Invalid customMenus format" };
+    }
+
+    if (!Array.isArray(mergedConfig.menuOrder)) {
+      return { success: false, error: "Invalid menuOrder format" };
+    }
+
+    return { success: true, data: mergedConfig };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to parse configuration file",
+    };
   }
 };
 
@@ -192,6 +386,13 @@ export default function Layout({ children }: LayoutProps) {
       }) as AppConfig
   );
 
+  // Set ThoughtSpot base URL when app config changes
+  useEffect(() => {
+    if (appConfig.thoughtspotUrl) {
+      setThoughtSpotBaseUrl(appConfig.thoughtspotUrl);
+    }
+  }, [appConfig.thoughtspotUrl]);
+
   // Full app configuration state
   const [fullAppConfig, setFullAppConfig] = useState<FullAppConfig>(
     () =>
@@ -199,6 +400,38 @@ export default function Layout({ children }: LayoutProps) {
         showPrimaryNavbar: false,
         hideHomepageLeftNav: false,
       }) as FullAppConfig
+  );
+
+  // Styling configuration state
+  const [stylingConfig, setStylingConfig] = useState<StylingConfig>(
+    () =>
+      loadFromStorage(STORAGE_KEYS.STYLING_CONFIG, {
+        application: {
+          topBar: {
+            backgroundColor: "#ffffff",
+            foregroundColor: "#1a202c",
+            logoUrl: "",
+          },
+          sidebar: {
+            backgroundColor: "#f7fafc",
+            foregroundColor: "#4a5568",
+          },
+          footer: {
+            backgroundColor: "#f7fafc",
+            foregroundColor: "#4a5568",
+          },
+          dialogs: {
+            backgroundColor: "#ffffff",
+            foregroundColor: "#1a202c",
+          },
+        },
+        embeddedContent: {
+          strings: {},
+          stringIDs: {},
+          cssUrl: "",
+          customCSS: {},
+        },
+      }) as StylingConfig
   );
 
   // Save to localStorage whenever state changes
@@ -214,14 +447,6 @@ export default function Layout({ children }: LayoutProps) {
     saveToStorage(STORAGE_KEYS.MENU_ORDER, menuOrder);
   }, [menuOrder]);
 
-  // Update Full App icon to new icon if it's still using the old one
-  useEffect(() => {
-    const fullAppMenu = standardMenus.find((menu) => menu.id === "full-app");
-    if (fullAppMenu && fullAppMenu.icon === "📱") {
-      updateStandardMenu("full-app", "icon", "🌐");
-    }
-  }, [standardMenus]);
-
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.HOME_PAGE_CONFIG, homePageConfig);
   }, [homePageConfig]);
@@ -233,6 +458,10 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.FULL_APP_CONFIG, fullAppConfig);
   }, [fullAppConfig]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.STYLING_CONFIG, stylingConfig);
+  }, [stylingConfig]);
 
   // Update document title when application name changes
   useEffect(() => {
@@ -252,17 +481,44 @@ export default function Layout({ children }: LayoutProps) {
           "@thoughtspot/visual-embed-sdk"
         );
 
-        init({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const initConfig: any = {
           thoughtSpotHost: appConfig.thoughtspotUrl,
           authType: AuthType.None,
-        });
+        };
+
+        // Add customizations if any are configured
+        if (
+          (stylingConfig.embeddedContent.strings &&
+            Object.keys(stylingConfig.embeddedContent.strings).length > 0) ||
+          (stylingConfig.embeddedContent.stringIDs &&
+            Object.keys(stylingConfig.embeddedContent.stringIDs).length > 0) ||
+          stylingConfig.embeddedContent.cssUrl ||
+          (stylingConfig.embeddedContent.customCSS &&
+            Object.keys(stylingConfig.embeddedContent.customCSS).length > 0)
+        ) {
+          initConfig.customizations = {
+            content: {
+              strings: stylingConfig.embeddedContent.strings,
+              stringIDs: stylingConfig.embeddedContent.stringIDs,
+            },
+            style: {
+              customCSSUrl: stylingConfig.embeddedContent.cssUrl || undefined,
+              customCSS: {
+                variables: stylingConfig.embeddedContent.customCSS,
+              },
+            },
+          };
+        }
+
+        init(initConfig);
       } catch (error) {
         console.error("Failed to initialize ThoughtSpot:", error);
       }
     };
 
     initializeThoughtSpot();
-  }, [appConfig.thoughtspotUrl]);
+  }, [appConfig.thoughtspotUrl]); // Removed stylingConfig.embeddedContent dependency
 
   const handleUserChange = (userId: string) => {
     // In a real app, you would fetch user data here
@@ -281,6 +537,16 @@ export default function Layout({ children }: LayoutProps) {
     setSettingsInitialTab(tab);
     setSettingsInitialSubTab(subTab);
     setIsSettingsOpen(true);
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleSessionStatusChange = (_hasSession: boolean) => {
+    // Session status is tracked by the SessionChecker component
+    // We can use this for future features if needed
+  };
+
+  const handleConfigureSettings = () => {
+    openSettingsWithTab("configuration");
   };
 
   const updateStandardMenu = (
@@ -326,6 +592,10 @@ export default function Layout({ children }: LayoutProps) {
     setFullAppConfig(config);
   };
 
+  const updateStylingConfig = (config: StylingConfig) => {
+    setStylingConfig(config);
+  };
+
   const addCustomMenu = (menu: CustomMenu) => {
     console.log("addCustomMenu called with:", menu.name, "id:", menu.id);
     setCustomMenus((prev) => [...prev, menu]);
@@ -365,48 +635,48 @@ export default function Layout({ children }: LayoutProps) {
 
   const clearAllConfigurations = () => {
     // Reset to default values
-    setStandardMenus([
-      {
-        id: "home",
-        icon: "🏠",
-        name: "Home",
-        enabled: true,
-        homePageType: "html",
-        homePageValue:
-          "<div style='padding: 20px; text-align: center;'><h1>Welcome to TSE Demo Builder</h1><p>Configure your home page content in the settings.</p></div>",
-      },
-      { id: "favorites", icon: "⭐", name: "Favorites", enabled: true },
-      { id: "my-reports", icon: "📊", name: "My Reports", enabled: true },
-      { id: "spotter", icon: "🔍", name: "Spotter", enabled: true },
-      { id: "search", icon: "🔎", name: "Search", enabled: true },
-      { id: "full-app", icon: "🌐", name: "Full App", enabled: true },
-    ]);
-
-    setCustomMenus([]);
-
-    setHomePageConfig({
-      type: "html",
-      value:
-        "<div style='padding: 20px; text-align: center;'><h1>Welcome to TSE Demo Builder</h1><p>Configure your home page content in the settings.</p></div>",
-    });
-
-    setAppConfig({
-      thoughtspotUrl: "https://se-thoughtspot-cloud.thoughtspot.cloud/",
-      applicationName: "TSE Demo Builder",
-      logo: "",
-      earlyAccessFlags: "",
-    });
-
-    setFullAppConfig({
-      showPrimaryNavbar: false,
-      hideHomepageLeftNav: false,
-    });
-
-    // Reset menu order
-    setMenuOrder([]);
+    setStandardMenus(DEFAULT_CONFIG.standardMenus);
+    setCustomMenus(DEFAULT_CONFIG.customMenus);
+    setMenuOrder(DEFAULT_CONFIG.menuOrder);
+    setHomePageConfig(DEFAULT_CONFIG.homePageConfig);
+    setAppConfig(DEFAULT_CONFIG.appConfig);
+    setFullAppConfig(DEFAULT_CONFIG.fullAppConfig);
+    setStylingConfig(DEFAULT_CONFIG.stylingConfig);
 
     // Clear localStorage
     clearAllStorage();
+  };
+
+  const handleExportConfiguration = (customName?: string) => {
+    exportConfiguration(
+      {
+        standardMenus,
+        customMenus,
+        menuOrder,
+        homePageConfig,
+        appConfig,
+        fullAppConfig,
+        stylingConfig,
+      },
+      customName
+    );
+  };
+
+  const handleImportConfiguration = async (file: File) => {
+    const result = await importConfiguration(file);
+    if (result.success && result.data) {
+      const config = result.data;
+      setStandardMenus(config.standardMenus);
+      setCustomMenus(config.customMenus);
+      setMenuOrder(config.menuOrder);
+      setHomePageConfig(config.homePageConfig);
+      setAppConfig(config.appConfig);
+      setFullAppConfig(config.fullAppConfig);
+      setStylingConfig(config.stylingConfig);
+      return { success: true };
+    } else {
+      return { success: false, error: result.error };
+    }
   };
 
   const contextValue: AppContextType = {
@@ -422,52 +692,79 @@ export default function Layout({ children }: LayoutProps) {
     addCustomMenu,
     updateCustomMenu,
     deleteCustomMenu,
+    stylingConfig,
+    updateStylingConfig,
     clearAllConfigurations,
     openSettingsWithTab,
+    exportConfiguration: handleExportConfiguration,
+    importConfiguration: handleImportConfiguration,
   };
 
   return (
     <AppContext.Provider value={contextValue}>
-      <div
-        style={{ height: "100vh", display: "flex", flexDirection: "column" }}
+      <SessionChecker
+        thoughtspotUrl={appConfig.thoughtspotUrl}
+        onSessionStatusChange={handleSessionStatusChange}
+        onConfigureSettings={handleConfigureSettings}
       >
-        {/* Top Bar */}
-        <TopBar
-          title={appConfig.applicationName || "TSE Demo Builder"}
-          logoUrl={appConfig.logo || "/ts.png"}
-          currentUser={currentUser}
-          onUserChange={handleUserChange}
-        />
-
-        {/* Main Content Area */}
-        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-          {/* Side Navigation */}
-          <SideNav
-            onSettingsClick={() => setIsSettingsOpen(true)}
-            standardMenus={standardMenus}
-            customMenus={customMenus}
-            menuOrder={menuOrder}
-            onMenuOrderChange={setMenuOrder}
+        <div
+          style={{ height: "100vh", display: "flex", flexDirection: "column" }}
+        >
+          {/* Top Bar */}
+          <TopBar
+            title={appConfig.applicationName || "TSE Demo Builder"}
+            logoUrl={
+              stylingConfig.application.topBar.logoUrl ||
+              appConfig.logo ||
+              "/ts.png"
+            }
+            currentUser={currentUser}
+            onUserChange={handleUserChange}
+            backgroundColor={stylingConfig.application.topBar.backgroundColor}
+            foregroundColor={stylingConfig.application.topBar.foregroundColor}
           />
 
-          {/* Content Area */}
-          <div
-            style={{
-              flex: 1,
-              backgroundColor: "#ffffff",
-              overflow: "auto",
-              padding: "24px",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <div style={{ flex: 1 }}>{children}</div>
-            <Footer />
-          </div>
-        </div>
+          {/* Main Content Area */}
+          <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+            {/* Side Navigation */}
+            <SideNav
+              onSettingsClick={() => setIsSettingsOpen(true)}
+              standardMenus={standardMenus}
+              customMenus={customMenus}
+              menuOrder={menuOrder}
+              onMenuOrderChange={setMenuOrder}
+              backgroundColor={
+                stylingConfig.application.sidebar.backgroundColor
+              }
+              foregroundColor={
+                stylingConfig.application.sidebar.foregroundColor
+              }
+            />
 
-        {/* Settings Modal */}
-        {isSettingsOpen && (
+            {/* Content Area */}
+            <div
+              style={{
+                flex: 1,
+                backgroundColor: "#ffffff",
+                overflow: "auto",
+                padding: "24px",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <div style={{ flex: 1 }}>{children}</div>
+              <Footer
+                backgroundColor={
+                  stylingConfig.application.footer.backgroundColor
+                }
+                foregroundColor={
+                  stylingConfig.application.footer.foregroundColor
+                }
+              />
+            </div>
+          </div>
+
+          {/* Settings Modal */}
           <SettingsModal
             isOpen={isSettingsOpen}
             onClose={() => setIsSettingsOpen(false)}
@@ -483,12 +780,16 @@ export default function Layout({ children }: LayoutProps) {
             addCustomMenu={addCustomMenu}
             updateCustomMenu={updateCustomMenu}
             deleteCustomMenu={deleteCustomMenu}
+            stylingConfig={stylingConfig}
+            updateStylingConfig={updateStylingConfig}
             clearAllConfigurations={clearAllConfigurations}
+            exportConfiguration={handleExportConfiguration}
+            importConfiguration={handleImportConfiguration}
             initialTab={settingsInitialTab}
             initialSubTab={settingsInitialSubTab}
           />
-        )}
-      </div>
+        </div>
+      </SessionChecker>
     </AppContext.Provider>
   );
 }

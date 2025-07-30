@@ -1,118 +1,123 @@
-# TSE Demo Builder
+# TSE Demo Builder v2
 
-A modern React/Next.js application with Chakra UI for building and managing reports and analytics dashboards.
+A Next.js application for building and customizing ThoughtSpot Embedded (TSE) demos with a comprehensive configuration system.
 
 ## Features
 
-### Layout Components
-- **TopBar**: Header with logo, title, and user dropdown menu
-- **SideNav**: Left navigation with menu items and settings access
-- **Layout**: Main layout wrapper combining TopBar and SideNav
-- **SettingsModal**: Comprehensive settings panel with tabs
+### Configuration Management
+- **Export/Import Configuration**: Save and load your complete configuration including all settings, styling, and images
+- **Flexible Configuration**: Update configuration items over time with graceful handling of missing/added fields
+- **Image Support**: Export includes all images as base64 data for complete portability
+- **Version Control**: Configuration files include version information for future compatibility
 
-### Navigation
-- **Home**: Dashboard overview with quick access cards
-- **Reports 1 & 2**: Dynamic report pages (routes: `/reports/1`, `/reports/2`)
-- **My Reports**: Personal reports management
-- **Favorites**: Quick access to frequently used items
-- **Spotter**: Search and discovery functionality
-- **Settings**: Application configuration (accessible via gear icon)
+### Export/Import Features
+- **Export Configuration**: Download your complete configuration as a JSON file
+- **Import Configuration**: Load previously exported configurations
+- **Graceful Migration**: Handle configuration changes over time with default fallbacks
+- **Validation**: Comprehensive validation of imported configuration files
+- **User Feedback**: Clear success/error messages for import operations
 
-#### Menu Reordering
-The left navigation supports drag and drop reordering of menu items:
-- **Hover** over the navigation to reveal drag handles (⋮⋮)
-- **Drag** any menu item to reorder it within the navigation
-- **Mixed ordering** allows standard and custom menus to be interleaved
-- **Order is automatically saved** to localStorage and persists across sessions
-- **Works with both standard and custom menus**
-- **Disabled menu items** are automatically moved to the bottom of their respective lists
+### Configuration Items
+- Standard menu configuration
+- Custom menu creation and management
+- Home page content (HTML, images, iframes, ThoughtSpot content)
+- Application styling (colors, logos, layout)
+- Embedded content customization
+- ThoughtSpot integration settings
 
-### Settings Panel
-The settings modal includes:
-- **General**: Basic application settings
-- **Reports**: Report generation and display configuration
-- **Data**: Data source and connection settings
-- **Security**: Authentication and security settings
-
-Action buttons available on all settings tabs:
-- **Apply**: Save current settings
-- **Clear**: Reset all settings
-- **Upload**: Import settings from JSON file
-- **Download**: Export current settings to JSON file
-
-## Technology Stack
-
-- **React 19.1.0**: Latest React with concurrent features
-- **Next.js 15.4.2**: App Router with server components
-- **TypeScript**: Full type safety
-- **Chakra UI 3.22.0**: Modern component library
-- **CSS-in-JS**: Inline styles for component styling
-
-## Project Structure
-
-```
-src/
-├── app/
-│   ├── layout.tsx          # Root layout with ChakraProvider
-│   ├── page.tsx            # Home page
-│   ├── globals.css         # Global styles
-│   ├── reports/
-│   │   └── [id]/
-│   │       └── page.tsx    # Dynamic reports pages
-│   ├── my-reports/
-│   │   └── page.tsx        # Personal reports page
-│   ├── favorites/
-│   │   └── page.tsx        # Favorites page
-│   └── spotter/
-│       └── page.tsx        # Search and discovery page
-└── components/
-    ├── Layout.tsx          # Main layout wrapper
-    ├── TopBar.tsx          # Header component
-    ├── SideNav.tsx         # Navigation sidebar
-    └── SettingsModal.tsx   # Settings modal with tabs
-```
+### Styling Features
+- **Application Styling**: Customize top bar, sidebar, footer, and dialog colors
+- **Embedded Content**: String mappings and CSS customizations
+- **Color Picker**: Visual color selection with hex input
+- **Image Upload**: Direct file upload and URL input support
+- **Real-time Preview**: See changes applied immediately
 
 ## Getting Started
 
-1. **Install dependencies**:
+1. Install dependencies:
    ```bash
    npm install
    ```
 
-2. **Run development server**:
+2. Run the development server:
    ```bash
    npm run dev
    ```
 
-3. **Build for production**:
-   ```bash
-   npm run build
-   ```
+3. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-4. **Start production server**:
-   ```bash
-   npm start
-   ```
+## Configuration Export/Import
 
-## Development Notes
+### Exporting Configuration
+1. Open the Settings modal
+2. Navigate to the "Configuration" tab
+3. Click "Export Configuration"
+4. Enter a custom name for your configuration file (optional)
+5. Click "Export" to download the JSON file with your complete configuration
+6. If no custom name is provided, a default name with the current date will be used
 
-- The application uses Next.js App Router with server and client components
-- Dynamic routes are implemented for reports (`/reports/[id]`)
-- All interactive components are marked with `'use client'` directive
-- Settings are currently placeholder implementations ready for real data integration
-- The UI is built with inline styles for simplicity and to avoid Chakra UI v3 API complexity
+### Importing Configuration
+1. Open the Settings modal
+2. Navigate to the "Configuration" tab
+3. Click "Import Configuration"
+4. Select a previously exported JSON file
+5. The configuration will be loaded and applied immediately
 
-## Next Steps
+### Configuration File Format
+The exported configuration includes:
+- Version information for compatibility
+- Timestamp of export
+- All configuration data including images as base64
+- Graceful handling of missing fields during import
 
-1. **Add real data integration** for reports and settings
-2. **Implement user authentication** and session management
-3. **Add more interactive features** to the dashboard
-4. **Enhance the search functionality** in the Spotter page
-5. **Add real-time updates** and notifications
-6. **Implement proper state management** (Redux, Zustand, etc.)
+### File Naming
+- Custom names are automatically sanitized to remove invalid characters
+- Only alphanumeric characters, spaces, hyphens, and underscores are allowed
+- If no custom name is provided, the default format is used: `tse-demo-builder-config-YYYY-MM-DD.json`
 
-## Browser Support
+### Clear All Configurations
+Use the "Clear All Configurations" button to reset all settings to their default values.
 
-- Modern browsers with ES6+ support
-- Responsive design for desktop and tablet
-- Accessibility features included (focus management, keyboard navigation)
+## Technical Details
+
+### Components
+- `Layout.tsx`: Main layout with context provider
+- `SettingsModal.tsx`: Configuration management interface
+- `ImageUpload.tsx`: Image upload and URL input component
+- `ColorPicker.tsx`: Color selection component
+- `StringMappingEditor.tsx`: String mapping management
+- `CSSVariablesEditor.tsx`: CSS variables JSON editor
+
+### Configuration Storage
+- All configuration is stored in localStorage
+- Automatic saving on configuration changes
+- Export/import for backup and sharing
+
+### TypeScript Support
+- Full TypeScript implementation
+- Comprehensive type definitions
+- Type-safe configuration management
+
+## Development
+
+### Project Structure
+```
+src/
+├── app/                 # Next.js app directory
+├── components/          # React components
+│   ├── pages/          # Page-specific components
+│   └── ...
+├── services/           # API services
+└── types/             # TypeScript type definitions
+```
+
+### Key Technologies
+- Next.js 14 with App Router
+- React 18 with hooks
+- TypeScript
+- ThoughtSpot Visual Embed SDK
+- Local storage for persistence
+
+## License
+
+This project is for internal use at ThoughtSpot.

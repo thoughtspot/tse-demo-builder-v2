@@ -122,8 +122,20 @@ async function searchMetadata(
 
 import { ThoughtSpotContent } from "../types/thoughtspot";
 
-const THOUGHTSPOT_BASE_URL =
+// Default ThoughtSpot URL - will be overridden by the configured URL
+let THOUGHTSPOT_BASE_URL =
   "https://se-thoughtspot-cloud.thoughtspot.cloud/api/rest/2.0";
+
+export function setThoughtSpotBaseUrl(url: string) {
+  // Ensure the URL ends with /api/rest/2.0
+  if (url.endsWith("/")) {
+    url = url.slice(0, -1);
+  }
+  if (!url.endsWith("/api/rest/2.0")) {
+    url = url + "/api/rest/2.0";
+  }
+  THOUGHTSPOT_BASE_URL = url;
+}
 
 async function makeThoughtSpotApiCall(
   endpoint: string,

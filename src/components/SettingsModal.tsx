@@ -9,6 +9,10 @@ import SearchPage from "./pages/SearchPage";
 import FullAppPage from "./pages/FullAppPage";
 import ReportsPage from "./pages/ReportsPage";
 import IconPicker from "./IconPicker";
+import ColorPicker from "./ColorPicker";
+import ImageUpload from "./ImageUpload";
+import StringMappingEditor from "./StringMappingEditor";
+import CSSVariablesEditor from "./CSSVariablesEditor";
 
 interface StandardMenu {
   id: string;
@@ -71,7 +75,14 @@ interface SettingsModalProps {
   addCustomMenu: (menu: CustomMenu) => void;
   updateCustomMenu: (id: string, menu: CustomMenu) => void;
   deleteCustomMenu: (id: string) => void;
+  stylingConfig: StylingConfig;
+  updateStylingConfig: (config: StylingConfig) => void;
   clearAllConfigurations?: () => void;
+  exportConfiguration?: (customName?: string) => void;
+  importConfiguration?: (file: File) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
   initialTab?: string;
   initialSubTab?: string;
 }
@@ -95,6 +106,34 @@ interface CustomMenu {
       answers: string[];
     };
     tagIdentifiers?: string[];
+  };
+}
+
+interface StylingConfig {
+  application: {
+    topBar: {
+      backgroundColor: string;
+      foregroundColor: string;
+      logoUrl?: string;
+    };
+    sidebar: {
+      backgroundColor: string;
+      foregroundColor: string;
+    };
+    footer: {
+      backgroundColor: string;
+      foregroundColor: string;
+    };
+    dialogs: {
+      backgroundColor: string;
+      foregroundColor: string;
+    };
+  };
+  embeddedContent: {
+    strings: Record<string, string>;
+    stringIDs: Record<string, string>;
+    cssUrl?: string;
+    customCSS: Record<string, string>;
   };
 }
 
@@ -553,7 +592,19 @@ function StandardMenusContent({
                             onClick={() => openIconPicker(menu.id)}
                             title="Click to select icon"
                           >
-                            {menu.icon}
+                            {menu.icon.startsWith("data:") ? (
+                              <img
+                                src={menu.icon}
+                                alt="Menu icon"
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "contain",
+                                }}
+                              />
+                            ) : (
+                              menu.icon
+                            )}
                           </div>
                           <input
                             type="text"
@@ -1868,7 +1919,19 @@ function CustomMenusContent({
                   onClick={() => openIconPicker(editingMenu.id)}
                   title="Click to select icon"
                 >
-                  {editingMenu.icon}
+                  {editingMenu.icon.startsWith("data:") ? (
+                    <img
+                      src={editingMenu.icon}
+                      alt="Menu icon"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                      }}
+                    />
+                  ) : (
+                    editingMenu.icon
+                  )}
                 </div>
                 <input
                   type="text"
@@ -2241,7 +2304,19 @@ function CustomMenusContent({
                       gap: "12px",
                     }}
                   >
-                    <span style={{ fontSize: "20px" }}>{menu.icon}</span>
+                    {menu.icon.startsWith("data:") ? (
+                      <img
+                        src={menu.icon}
+                        alt="Menu icon"
+                        style={{
+                          width: "20px",
+                          height: "20px",
+                          objectFit: "contain",
+                        }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: "20px" }}>{menu.icon}</span>
+                    )}
                     <div>
                       <h4
                         style={{
@@ -2349,6 +2424,415 @@ function CustomMenusContent({
   );
 }
 
+function StylingContent({
+  stylingConfig,
+  updateStylingConfig,
+}: {
+  stylingConfig: StylingConfig;
+  updateStylingConfig: (config: StylingConfig) => void;
+}) {
+  const [activeSubTab, setActiveSubTab] = useState("application");
+
+  const subTabs = [
+    { id: "application", name: "Application Styles", icon: "🎨" },
+    { id: "embedded", name: "Embedded Content", icon: "🔧" },
+  ];
+
+  const updateApplicationStyles = (field: string, value: string) => {
+    updateStylingConfig({
+      ...stylingConfig,
+      application: {
+        ...stylingConfig.application,
+        [field]: value,
+      },
+    });
+  };
+
+  const updateTopBarStyles = (field: string, value: string) => {
+    updateStylingConfig({
+      ...stylingConfig,
+      application: {
+        ...stylingConfig.application,
+        topBar: {
+          ...stylingConfig.application.topBar,
+          [field]: value,
+        },
+      },
+    });
+  };
+
+  const updateSidebarStyles = (field: string, value: string) => {
+    updateStylingConfig({
+      ...stylingConfig,
+      application: {
+        ...stylingConfig.application,
+        sidebar: {
+          ...stylingConfig.application.sidebar,
+          [field]: value,
+        },
+      },
+    });
+  };
+
+  const updateFooterStyles = (field: string, value: string) => {
+    updateStylingConfig({
+      ...stylingConfig,
+      application: {
+        ...stylingConfig.application,
+        footer: {
+          ...stylingConfig.application.footer,
+          [field]: value,
+        },
+      },
+    });
+  };
+
+  const updateDialogStyles = (field: string, value: string) => {
+    updateStylingConfig({
+      ...stylingConfig,
+      application: {
+        ...stylingConfig.application,
+        dialogs: {
+          ...stylingConfig.application.dialogs,
+          [field]: value,
+        },
+      },
+    });
+  };
+
+  const updateEmbeddedContent = (field: string, value: unknown) => {
+    updateStylingConfig({
+      ...stylingConfig,
+      embeddedContent: {
+        ...stylingConfig.embeddedContent,
+        [field]: value,
+      },
+    });
+  };
+
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <h3
+        style={{
+          marginBottom: "24px",
+          fontSize: "20px",
+          fontWeight: "bold",
+        }}
+      >
+        Styling Configuration
+      </h3>
+
+      {/* Sub-tabs */}
+      <div
+        style={{
+          display: "flex",
+          borderBottom: "1px solid #e2e8f0",
+          marginBottom: "24px",
+          flexShrink: 0,
+        }}
+      >
+        {subTabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveSubTab(tab.id)}
+            style={{
+              padding: "12px 20px",
+              border: "none",
+              background: activeSubTab === tab.id ? "#3182ce" : "transparent",
+              color: activeSubTab === tab.id ? "white" : "#4a5568",
+              cursor: "pointer",
+              fontWeight: activeSubTab === tab.id ? "600" : "400",
+              borderBottom:
+                activeSubTab === tab.id ? "2px solid #3182ce" : "none",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <span style={{ fontSize: "16px" }}>{tab.icon}</span>
+            <span>{tab.name}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, overflow: "auto" }}>
+        {activeSubTab === "application" && (
+          <div>
+            <h4
+              style={{
+                fontSize: "18px",
+                fontWeight: "600",
+                marginBottom: "20px",
+              }}
+            >
+              Application Styling
+            </h4>
+
+            {/* Top Bar Styling */}
+            <div
+              style={{
+                marginBottom: "32px",
+                padding: "20px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                backgroundColor: "#f9fafb",
+              }}
+            >
+              <h5
+                style={{
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  marginBottom: "16px",
+                }}
+              >
+                Top Bar
+              </h5>
+
+              <ImageUpload
+                value={stylingConfig.application.topBar.logoUrl}
+                onChange={(value) => updateTopBarStyles("logoUrl", value)}
+                label="Logo"
+                placeholder="https://example.com/logo.png"
+              />
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                }}
+              >
+                <ColorPicker
+                  value={stylingConfig.application.topBar.backgroundColor}
+                  onChange={(value) =>
+                    updateTopBarStyles("backgroundColor", value)
+                  }
+                  label="Background Color"
+                />
+                <ColorPicker
+                  value={stylingConfig.application.topBar.foregroundColor}
+                  onChange={(value) =>
+                    updateTopBarStyles("foregroundColor", value)
+                  }
+                  label="Foreground Color"
+                />
+              </div>
+            </div>
+
+            {/* Sidebar Styling */}
+            <div
+              style={{
+                marginBottom: "32px",
+                padding: "20px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                backgroundColor: "#f9fafb",
+              }}
+            >
+              <h5
+                style={{
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  marginBottom: "16px",
+                }}
+              >
+                Sidebar
+              </h5>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                }}
+              >
+                <ColorPicker
+                  value={stylingConfig.application.sidebar.backgroundColor}
+                  onChange={(value) =>
+                    updateSidebarStyles("backgroundColor", value)
+                  }
+                  label="Background Color"
+                />
+                <ColorPicker
+                  value={stylingConfig.application.sidebar.foregroundColor}
+                  onChange={(value) =>
+                    updateSidebarStyles("foregroundColor", value)
+                  }
+                  label="Foreground Color"
+                />
+              </div>
+            </div>
+
+            {/* Footer Styling */}
+            <div
+              style={{
+                marginBottom: "32px",
+                padding: "20px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                backgroundColor: "#f9fafb",
+              }}
+            >
+              <h5
+                style={{
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  marginBottom: "16px",
+                }}
+              >
+                Footer
+              </h5>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                }}
+              >
+                <ColorPicker
+                  value={stylingConfig.application.footer.backgroundColor}
+                  onChange={(value) =>
+                    updateFooterStyles("backgroundColor", value)
+                  }
+                  label="Background Color"
+                />
+                <ColorPicker
+                  value={stylingConfig.application.footer.foregroundColor}
+                  onChange={(value) =>
+                    updateFooterStyles("foregroundColor", value)
+                  }
+                  label="Foreground Color"
+                />
+              </div>
+            </div>
+
+            {/* Dialog Styling */}
+            <div
+              style={{
+                marginBottom: "32px",
+                padding: "20px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                backgroundColor: "#f9fafb",
+              }}
+            >
+              <h5
+                style={{
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  marginBottom: "16px",
+                }}
+              >
+                Dialogs
+              </h5>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                }}
+              >
+                <ColorPicker
+                  value={stylingConfig.application.dialogs.backgroundColor}
+                  onChange={(value) =>
+                    updateDialogStyles("backgroundColor", value)
+                  }
+                  label="Background Color"
+                />
+                <ColorPicker
+                  value={stylingConfig.application.dialogs.foregroundColor}
+                  onChange={(value) =>
+                    updateDialogStyles("foregroundColor", value)
+                  }
+                  label="Foreground Color"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSubTab === "embedded" && (
+          <div>
+            <h4
+              style={{
+                fontSize: "18px",
+                fontWeight: "600",
+                marginBottom: "20px",
+              }}
+            >
+              Embedded Content Customization
+            </h4>
+
+            {/* Strings */}
+            <StringMappingEditor
+              mappings={stylingConfig.embeddedContent.strings}
+              onChange={(value) => updateEmbeddedContent("strings", value)}
+              title="String Mappings"
+              description="Map ThoughtSpot strings to custom values"
+            />
+
+            {/* String IDs */}
+            <StringMappingEditor
+              mappings={stylingConfig.embeddedContent.stringIDs}
+              onChange={(value) => updateEmbeddedContent("stringIDs", value)}
+              title="String ID Mappings"
+              description="Map ThoughtSpot string IDs to custom values"
+            />
+
+            {/* CSS URL */}
+            <div style={{ marginBottom: "24px" }}>
+              <h4
+                style={{
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  marginBottom: "8px",
+                }}
+              >
+                Custom CSS URL
+              </h4>
+              <p
+                style={{
+                  fontSize: "14px",
+                  color: "#6b7280",
+                  marginBottom: "16px",
+                }}
+              >
+                URL to an external CSS file for custom styling
+              </p>
+              <input
+                type="url"
+                value={stylingConfig.embeddedContent.cssUrl || ""}
+                onChange={(e) =>
+                  updateEmbeddedContent("cssUrl", e.target.value)
+                }
+                placeholder="https://example.com/custom-styles.css"
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "4px",
+                  fontSize: "14px",
+                }}
+              />
+            </div>
+
+            {/* CSS Variables */}
+            <CSSVariablesEditor
+              variables={stylingConfig.embeddedContent.customCSS}
+              onChange={(value) => updateEmbeddedContent("customCSS", value)}
+              title="Custom CSS Variables"
+              description="Define custom CSS variables for ThoughtSpot styling"
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsModal({
   isOpen,
   onClose,
@@ -2364,30 +2848,67 @@ export default function SettingsModal({
   addCustomMenu,
   updateCustomMenu,
   deleteCustomMenu,
+  stylingConfig,
+  updateStylingConfig,
   clearAllConfigurations,
+  exportConfiguration,
+  importConfiguration,
   initialTab,
   initialSubTab,
 }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState(initialTab || "configuration");
+  const [activeTab, setActiveTab] = useState("configuration");
+
+  // Update activeTab when initialTab prop changes
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  // Temporary state for unsaved changes
+  const [pendingStandardMenus, setPendingStandardMenus] =
+    useState(standardMenus);
+  const [pendingHomePageConfig, setPendingHomePageConfig] =
+    useState(homePageConfig);
+  const [pendingAppConfig, setPendingAppConfig] = useState(appConfig);
+  const [pendingFullAppConfig, setPendingFullAppConfig] =
+    useState(fullAppConfig);
+  const [pendingStylingConfig, setPendingStylingConfig] =
+    useState(stylingConfig);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [pendingCustomMenuSave, setPendingCustomMenuSave] =
     useState<CustomMenu | null>(null);
   const [isEditingCustomMenu, setIsEditingCustomMenu] = useState(false);
   const [isCreatingCustomMenu, setIsCreatingCustomMenu] = useState(false);
+  const [importStatus, setImportStatus] = useState<{
+    message: string;
+    type: "success" | "error" | null;
+  }>({ message: "", type: null });
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportFileName, setExportFileName] = useState("");
+
+  // Update pending state when props change (e.g., after import)
+  useEffect(() => {
+    setPendingStandardMenus(standardMenus);
+    setPendingHomePageConfig(homePageConfig);
+    setPendingAppConfig(appConfig);
+    setPendingFullAppConfig(fullAppConfig);
+    setPendingStylingConfig(stylingConfig);
+    setHasUnsavedChanges(false);
+  }, [standardMenus, homePageConfig, appConfig, fullAppConfig, stylingConfig]);
 
   // Track changes in configuration
   const handleConfigChange = () => {
-    // Only track unsaved changes for custom menus, not general configuration
-    // General configuration changes are saved automatically
+    setHasUnsavedChanges(true);
   };
 
   const handleClose = () => {
-    // Only check for unsaved changes in custom menu editing
+    // Check for unsaved changes in custom menu editing or general configuration
     const hasUnsavedCustomMenu =
       pendingCustomMenuSave && pendingCustomMenuSave.name.trim();
 
-    if (hasUnsavedCustomMenu) {
+    if (hasUnsavedCustomMenu || hasUnsavedChanges) {
       setShowUnsavedDialog(true);
     } else {
       onClose();
@@ -2404,7 +2925,77 @@ export default function SettingsModal({
     setShowUnsavedDialog(false);
     setHasUnsavedChanges(false);
     setPendingCustomMenuSave(null);
+    // Reset pending state to current props
+    setPendingStandardMenus(standardMenus);
+    setPendingHomePageConfig(homePageConfig);
+    setPendingAppConfig(appConfig);
+    setPendingFullAppConfig(fullAppConfig);
+    setPendingStylingConfig(stylingConfig);
     onClose();
+  };
+
+  // Wrapper functions that update pending state instead of immediately applying
+  const updatePendingStandardMenu = (
+    id: string,
+    field: string,
+    value: string | boolean
+  ) => {
+    setPendingStandardMenus((prev) =>
+      prev.map((menu) => (menu.id === id ? { ...menu, [field]: value } : menu))
+    );
+    handleConfigChange();
+  };
+
+  const updatePendingHomePageConfig = (config: HomePageConfig) => {
+    setPendingHomePageConfig(config);
+    handleConfigChange();
+  };
+
+  const updatePendingAppConfig = (config: AppConfig) => {
+    setPendingAppConfig(config);
+    handleConfigChange();
+  };
+
+  const updatePendingFullAppConfig = (config: FullAppConfig) => {
+    setPendingFullAppConfig(config);
+    handleConfigChange();
+  };
+
+  const updatePendingStylingConfig = (config: StylingConfig) => {
+    setPendingStylingConfig(config);
+    handleConfigChange();
+  };
+
+  const handleApplyChanges = () => {
+    // Apply all pending changes
+    if (hasUnsavedChanges) {
+      // Apply standard menus changes
+      pendingStandardMenus.forEach((menu) => {
+        const currentMenu = standardMenus.find((m) => m.id === menu.id);
+        if (currentMenu) {
+          Object.keys(menu).forEach((key) => {
+            if (
+              menu[key as keyof StandardMenu] !==
+              currentMenu[key as keyof StandardMenu]
+            ) {
+              updateStandardMenu(
+                menu.id,
+                key,
+                menu[key as keyof StandardMenu] as string | boolean
+              );
+            }
+          });
+        }
+      });
+
+      // Apply other config changes
+      updateHomePageConfig(pendingHomePageConfig);
+      updateAppConfig(pendingAppConfig);
+      updateFullAppConfig(pendingFullAppConfig);
+      updateStylingConfig(pendingStylingConfig);
+
+      setHasUnsavedChanges(false);
+    }
   };
 
   const customMenuRef = useRef<{
@@ -2458,13 +3049,12 @@ export default function SettingsModal({
                 </label>
                 <input
                   type="url"
-                  value={appConfig.thoughtspotUrl}
+                  value={pendingAppConfig.thoughtspotUrl}
                   onChange={(e) => {
-                    updateAppConfig({
-                      ...appConfig,
+                    updatePendingAppConfig({
+                      ...pendingAppConfig,
                       thoughtspotUrl: e.target.value,
                     });
-                    handleConfigChange();
                   }}
                   placeholder="https://your-instance.thoughtspot.cloud/"
                   style={{
@@ -2499,13 +3089,12 @@ export default function SettingsModal({
                 </label>
                 <input
                   type="text"
-                  value={appConfig.applicationName}
+                  value={pendingAppConfig.applicationName}
                   onChange={(e) => {
-                    updateAppConfig({
-                      ...appConfig,
+                    updatePendingAppConfig({
+                      ...pendingAppConfig,
                       applicationName: e.target.value,
                     });
-                    handleConfigChange();
                   }}
                   placeholder="TSE Demo Builder"
                   style={{
@@ -2543,10 +3132,10 @@ export default function SettingsModal({
                 </label>
                 <input
                   type="url"
-                  value={appConfig.logo}
+                  value={pendingAppConfig.logo}
                   onChange={(e) =>
-                    updateAppConfig({
-                      ...appConfig,
+                    updatePendingAppConfig({
+                      ...pendingAppConfig,
                       logo: e.target.value,
                     })
                   }
@@ -2582,10 +3171,10 @@ export default function SettingsModal({
                   Early Access Flags
                 </label>
                 <textarea
-                  value={appConfig.earlyAccessFlags}
+                  value={pendingAppConfig.earlyAccessFlags}
                   onChange={(e) =>
-                    updateAppConfig({
-                      ...appConfig,
+                    updatePendingAppConfig({
+                      ...pendingAppConfig,
                       earlyAccessFlags: e.target.value,
                     })
                   }
@@ -2613,6 +3202,139 @@ export default function SettingsModal({
             </div>
           </div>
 
+          {/* Import Status Message */}
+          {importStatus.type && (
+            <div
+              style={{
+                marginTop: "16px",
+                padding: "12px 16px",
+                borderRadius: "6px",
+                fontSize: "14px",
+                backgroundColor:
+                  importStatus.type === "success" ? "#d1fae5" : "#fee2e2",
+                color: importStatus.type === "success" ? "#065f46" : "#991b1b",
+                border: `1px solid ${
+                  importStatus.type === "success" ? "#a7f3d0" : "#fecaca"
+                }`,
+              }}
+            >
+              {importStatus.message}
+            </div>
+          )}
+
+          {/* Export Dialog */}
+          {showExportDialog && (
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1000,
+              }}
+            >
+              <div
+                style={{
+                  backgroundColor: "white",
+                  padding: "24px",
+                  borderRadius: "8px",
+                  minWidth: "400px",
+                  maxWidth: "500px",
+                }}
+              >
+                <h3
+                  style={{
+                    marginBottom: "16px",
+                    fontSize: "18px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Export Configuration
+                </h3>
+                <p
+                  style={{
+                    marginBottom: "16px",
+                    fontSize: "14px",
+                    color: "#6b7280",
+                  }}
+                >
+                  Choose a name for your configuration file (optional). If left
+                  empty, a default name will be used.
+                </p>
+                <input
+                  type="text"
+                  value={exportFileName}
+                  onChange={(e) => setExportFileName(e.target.value)}
+                  placeholder="e.g., my-demo-config, production-setup"
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                    marginBottom: "16px",
+                  }}
+                />
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "12px",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      setShowExportDialog(false);
+                      setExportFileName("");
+                    }}
+                    style={{
+                      padding: "8px 16px",
+                      backgroundColor: "#6b7280",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      const fileName = exportFileName.trim();
+                      // Validate filename - only allow alphanumeric, hyphens, underscores, and spaces
+                      const validFileName = fileName.replace(
+                        /[^a-zA-Z0-9\s\-_]/g,
+                        ""
+                      );
+                      exportConfiguration?.(validFileName || undefined);
+                      setShowExportDialog(false);
+                      setExportFileName("");
+                    }}
+                    style={{
+                      padding: "8px 16px",
+                      backgroundColor: "#059669",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Export
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div
             style={{
@@ -2621,9 +3343,71 @@ export default function SettingsModal({
               borderTop: "1px solid #e5e7eb",
               display: "flex",
               gap: "12px",
-              justifyContent: "flex-end",
+              justifyContent: "space-between",
+              alignItems: "center",
             }}
           >
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                onClick={() => setShowExportDialog(true)}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#059669",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Export Configuration
+              </button>
+              <label
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#3b82f6",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  display: "inline-block",
+                }}
+              >
+                Import Configuration
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file && importConfiguration) {
+                      const result = await importConfiguration(file);
+                      if (!result.success) {
+                        setImportStatus({
+                          message: `Import failed: ${result.error}`,
+                          type: "error",
+                        });
+                      } else {
+                        setImportStatus({
+                          message: "Configuration imported successfully!",
+                          type: "success",
+                        });
+                      }
+                      // Clear status after 3 seconds
+                      setTimeout(
+                        () => setImportStatus({ message: "", type: null }),
+                        3000
+                      );
+                    }
+                    // Reset the input
+                    e.target.value = "";
+                  }}
+                  style={{ display: "none" }}
+                />
+              </label>
+            </div>
             <button
               onClick={clearAllConfigurations}
               style={{
@@ -2648,11 +3432,11 @@ export default function SettingsModal({
       name: "Standard Menus",
       content: (
         <StandardMenusContent
-          standardMenus={standardMenus}
-          updateStandardMenu={updateStandardMenu}
+          standardMenus={pendingStandardMenus}
+          updateStandardMenu={updatePendingStandardMenu}
           initialSubTab={initialSubTab}
-          fullAppConfig={fullAppConfig}
-          updateFullAppConfig={updateFullAppConfig}
+          fullAppConfig={pendingFullAppConfig}
+          updateFullAppConfig={updatePendingFullAppConfig}
         />
       ),
     },
@@ -2679,9 +3463,17 @@ export default function SettingsModal({
         />
       ),
     },
+    {
+      id: "styling",
+      name: "Styling",
+      content: (
+        <StylingContent
+          stylingConfig={pendingStylingConfig}
+          updateStylingConfig={updatePendingStylingConfig}
+        />
+      ),
+    },
   ];
-
-  if (!isOpen) return null;
 
   return (
     <div
@@ -2692,7 +3484,7 @@ export default function SettingsModal({
         right: 0,
         bottom: 0,
         backgroundColor: "rgba(0, 0, 0, 0.5)",
-        display: "flex",
+        display: isOpen ? "flex" : "none",
         alignItems: "center",
         justifyContent: "center",
         zIndex: 1000,
@@ -2836,6 +3628,25 @@ export default function SettingsModal({
                   {isCreatingCustomMenu ? "Create" : "Save"}
                 </button>
               </>
+            )}
+
+            {/* Apply button - show when there are unsaved changes and not editing custom menu */}
+            {!isEditingCustomMenu && hasUnsavedChanges && (
+              <button
+                onClick={handleApplyChanges}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#10b981",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  marginRight: "8px",
+                }}
+              >
+                Apply Changes
+              </button>
             )}
 
             {/* Close button - only show when not editing custom menu */}

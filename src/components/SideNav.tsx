@@ -28,6 +28,8 @@ interface SideNavProps {
   customMenus: CustomMenu[];
   menuOrder?: string[];
   onMenuOrderChange?: (newMenuOrder: string[]) => void;
+  backgroundColor?: string;
+  foregroundColor?: string;
 }
 
 export default function SideNav({
@@ -36,6 +38,8 @@ export default function SideNav({
   customMenus,
   menuOrder,
   onMenuOrderChange,
+  backgroundColor = "#f7fafc",
+  foregroundColor = "#4a5568",
 }: SideNavProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -222,7 +226,7 @@ export default function SideNav({
     <div
       style={{
         width: isHovered ? "250px" : "60px",
-        backgroundColor: "#f7fafc",
+        backgroundColor: backgroundColor,
         borderRight: "1px solid #e2e8f0",
         height: "100%",
         display: "flex",
@@ -286,7 +290,7 @@ export default function SideNav({
                 padding: isHovered ? "12px 24px" : "12px 16px",
                 border: "none",
                 background: pathname === item.route ? "#3182ce" : "transparent",
-                color: pathname === item.route ? "white" : "#4a5568",
+                color: pathname === item.route ? "white" : foregroundColor,
                 cursor: "pointer",
                 textAlign: "left",
                 display: "flex",
@@ -310,7 +314,19 @@ export default function SideNav({
                 }
               }}
             >
-              <span style={{ fontSize: "18px" }}>{item.icon}</span>
+              {item.icon.startsWith("data:") ? (
+                <img
+                  src={item.icon}
+                  alt="Menu icon"
+                  style={{
+                    width: "18px",
+                    height: "18px",
+                    objectFit: "contain",
+                  }}
+                />
+              ) : (
+                <span style={{ fontSize: "18px" }}>{item.icon}</span>
+              )}
               {isHovered && <span>{item.name}</span>}
 
               {/* Drag handle */}

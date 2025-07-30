@@ -8,6 +8,8 @@ interface TopBarProps {
   users?: Array<{ id: string; name: string; avatar?: string }>;
   currentUser?: { id: string; name: string; avatar?: string };
   onUserChange?: (userId: string) => void;
+  backgroundColor?: string;
+  foregroundColor?: string;
 }
 
 export default function TopBar({
@@ -20,11 +22,13 @@ export default function TopBar({
   ],
   currentUser = { id: "1", name: "John Doe" },
   onUserChange,
+  backgroundColor = "white",
+  foregroundColor = "#1a202c",
 }: TopBarProps) {
   return (
     <div
       style={{
-        backgroundColor: "white",
+        backgroundColor: backgroundColor,
         borderBottom: "1px solid #e2e8f0",
         padding: "12px 24px",
         boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
@@ -46,7 +50,7 @@ export default function TopBar({
           style={{
             fontSize: "20px",
             fontWeight: "bold",
-            color: "#1a202c",
+            color: foregroundColor,
             margin: 0,
           }}
         >

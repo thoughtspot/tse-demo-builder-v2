@@ -2,18 +2,30 @@
 
 import { useState, useEffect } from "react";
 import { getCurrentUser } from "../services/thoughtspotApi";
+import { useAppContext } from "./Layout";
 
 interface ThoughtSpotUser {
   name: string;
   display_name: string;
 }
 
-export default function Footer() {
+interface FooterProps {
+  backgroundColor?: string;
+  foregroundColor?: string;
+}
+
+export default function Footer({
+  backgroundColor = "#f7fafc",
+  foregroundColor = "#4a5568",
+}: FooterProps = {}) {
   const [user, setUser] = useState<ThoughtSpotUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const THOUGHTSPOT_URL = "https://se-thoughtspot-cloud.thoughtspot.cloud";
+  const { appConfig } = useAppContext();
+  const thoughtspotUrl =
+    appConfig.thoughtspotUrl ||
+    "https://se-thoughtspot-cloud.thoughtspot.cloud";
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -37,10 +49,10 @@ export default function Footer() {
     <footer
       style={{
         padding: "8px 16px",
-        backgroundColor: "#f7fafc",
+        backgroundColor: backgroundColor,
         borderTop: "1px solid #e2e8f0",
         fontSize: "12px",
-        color: "#4a5568",
+        color: foregroundColor,
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
@@ -50,7 +62,7 @@ export default function Footer() {
       <div>
         <span>TS URL: </span>
         <a
-          href={THOUGHTSPOT_URL}
+          href={thoughtspotUrl}
           target="_blank"
           rel="noopener noreferrer"
           style={{
@@ -64,7 +76,7 @@ export default function Footer() {
             e.currentTarget.style.textDecoration = "none";
           }}
         >
-          {THOUGHTSPOT_URL}
+          {thoughtspotUrl}
         </a>
       </div>
 
