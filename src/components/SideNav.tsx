@@ -324,6 +324,16 @@ export default function SideNav({
                     objectFit: "contain",
                   }}
                 />
+              ) : item.icon.startsWith("/") ? (
+                <img
+                  src={item.icon}
+                  alt="Menu icon"
+                  style={{
+                    width: "18px",
+                    height: "18px",
+                    objectFit: "contain",
+                  }}
+                />
               ) : (
                 <span style={{ fontSize: "18px" }}>{item.icon}</span>
               )}

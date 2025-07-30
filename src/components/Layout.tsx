@@ -105,18 +105,38 @@ const DEFAULT_CONFIG = {
   standardMenus: [
     {
       id: "home",
-      icon: "🏠",
+      icon: "/icons/home.png",
       name: "Home",
       enabled: true,
       homePageType: "html" as const,
       homePageValue:
         "<div style='padding: 20px; text-align: center;'><h1>Welcome to TSE Demo Builder</h1><p>Configure your home page content in the settings.</p></div>",
     },
-    { id: "favorites", icon: "⭐", name: "Favorites", enabled: true },
-    { id: "my-reports", icon: "📊", name: "My Reports", enabled: true },
-    { id: "spotter", icon: "🔍", name: "Spotter", enabled: true },
-    { id: "search", icon: "🔎", name: "Search", enabled: true },
-    { id: "full-app", icon: "🌐", name: "Full App", enabled: true },
+    {
+      id: "favorites",
+      icon: "/icons/favorites.png",
+      name: "Favorites",
+      enabled: true,
+    },
+    {
+      id: "my-reports",
+      icon: "/icons/my-reports.png",
+      name: "My Reports",
+      enabled: true,
+    },
+    {
+      id: "spotter",
+      icon: "/icons/spotter.png",
+      name: "Spotter",
+      enabled: true,
+    },
+    { id: "search", icon: "/icons/search.png", name: "Search", enabled: true },
+    {
+      id: "full-app",
+      icon: "/icons/full-app.png",
+      name: "Full App",
+      enabled: true,
+    },
   ] as StandardMenu[],
   customMenus: [] as CustomMenu[],
   menuOrder: [
@@ -182,6 +202,25 @@ const loadFromStorage = (key: string, defaultValue: unknown): unknown => {
     console.error(`Failed to load ${key} from localStorage:`, error);
     return defaultValue;
   }
+};
+
+// Migration function to convert emoji icons to file paths
+const migrateStandardMenus = (menus: StandardMenu[]): StandardMenu[] => {
+  const emojiToFileMap: Record<string, string> = {
+    "🏠": "/icons/home.png",
+    "⭐": "/icons/favorites.png",
+    "📊": "/icons/my-reports.png",
+    "🔍": "/icons/spotter.png",
+    "🔎": "/icons/search.png",
+    "🌐": "/icons/full-app.png",
+  };
+
+  return menus.map((menu) => {
+    if (emojiToFileMap[menu.icon]) {
+      return { ...menu, icon: emojiToFileMap[menu.icon] };
+    }
+    return menu;
+  });
 };
 
 const saveToStorage = (key: string, value: unknown): void => {
@@ -335,25 +374,52 @@ export default function Layout({ children }: LayoutProps) {
   const [currentUser, setCurrentUser] = useState({ id: "1", name: "John Doe" });
 
   // Load initial state from localStorage
-  const [standardMenus, setStandardMenus] = useState<StandardMenu[]>(
-    () =>
-      loadFromStorage(STORAGE_KEYS.STANDARD_MENUS, [
-        {
-          id: "home",
-          icon: "🏠",
-          name: "Home",
-          enabled: true,
-          homePageType: "html",
-          homePageValue:
-            "<div style='padding: 20px; text-align: center;'><h1>Welcome to TSE Demo Builder</h1><p>Configure your home page content in the settings.</p></div>",
-        },
-        { id: "favorites", icon: "⭐", name: "Favorites", enabled: true },
-        { id: "my-reports", icon: "📊", name: "My Reports", enabled: true },
-        { id: "spotter", icon: "🔍", name: "Spotter", enabled: true },
-        { id: "search", icon: "🔎", name: "Search", enabled: true },
-        { id: "full-app", icon: "🌐", name: "Full App", enabled: true },
-      ]) as StandardMenu[]
-  );
+  const [standardMenus, setStandardMenus] = useState<StandardMenu[]>(() => {
+    const loadedMenus = loadFromStorage(STORAGE_KEYS.STANDARD_MENUS, [
+      {
+        id: "home",
+        icon: "/icons/home.png",
+        name: "Home",
+        enabled: true,
+        homePageType: "html",
+        homePageValue:
+          "<div style='padding: 20px; text-align: center;'><h1>Welcome to TSE Demo Builder</h1><p>Configure your home page content in the settings.</p></div>",
+      },
+      {
+        id: "favorites",
+        icon: "/icons/favorites.png",
+        name: "Favorites",
+        enabled: true,
+      },
+      {
+        id: "my-reports",
+        icon: "/icons/my-reports.png",
+        name: "My Reports",
+        enabled: true,
+      },
+      {
+        id: "spotter",
+        icon: "/icons/spotter.png",
+        name: "Spotter",
+        enabled: true,
+      },
+      {
+        id: "search",
+        icon: "/icons/search.png",
+        name: "Search",
+        enabled: true,
+      },
+      {
+        id: "full-app",
+        icon: "/icons/full-app.png",
+        name: "Full App",
+        enabled: true,
+      },
+    ]) as StandardMenu[];
+
+    // Apply migration to convert emoji icons to file paths
+    return migrateStandardMenus(loadedMenus);
+  });
 
   // Custom menus state
   const [customMenus, setCustomMenus] = useState<CustomMenu[]>(

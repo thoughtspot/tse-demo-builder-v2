@@ -602,6 +602,16 @@ function StandardMenusContent({
                                   objectFit: "contain",
                                 }}
                               />
+                            ) : menu.icon.startsWith("/") ? (
+                              <img
+                                src={menu.icon}
+                                alt="Menu icon"
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "contain",
+                                }}
+                              />
                             ) : (
                               menu.icon
                             )}
@@ -1929,6 +1939,16 @@ function CustomMenusContent({
                         objectFit: "contain",
                       }}
                     />
+                  ) : editingMenu.icon.startsWith("/") ? (
+                    <img
+                      src={editingMenu.icon}
+                      alt="Menu icon"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                      }}
+                    />
                   ) : (
                     editingMenu.icon
                   )}
@@ -2305,6 +2325,16 @@ function CustomMenusContent({
                     }}
                   >
                     {menu.icon.startsWith("data:") ? (
+                      <img
+                        src={menu.icon}
+                        alt="Menu icon"
+                        style={{
+                          width: "20px",
+                          height: "20px",
+                          objectFit: "contain",
+                        }}
+                      />
+                    ) : menu.icon.startsWith("/") ? (
                       <img
                         src={menu.icon}
                         alt="Menu icon"
