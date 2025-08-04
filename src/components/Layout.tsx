@@ -6,7 +6,12 @@ import SideNav from "./SideNav";
 import SettingsModal from "./SettingsModal";
 import Footer from "./Footer";
 import SessionChecker from "./SessionChecker";
-import { CustomMenu, StylingConfig, EmbedFlags } from "../types/thoughtspot";
+import {
+  CustomMenu,
+  StylingConfig,
+  EmbedFlags,
+  UserConfig,
+} from "../types/thoughtspot";
 import { setThoughtSpotBaseUrl } from "../services/thoughtspotApi";
 
 interface StandardMenu {
@@ -70,6 +75,8 @@ interface AppContextType {
   deleteCustomMenu: (id: string) => void;
   stylingConfig: StylingConfig;
   updateStylingConfig: (config: StylingConfig) => void;
+  userConfig: UserConfig;
+  updateUserConfig: (config: UserConfig) => void;
   clearAllConfigurations: () => void;
   openSettingsWithTab: (tab?: string, subTab?: string) => void;
   exportConfiguration: (customName?: string) => void;
@@ -98,6 +105,7 @@ const STORAGE_KEYS = {
   CUSTOM_MENUS: "tse-demo-builder-custom-menus",
   MENU_ORDER: "tse-demo-builder-menu-order",
   STYLING_CONFIG: "tse-demo-builder-styling-config",
+  USER_CONFIG: "tse-demo-builder-user-config",
 };
 
 // Default configuration values
@@ -195,6 +203,43 @@ const DEFAULT_CONFIG = {
       appEmbed: {},
     },
   } as StylingConfig,
+  userConfig: {
+    users: [
+      {
+        id: "power-user",
+        name: "Power User",
+        description: "Can access all features and content",
+        access: {
+          standardMenus: {
+            home: true,
+            favorites: true,
+            "my-reports": true,
+            spotter: true,
+            search: true,
+            "full-app": true,
+          },
+          customMenus: [],
+        },
+      },
+      {
+        id: "basic-user",
+        name: "Basic User",
+        description: "Limited access - cannot access Search and Full App",
+        access: {
+          standardMenus: {
+            home: true,
+            favorites: true,
+            "my-reports": true,
+            spotter: true,
+            search: false,
+            "full-app": false,
+          },
+          customMenus: [],
+        },
+      },
+    ],
+    currentUserId: "power-user",
+  } as UserConfig,
 };
 
 // Utility functions for localStorage
@@ -377,7 +422,6 @@ export default function Layout({ children }: LayoutProps) {
   const [settingsInitialSubTab, setSettingsInitialSubTab] = useState<
     string | undefined
   >();
-  const [currentUser, setCurrentUser] = useState({ id: "1", name: "John Doe" });
 
   // Load initial state from localStorage
   const [standardMenus, setStandardMenus] = useState<StandardMenu[]>(() => {
@@ -548,6 +592,15 @@ export default function Layout({ children }: LayoutProps) {
       }) as StylingConfig
   );
 
+  // User configuration state
+  const [userConfig, setUserConfig] = useState<UserConfig>(
+    () =>
+      loadFromStorage(
+        STORAGE_KEYS.USER_CONFIG,
+        DEFAULT_CONFIG.userConfig
+      ) as UserConfig
+  );
+
   // Save to localStorage whenever state changes
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.STANDARD_MENUS, standardMenus);
@@ -576,6 +629,10 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.STYLING_CONFIG, stylingConfig);
   }, [stylingConfig]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.USER_CONFIG, userConfig);
+  }, [userConfig]);
 
   // Update document title when application name changes
   useEffect(() => {
@@ -671,15 +728,12 @@ export default function Layout({ children }: LayoutProps) {
   }, [appConfig.thoughtspotUrl]); // Removed stylingConfig.embeddedContent dependency
 
   const handleUserChange = (userId: string) => {
-    // In a real app, you would fetch user data here
-    const users = [
-      { id: "1", name: "John Doe" },
-      { id: "2", name: "Jane Smith" },
-      { id: "3", name: "Bob Johnson" },
-    ];
-    const user = users.find((u) => u.id === userId);
-    if (user) {
-      setCurrentUser(user);
+    // Update the current user in the user configuration
+    if (userConfig) {
+      updateUserConfig({
+        ...userConfig,
+        currentUserId: userId,
+      });
     }
   };
 
@@ -744,6 +798,10 @@ export default function Layout({ children }: LayoutProps) {
 
   const updateStylingConfig = (config: StylingConfig) => {
     setStylingConfig(config);
+  };
+
+  const updateUserConfig = (config: UserConfig) => {
+    setUserConfig(config);
   };
 
   const addCustomMenu = (menu: CustomMenu) => {
@@ -816,6 +874,7 @@ export default function Layout({ children }: LayoutProps) {
     setAppConfig(DEFAULT_CONFIG.appConfig);
     setFullAppConfig(DEFAULT_CONFIG.fullAppConfig);
     setStylingConfig(DEFAULT_CONFIG.stylingConfig);
+    setUserConfig(DEFAULT_CONFIG.userConfig);
 
     // Clear localStorage
     clearAllStorage();
@@ -868,6 +927,8 @@ export default function Layout({ children }: LayoutProps) {
     deleteCustomMenu,
     stylingConfig,
     updateStylingConfig,
+    userConfig,
+    updateUserConfig,
     clearAllConfigurations,
     openSettingsWithTab,
     exportConfiguration: handleExportConfiguration,
@@ -892,7 +953,14 @@ export default function Layout({ children }: LayoutProps) {
               appConfig.logo ||
               "/ts.png"
             }
-            currentUser={currentUser}
+            users={userConfig.users.map((user) => ({
+              id: user.id,
+              name: user.name,
+            }))}
+            currentUser={
+              userConfig.users.find((u) => u.id === userConfig.currentUserId) ||
+              userConfig.users[0] || { id: "1", name: "User" }
+            }
             onUserChange={handleUserChange}
             backgroundColor={stylingConfig.application.topBar.backgroundColor}
             foregroundColor={stylingConfig.application.topBar.foregroundColor}
@@ -907,6 +975,7 @@ export default function Layout({ children }: LayoutProps) {
               customMenus={customMenus}
               menuOrder={menuOrder}
               onMenuOrderChange={setMenuOrder}
+              userConfig={userConfig}
               backgroundColor={
                 stylingConfig.application.sidebar.backgroundColor
               }
@@ -956,6 +1025,8 @@ export default function Layout({ children }: LayoutProps) {
             deleteCustomMenu={deleteCustomMenu}
             stylingConfig={stylingConfig}
             updateStylingConfig={updateStylingConfig}
+            userConfig={userConfig}
+            updateUserConfig={updateUserConfig}
             clearAllConfigurations={clearAllConfigurations}
             exportConfiguration={handleExportConfiguration}
             importConfiguration={handleImportConfiguration}

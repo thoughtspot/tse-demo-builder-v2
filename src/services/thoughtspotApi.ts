@@ -918,3 +918,19 @@ export async function fetchContentByIds(
     return { liveboards: [], answers: [] };
   }
 }
+
+export async function fetchThoughtSpotVersion(): Promise<string | null> {
+  try {
+    const response = await makeThoughtSpotGetCall("/system");
+
+    if (response && typeof response.release_version === "string") {
+      return response.release_version;
+    }
+
+    console.warn("Invalid system response format:", response);
+    return null;
+  } catch (error) {
+    console.error("Failed to fetch ThoughtSpot version:", error);
+    return null;
+  }
+}

@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useRef, useCallback } from "react";
-import { CustomMenu } from "../types/thoughtspot";
+import { CustomMenu, UserConfig } from "../types/thoughtspot";
 
 interface StandardMenu {
   id: string;
@@ -28,6 +28,7 @@ interface SideNavProps {
   customMenus: CustomMenu[];
   menuOrder?: string[];
   onMenuOrderChange?: (newMenuOrder: string[]) => void;
+  userConfig?: UserConfig;
   backgroundColor?: string;
   foregroundColor?: string;
 }
@@ -38,6 +39,7 @@ export default function SideNav({
   customMenus,
   menuOrder,
   onMenuOrderChange,
+  userConfig,
   backgroundColor = "#f7fafc",
   foregroundColor = "#4a5568",
 }: SideNavProps) {
@@ -49,21 +51,44 @@ export default function SideNav({
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [showDragHandles, setShowDragHandles] = useState(false);
 
+  // Get current user access permissions
+  const currentUser = userConfig?.users.find((u) => u.id === userConfig?.currentUserId);
+  const userAccess = currentUser?.access;
+
+  // Filter menus based on user access
+  const filterMenusByUserAccess = (menus: StandardMenu[] | CustomMenu[], isCustom: boolean) => {
+    if (!userAccess) return menus; // If no user access defined, show all menus
+
+    return menus.filter((menu) => {
+      if (isCustom) {
+        // For custom menus, check if the user has access to this specific menu
+        const customMenu = menu as CustomMenu;
+        return userAccess.customMenus.includes(customMenu.id);
+      } else {
+        // For standard menus, check if the user has access to this menu type
+        const standardMenu = menu as StandardMenu;
+        return userAccess.standardMenus[standardMenu.id as keyof typeof userAccess.standardMenus] === true;
+      }
+    });
+  };
+
   // Create a map of all enabled menus for easy lookup
   const allMenus = new Map<
     string,
     { menu: StandardMenu | CustomMenu; isCustom: boolean }
   >();
 
-  // Add enabled standard menus
-  standardMenus
+  // Add enabled standard menus (filtered by user access)
+  const accessibleStandardMenus = filterMenusByUserAccess(standardMenus, false) as StandardMenu[];
+  accessibleStandardMenus
     .filter((menu) => menu.enabled)
     .forEach((menu) => {
       allMenus.set(menu.id, { menu, isCustom: false });
     });
 
-  // Add enabled custom menus
-  customMenus
+  // Add enabled custom menus (filtered by user access)
+  const accessibleCustomMenus = filterMenusByUserAccess(customMenus, true) as CustomMenu[];
+  accessibleCustomMenus
     .filter((menu) => menu.enabled)
     .forEach((menu) => {
       allMenus.set(menu.id, { menu, isCustom: true });

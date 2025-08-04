@@ -14,6 +14,7 @@ import ImageUpload from "./ImageUpload";
 import StringMappingEditor from "./StringMappingEditor";
 import CSSVariablesEditor from "./CSSVariablesEditor";
 import EmbedFlagsEditor from "./EmbedFlagsEditor";
+import { User, UserConfig } from "../types/thoughtspot";
 
 interface StandardMenu {
   id: string;
@@ -78,6 +79,8 @@ interface SettingsModalProps {
   deleteCustomMenu: (id: string) => void;
   stylingConfig: StylingConfig;
   updateStylingConfig: (config: StylingConfig) => void;
+  userConfig: UserConfig;
+  updateUserConfig: (config: UserConfig) => void;
   clearAllConfigurations?: () => void;
   exportConfiguration?: (customName?: string) => void;
   importConfiguration?: (file: File) => Promise<{
@@ -2870,6 +2873,614 @@ function StylingContent({
   );
 }
 
+function UserConfigContent({
+  userConfig,
+  updateUserConfig,
+  customMenus,
+}: {
+  userConfig: UserConfig;
+  updateUserConfig: (config: UserConfig) => void;
+  customMenus: CustomMenu[];
+}) {
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  // Default users
+  const defaultUsers: User[] = [
+    {
+      id: "power-user",
+      name: "Power User",
+      description: "Can access all features and content",
+      access: {
+        standardMenus: {
+          home: true,
+          favorites: true,
+          "my-reports": true,
+          spotter: true,
+          search: true,
+          "full-app": true,
+        },
+        customMenus: [],
+      },
+    },
+    {
+      id: "basic-user",
+      name: "Basic User",
+      description: "Limited access - cannot access Search and Full App",
+      access: {
+        standardMenus: {
+          home: true,
+          favorites: true,
+          "my-reports": true,
+          spotter: true,
+          search: false,
+          "full-app": false,
+        },
+        customMenus: [],
+      },
+    },
+  ];
+
+  // Initialize with default users if none exist
+  useEffect(() => {
+    if (userConfig.users.length === 0) {
+      updateUserConfig({
+        users: defaultUsers,
+        currentUserId: defaultUsers[0].id,
+      });
+    }
+  }, [userConfig.users.length, updateUserConfig]);
+
+  const handleCreateUser = () => {
+    const newUser: User = {
+      id: `user-${Date.now()}`,
+      name: "",
+      description: "",
+      access: {
+        standardMenus: {
+          home: true,
+          favorites: true,
+          "my-reports": true,
+          spotter: true,
+          search: true,
+          "full-app": true,
+        },
+        customMenus: [],
+      },
+    };
+    setEditingUser(newUser);
+    setIsCreating(true);
+  };
+
+  const handleSaveUser = () => {
+    if (editingUser && editingUser.name.trim()) {
+      if (isCreating) {
+        updateUserConfig({
+          ...userConfig,
+          users: [...userConfig.users, editingUser],
+        });
+      } else {
+        updateUserConfig({
+          ...userConfig,
+          users: userConfig.users.map((user) =>
+            user.id === editingUser.id ? editingUser : user
+          ),
+        });
+      }
+      setEditingUser(null);
+      setIsCreating(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingUser(null);
+    setIsCreating(false);
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser({ ...user });
+    setIsCreating(false);
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    if (userConfig.users.length <= 1) {
+      alert("Cannot delete the last user. At least one user must remain.");
+      return;
+    }
+
+    if (confirm("Are you sure you want to delete this user?")) {
+      const updatedUsers = userConfig.users.filter(
+        (user) => user.id !== userId
+      );
+      const newCurrentUserId =
+        userConfig.currentUserId === userId
+          ? updatedUsers[0].id
+          : userConfig.currentUserId;
+
+      updateUserConfig({
+        ...userConfig,
+        users: updatedUsers,
+        currentUserId: newCurrentUserId,
+      });
+    }
+  };
+
+  const handleSetCurrentUser = (userId: string) => {
+    updateUserConfig({
+      ...userConfig,
+      currentUserId: userId,
+    });
+  };
+
+  const updateUserAccess = (
+    userId: string,
+    field: string,
+    value: boolean | string[]
+  ) => {
+    const user = userConfig.users.find((u) => u.id === userId);
+    if (!user) return;
+
+    const updatedUser = {
+      ...user,
+      access: {
+        ...user.access,
+        [field]: value,
+      },
+    };
+
+    updateUserConfig({
+      ...userConfig,
+      users: userConfig.users.map((u) => (u.id === userId ? updatedUser : u)),
+    });
+  };
+
+  const currentUser = userConfig.users.find(
+    (u) => u.id === userConfig.currentUserId
+  );
+
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "24px",
+        }}
+      >
+        <h3 style={{ fontSize: "20px", fontWeight: "bold", margin: 0 }}>
+          User Access Control
+        </h3>
+        <button
+          onClick={handleCreateUser}
+          disabled={editingUser !== null}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: editingUser !== null ? "#9ca3af" : "#3182ce",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            cursor: editingUser !== null ? "not-allowed" : "pointer",
+            fontSize: "14px",
+            fontWeight: "500",
+          }}
+        >
+          Add New User
+        </button>
+      </div>
+
+      {/* Current User Selection */}
+      <div
+        style={{
+          marginBottom: "24px",
+          padding: "16px",
+          border: "1px solid #e5e7eb",
+          borderRadius: "8px",
+          backgroundColor: "#f9fafb",
+        }}
+      >
+        <h4
+          style={{
+            fontSize: "16px",
+            fontWeight: "600",
+            marginBottom: "12px",
+          }}
+        >
+          Current User
+        </h4>
+        <select
+          value={userConfig.currentUserId || ""}
+          onChange={(e) => handleSetCurrentUser(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "8px 12px",
+            border: "1px solid #d1d5db",
+            borderRadius: "4px",
+            fontSize: "14px",
+          }}
+        >
+          {userConfig.users.map((user) => (
+            <option key={user.id} value={user.id}>
+              {user.name}
+            </option>
+          ))}
+        </select>
+        {currentUser && (
+          <p
+            style={{
+              margin: "8px 0 0 0",
+              fontSize: "12px",
+              color: "#6b7280",
+            }}
+          >
+            {currentUser.description}
+          </p>
+        )}
+      </div>
+
+      {editingUser && (
+        <div
+          style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
+            padding: "20px",
+            marginBottom: "20px",
+            backgroundColor: "#f9fafb",
+          }}
+        >
+          <h4
+            style={{
+              marginBottom: "16px",
+              fontSize: "16px",
+              fontWeight: "600",
+            }}
+          >
+            {isCreating ? "Create New User" : "Edit User"}
+          </h4>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "16px",
+              marginBottom: "16px",
+            }}
+          >
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "4px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                User Name *
+              </label>
+              <input
+                type="text"
+                value={editingUser.name}
+                onChange={(e) =>
+                  setEditingUser({ ...editingUser, name: e.target.value })
+                }
+                placeholder="Enter user name"
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "4px",
+                  fontSize: "14px",
+                }}
+              />
+            </div>
+
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "4px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Description
+              </label>
+              <input
+                type="text"
+                value={editingUser.description || ""}
+                onChange={(e) =>
+                  setEditingUser({
+                    ...editingUser,
+                    description: e.target.value,
+                  })
+                }
+                placeholder="Enter description"
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "4px",
+                  fontSize: "14px",
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: "20px" }}>
+            <h5
+              style={{
+                fontSize: "14px",
+                fontWeight: "600",
+                marginBottom: "12px",
+              }}
+            >
+              Standard Menu Access
+            </h5>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                gap: "12px",
+              }}
+            >
+              {Object.entries(editingUser.access.standardMenus).map(
+                ([menuId, hasAccess]) => (
+                  <label
+                    key={menuId}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={hasAccess}
+                      onChange={(e) => {
+                        const updatedUser = {
+                          ...editingUser,
+                          access: {
+                            ...editingUser.access,
+                            standardMenus: {
+                              ...editingUser.access.standardMenus,
+                              [menuId]: e.target.checked,
+                            },
+                          },
+                        };
+                        setEditingUser(updatedUser);
+                      }}
+                      style={{ cursor: "pointer" }}
+                    />
+                    <span
+                      style={{ fontSize: "14px", textTransform: "capitalize" }}
+                    >
+                      {menuId.replace("-", " ")}
+                    </span>
+                  </label>
+                )
+              )}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: "20px" }}>
+            <h5
+              style={{
+                fontSize: "14px",
+                fontWeight: "600",
+                marginBottom: "12px",
+              }}
+            >
+              Custom Menu Access
+            </h5>
+            {customMenus.length === 0 ? (
+              <p style={{ fontSize: "12px", color: "#6b7280" }}>
+                No custom menus available
+              </p>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: "12px",
+                }}
+              >
+                {customMenus.map((menu) => (
+                  <label
+                    key={menu.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={editingUser.access.customMenus.includes(menu.id)}
+                      onChange={(e) => {
+                        const updatedCustomMenus = e.target.checked
+                          ? [...editingUser.access.customMenus, menu.id]
+                          : editingUser.access.customMenus.filter(
+                              (id) => id !== menu.id
+                            );
+
+                        const updatedUser = {
+                          ...editingUser,
+                          access: {
+                            ...editingUser.access,
+                            customMenus: updatedCustomMenus,
+                          },
+                        };
+                        setEditingUser(updatedUser);
+                      }}
+                      style={{ cursor: "pointer" }}
+                    />
+                    <span style={{ fontSize: "14px" }}>{menu.name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}
+          >
+            <button
+              onClick={handleCancelEdit}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: "#6b7280",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "14px",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveUser}
+              disabled={!editingUser.name.trim()}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: editingUser.name.trim()
+                  ? "#3182ce"
+                  : "#9ca3af",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: editingUser.name.trim() ? "pointer" : "not-allowed",
+                fontSize: "14px",
+              }}
+            >
+              {isCreating ? "Create User" : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ flex: 1, overflow: "auto" }}>
+        {userConfig.users.length === 0 ? (
+          <div
+            style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}
+          >
+            <p>No users configured.</p>
+            <p>Click &quot;Add New User&quot; to get started.</p>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: "16px" }}>
+            {userConfig.users.map((user) => (
+              <div
+                key={user.id}
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "8px",
+                  padding: "16px",
+                  backgroundColor: "white",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    marginBottom: "8px",
+                  }}
+                >
+                  <div>
+                    <h4
+                      style={{
+                        margin: 0,
+                        fontSize: "16px",
+                        fontWeight: "600",
+                      }}
+                    >
+                      {user.name}
+                      {userConfig.currentUserId === user.id && (
+                        <span
+                          style={{
+                            marginLeft: "8px",
+                            padding: "2px 6px",
+                            backgroundColor: "#dcfce7",
+                            color: "#166534",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            fontWeight: "500",
+                          }}
+                        >
+                          Current
+                        </span>
+                      )}
+                    </h4>
+                    {user.description && (
+                      <p
+                        style={{
+                          margin: "4px 0 0 0",
+                          fontSize: "14px",
+                          color: "#6b7280",
+                        }}
+                      >
+                        {user.description}
+                      </p>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      onClick={() => handleEditUser(user)}
+                      style={{
+                        padding: "4px 8px",
+                        backgroundColor: "#3182ce",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteUser(user.id)}
+                      style={{
+                        padding: "4px 8px",
+                        backgroundColor: "#dc2626",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                  <strong>Access:</strong>{" "}
+                  {Object.entries(user.access.standardMenus)
+                    .filter(([, hasAccess]) => hasAccess)
+                    .map(([menuId]) => menuId.replace("-", " "))
+                    .join(", ")}
+                  {user.access.customMenus.length > 0 && (
+                    <>
+                      {" "}
+                      + {user.access.customMenus.length} custom menu
+                      {user.access.customMenus.length !== 1 ? "s" : ""}
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ConfigurationContent({
   appConfig,
   updateAppConfig,
@@ -3417,6 +4028,8 @@ export default function SettingsModal({
   deleteCustomMenu,
   stylingConfig,
   updateStylingConfig,
+  userConfig,
+  updateUserConfig,
   clearAllConfigurations,
   exportConfiguration,
   importConfiguration,
@@ -3627,6 +4240,17 @@ export default function SettingsModal({
           onSaveMenu={handleCustomMenuSave}
           onCancelEdit={handleCustomMenuCancel}
           ref={customMenuRef}
+        />
+      ),
+    },
+    {
+      id: "users",
+      name: "Users",
+      content: (
+        <UserConfigContent
+          userConfig={userConfig}
+          updateUserConfig={updateUserConfig}
+          customMenus={customMenus}
         />
       ),
     },

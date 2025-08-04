@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useState, useEffect } from "react";
 
 interface TopBarProps {
   title: string;
@@ -25,6 +26,26 @@ export default function TopBar({
   backgroundColor = "white",
   foregroundColor = "#1a202c",
 }: TopBarProps) {
+  const [thoughtSpotVersion, setThoughtSpotVersion] = useState<string | null>(
+    null
+  );
+
+  useEffect(() => {
+    const fetchVersion = async () => {
+      try {
+        const { fetchThoughtSpotVersion } = await import(
+          "../services/thoughtspotApi"
+        );
+        const version = await fetchThoughtSpotVersion();
+        setThoughtSpotVersion(version);
+      } catch (error) {
+        console.error("Failed to fetch ThoughtSpot version:", error);
+      }
+    };
+
+    fetchVersion();
+  }, []);
+
   return (
     <div
       style={{
@@ -141,6 +162,29 @@ export default function TopBar({
               <span>{user.name}</span>
             </button>
           ))}
+
+          {/* Version display */}
+          {thoughtSpotVersion && (
+            <>
+              <hr
+                style={{
+                  margin: "8px 0",
+                  border: "none",
+                  borderTop: "1px solid #e2e8f0",
+                }}
+              />
+              <div
+                style={{
+                  padding: "8px 16px",
+                  fontSize: "12px",
+                  color: "#6b7280",
+                  textAlign: "center",
+                }}
+              >
+                Version {thoughtSpotVersion}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

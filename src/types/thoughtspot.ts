@@ -31,6 +31,31 @@ export interface ThoughtSpotTag {
   color: string;
 }
 
+// User access control types
+export interface UserAccess {
+  standardMenus: {
+    home: boolean;
+    favorites: boolean;
+    "my-reports": boolean;
+    spotter: boolean;
+    search: boolean;
+    "full-app": boolean;
+  };
+  customMenus: string[]; // Array of custom menu IDs that the user can access
+}
+
+export interface User {
+  id: string;
+  name: string;
+  description?: string;
+  access: UserAccess;
+}
+
+export interface UserConfig {
+  users: User[];
+  currentUserId?: string;
+}
+
 // Embed-specific flags configuration
 export interface EmbedFlags {
   spotterEmbed?: Record<string, any>;
