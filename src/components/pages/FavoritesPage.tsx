@@ -22,7 +22,7 @@ export default function FavoritesPage() {
 
   return (
     <ContentGrid
-      title="Favorites"
+      title=""
       subtitle="Your Favorite Items"
       description="Quick access to your most frequently used reports, tools, and resources. Click on any item to open it directly."
       emptyMessage="Don't see your favorite items? Start exploring to add them here."

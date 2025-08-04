@@ -87,7 +87,7 @@ function CustomMenuPageContent() {
   return (
     <ContentGrid
       title={customMenu.name}
-      subtitle="Custom Menu Content"
+      subtitle=""
       description={
         customMenu.description || "Content selected for this custom menu."
       }

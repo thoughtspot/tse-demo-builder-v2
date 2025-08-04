@@ -295,11 +295,13 @@ export default function ContentGrid({
   if (loading) {
     return (
       <div>
-        <h1
-          style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "24px" }}
-        >
-          {title}
-        </h1>
+        {title && (
+          <h1
+            style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "24px" }}
+          >
+            {title}
+          </h1>
+        )}
 
         <div
           style={{
@@ -340,11 +342,13 @@ export default function ContentGrid({
   if (error) {
     return (
       <div>
-        <h1
-          style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "24px" }}
-        >
-          {title}
-        </h1>
+        {title && (
+          <h1
+            style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "24px" }}
+          >
+            {title}
+          </h1>
+        )}
 
         <div
           style={{
@@ -393,11 +397,13 @@ export default function ContentGrid({
 
   return (
     <div>
-      <h1
-        style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "24px" }}
-      >
-        {title}
-      </h1>
+      {title && (
+        <h1
+          style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "24px" }}
+        >
+          {title}
+        </h1>
+      )}
 
       <div
         style={{

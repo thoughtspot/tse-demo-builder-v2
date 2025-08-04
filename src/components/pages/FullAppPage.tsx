@@ -87,37 +87,6 @@ export default function FullAppPage() {
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      {/* Header */}
-      <div
-        style={{
-          backgroundColor: "#f7fafc",
-          padding: "16px",
-          borderBottom: "1px solid #e2e8f0",
-          marginBottom: "16px",
-        }}
-      >
-        <h2
-          style={{
-            fontSize: "20px",
-            fontWeight: "600",
-            margin: 0,
-            color: "#2d3748",
-          }}
-        >
-          Full Application
-        </h2>
-        <p
-          style={{
-            margin: "8px 0 0 0",
-            fontSize: "14px",
-            color: "#6b7280",
-          }}
-        >
-          Access the complete ThoughtSpot application with customizable
-          navigation settings.
-        </p>
-      </div>
-
       {/* Embed Container */}
       <div style={{ flex: 1, position: "relative" }}>
         {isLoading && (

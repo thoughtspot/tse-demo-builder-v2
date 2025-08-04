@@ -22,7 +22,7 @@ export default function MyReportsPage() {
 
   return (
     <ContentGrid
-      title="My Reports"
+      title=""
       subtitle="Your Created Content"
       description="Access and manage all the reports, liveboards, and answers you've created. Click on any item to open it directly."
       emptyMessage="You haven't created any content yet. Start building your first report or liveboard."
