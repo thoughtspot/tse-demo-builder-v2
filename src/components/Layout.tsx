@@ -6,7 +6,7 @@ import SideNav from "./SideNav";
 import SettingsModal from "./SettingsModal";
 import Footer from "./Footer";
 import SessionChecker from "./SessionChecker";
-import { CustomMenu, StylingConfig } from "../types/thoughtspot";
+import { CustomMenu, StylingConfig, EmbedFlags } from "../types/thoughtspot";
 import { setThoughtSpotBaseUrl } from "../services/thoughtspotApi";
 
 interface StandardMenu {
@@ -187,6 +187,12 @@ const DEFAULT_CONFIG = {
       stringIDs: {},
       cssUrl: "",
       customCSS: {},
+    },
+    embedFlags: {
+      spotterEmbed: {},
+      liveboardEmbed: {},
+      searchEmbed: {},
+      appEmbed: {},
     },
   } as StylingConfig,
 };
@@ -422,14 +428,50 @@ export default function Layout({ children }: LayoutProps) {
   });
 
   // Custom menus state
-  const [customMenus, setCustomMenus] = useState<CustomMenu[]>(
-    () => loadFromStorage(STORAGE_KEYS.CUSTOM_MENUS, []) as CustomMenu[]
-  );
+  const [customMenus, setCustomMenus] = useState<CustomMenu[]>(() => {
+    const loadedMenus = loadFromStorage(
+      STORAGE_KEYS.CUSTOM_MENUS,
+      []
+    ) as CustomMenu[];
+
+    // Clean up any duplicate IDs that might exist
+    const uniqueMenus: CustomMenu[] = [];
+    const seenIds = new Set<string>();
+
+    loadedMenus.forEach((menu) => {
+      if (!seenIds.has(menu.id)) {
+        seenIds.add(menu.id);
+        uniqueMenus.push(menu);
+      } else {
+        console.log("Removing duplicate custom menu:", menu.id);
+      }
+    });
+
+    return uniqueMenus;
+  });
 
   // Menu order state - tracks the order of enabled menu IDs
-  const [menuOrder, setMenuOrder] = useState<string[]>(
-    () => loadFromStorage(STORAGE_KEYS.MENU_ORDER, []) as string[]
-  );
+  const [menuOrder, setMenuOrder] = useState<string[]>(() => {
+    const loadedOrder = loadFromStorage(
+      STORAGE_KEYS.MENU_ORDER,
+      []
+    ) as string[];
+
+    // Clean up any duplicate entries in menu order
+    const uniqueOrder: string[] = [];
+    const seenIds = new Set<string>();
+
+    loadedOrder.forEach((id) => {
+      if (!seenIds.has(id)) {
+        seenIds.add(id);
+        uniqueOrder.push(id);
+      } else {
+        console.log("Removing duplicate menu order entry:", id);
+      }
+    });
+
+    return uniqueOrder;
+  });
 
   // Home page configuration state
   const [homePageConfig, setHomePageConfig] = useState<HomePageConfig>(
@@ -497,6 +539,12 @@ export default function Layout({ children }: LayoutProps) {
           cssUrl: "",
           customCSS: {},
         },
+        embedFlags: {
+          spotterEmbed: {},
+          liveboardEmbed: {},
+          searchEmbed: {},
+          appEmbed: {},
+        },
       }) as StylingConfig
   );
 
@@ -535,6 +583,33 @@ export default function Layout({ children }: LayoutProps) {
     document.title = title;
   }, [appConfig.applicationName]);
 
+  // Parse early access flags from configuration string
+  const parseEarlyAccessFlags = (
+    flagsString: string
+  ): Record<string, boolean> => {
+    const flags: Record<string, boolean> = {};
+
+    if (!flagsString || flagsString.trim() === "") {
+      return flags;
+    }
+
+    // Split by comma or newline and process each flag
+    const flagPairs = flagsString
+      .split(/[,\n]/)
+      .map((pair) => pair.trim())
+      .filter((pair) => pair.length > 0); // Remove empty lines
+
+    flagPairs.forEach((pair) => {
+      const [key, value] = pair.split("=").map((part) => part.trim());
+      if (key && value !== undefined) {
+        // Convert string value to boolean
+        flags[key] = value.toLowerCase() === "true";
+      }
+    });
+
+    return flags;
+  };
+
   // ThoughtSpot initialization
   useEffect(() => {
     const initializeThoughtSpot = async () => {
@@ -547,10 +622,19 @@ export default function Layout({ children }: LayoutProps) {
           "@thoughtspot/visual-embed-sdk"
         );
 
+        // Parse early access flags from configuration
+        const earlyAccessFlags = parseEarlyAccessFlags(
+          appConfig.earlyAccessFlags
+        );
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const initConfig: any = {
           thoughtSpotHost: appConfig.thoughtspotUrl,
           authType: AuthType.None,
+          additionalFlags: {
+            isLiveboardStylingEnabled: true,
+            ...earlyAccessFlags,
+          },
         };
 
         // Add customizations if any are configured
@@ -664,11 +748,35 @@ export default function Layout({ children }: LayoutProps) {
 
   const addCustomMenu = (menu: CustomMenu) => {
     console.log("addCustomMenu called with:", menu.name, "id:", menu.id);
-    setCustomMenus((prev) => [...prev, menu]);
+
+    // Check for duplicate IDs and regenerate if necessary
+    setCustomMenus((prev) => {
+      const existingIds = new Set(prev.map((m) => m.id));
+      let finalMenu = menu;
+
+      if (existingIds.has(menu.id)) {
+        // Regenerate ID if duplicate found
+        const newId = `custom-${Date.now()}-${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
+        finalMenu = { ...menu, id: newId };
+        console.log("Duplicate ID detected, regenerated:", newId);
+      }
+
+      return [...prev, finalMenu];
+    });
 
     // If the menu is enabled, add it to the menu order
     if (menu.enabled) {
-      setMenuOrder((prev) => [...prev, menu.id]);
+      setMenuOrder((prev) => {
+        const finalId = menu.id;
+        // Check if ID already exists in menu order
+        if (prev.includes(finalId)) {
+          console.log("Menu ID already in order, skipping:", finalId);
+          return prev;
+        }
+        return [...prev, finalId];
+      });
     }
   };
 

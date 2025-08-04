@@ -45,6 +45,25 @@ export default function Footer({
     fetchUser();
   }, []);
 
+  // Helper function to create a hover color that's consistent with the foreground color
+  const getHoverColor = (baseColor: string) => {
+    // Convert hex to RGB for manipulation
+    const hex = baseColor.replace("#", "");
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+
+    // Create a slightly lighter version for hover (increase brightness by 20%)
+    const brightness = 0.2;
+    const newR = Math.min(255, r + (255 - r) * brightness);
+    const newG = Math.min(255, g + (255 - g) * brightness);
+    const newB = Math.min(255, b + (255 - b) * brightness);
+
+    return `rgb(${Math.round(newR)}, ${Math.round(newG)}, ${Math.round(newB)})`;
+  };
+
+  const hoverColor = getHoverColor(foregroundColor);
+
   return (
     <footer
       style={{
@@ -66,13 +85,16 @@ export default function Footer({
           target="_blank"
           rel="noopener noreferrer"
           style={{
-            color: "#3182ce",
+            color: foregroundColor,
             textDecoration: "none",
+            transition: "color 0.2s ease, text-decoration 0.2s ease",
           }}
           onMouseEnter={(e) => {
+            e.currentTarget.style.color = hoverColor;
             e.currentTarget.style.textDecoration = "underline";
           }}
           onMouseLeave={(e) => {
+            e.currentTarget.style.color = foregroundColor;
             e.currentTarget.style.textDecoration = "none";
           }}
         >

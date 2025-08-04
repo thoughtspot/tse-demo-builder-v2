@@ -245,7 +245,7 @@ export default function SideNav({
       }}
     >
       {/* Navigation Items */}
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
         {navItems.map((item) => (
           <div
             key={item.id}

@@ -31,6 +31,14 @@ export interface ThoughtSpotTag {
   color: string;
 }
 
+// Embed-specific flags configuration
+export interface EmbedFlags {
+  spotterEmbed?: Record<string, any>;
+  liveboardEmbed?: Record<string, any>;
+  searchEmbed?: Record<string, any>;
+  appEmbed?: Record<string, any>;
+}
+
 // Styling configuration types
 export interface ApplicationStyles {
   topBar: {
@@ -62,4 +70,5 @@ export interface EmbeddedContentCustomization {
 export interface StylingConfig {
   application: ApplicationStyles;
   embeddedContent: EmbeddedContentCustomization;
+  embedFlags?: EmbedFlags;
 }

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 
 import { ThoughtSpotContent } from "../types/thoughtspot";
+import { useAppContext } from "./Layout";
 
 interface ThoughtSpotEmbedProps {
   content: ThoughtSpotContent;
@@ -23,6 +24,7 @@ export default function ThoughtSpotEmbed({
   const [error, setError] = useState<string | null>(null);
   const embedRef = useRef<HTMLDivElement>(null);
   const embedInstanceRef = useRef<{ destroy?: () => void } | null>(null);
+  const context = useAppContext();
 
   useEffect(() => {
     const initEmbed = async () => {
@@ -38,6 +40,12 @@ export default function ThoughtSpotEmbed({
 
         let embedInstance;
 
+        // Get embed flags based on content type
+        const embedFlags =
+          content.type === "liveboard"
+            ? context.stylingConfig.embedFlags?.liveboardEmbed || {}
+            : context.stylingConfig.embedFlags?.searchEmbed || {};
+
         if (content.type === "liveboard") {
           embedInstance = new LiveboardEmbed(embedRef.current, {
             liveboardId: content.id,
@@ -45,6 +53,7 @@ export default function ThoughtSpotEmbed({
               width,
               height,
             },
+            ...embedFlags,
           });
         } else if (content.type === "answer") {
           embedInstance = new SearchEmbed(embedRef.current, {
@@ -53,6 +62,7 @@ export default function ThoughtSpotEmbed({
               width,
               height,
             },
+            ...embedFlags,
           });
         } else if (content.type === "model") {
           // For models, use SearchEmbed with dataSource
@@ -62,6 +72,7 @@ export default function ThoughtSpotEmbed({
               width,
               height,
             },
+            ...embedFlags,
           });
         }
 

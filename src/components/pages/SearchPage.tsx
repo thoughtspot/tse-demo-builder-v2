@@ -26,6 +26,7 @@ export default function SearchPage({
   let contextSearchDataSource: string | undefined;
   let contextSearchTokenString: string | undefined;
   let contextRunSearch: boolean | undefined;
+  let contextEmbedFlags: Record<string, unknown> | undefined;
 
   try {
     const searchMenu = context.standardMenus.find(
@@ -39,6 +40,7 @@ export default function SearchPage({
     contextSearchDataSource = searchMenu?.searchDataSource;
     contextSearchTokenString = searchMenu?.searchTokenString;
     contextRunSearch = searchMenu?.runSearch;
+    contextEmbedFlags = context.stylingConfig.embedFlags?.searchEmbed;
   } catch (error) {
     // Context not available, use props or defaults
   }
@@ -53,6 +55,7 @@ export default function SearchPage({
       : contextRunSearch !== undefined
       ? contextRunSearch
       : runSearch;
+  const finalEmbedFlags = contextEmbedFlags || {};
 
   // Handle ThoughtSpot embed
   useEffect(() => {
@@ -84,6 +87,7 @@ export default function SearchPage({
             collapseDataSources: !!(
               finalSearchTokenString && finalSearchTokenString.trim()
             ),
+            ...finalEmbedFlags,
           };
 
           // Only add searchOptions if searchTokenString is provided

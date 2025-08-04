@@ -13,6 +13,7 @@ import ColorPicker from "./ColorPicker";
 import ImageUpload from "./ImageUpload";
 import StringMappingEditor from "./StringMappingEditor";
 import CSSVariablesEditor from "./CSSVariablesEditor";
+import EmbedFlagsEditor from "./EmbedFlagsEditor";
 
 interface StandardMenu {
   id: string;
@@ -134,6 +135,12 @@ interface StylingConfig {
     stringIDs: Record<string, string>;
     cssUrl?: string;
     customCSS: Record<string, string>;
+  };
+  embedFlags?: {
+    spotterEmbed?: Record<string, unknown>;
+    liveboardEmbed?: Record<string, unknown>;
+    searchEmbed?: Record<string, unknown>;
+    appEmbed?: Record<string, unknown>;
   };
 }
 
@@ -2863,6 +2870,536 @@ function StylingContent({
   );
 }
 
+function ConfigurationContent({
+  appConfig,
+  updateAppConfig,
+  stylingConfig,
+  updateStylingConfig,
+  clearAllConfigurations,
+  exportConfiguration,
+  importConfiguration,
+}: {
+  appConfig: AppConfig;
+  updateAppConfig: (config: AppConfig) => void;
+  stylingConfig: StylingConfig;
+  updateStylingConfig: (config: StylingConfig) => void;
+  clearAllConfigurations?: () => void;
+  exportConfiguration?: (customName?: string) => void;
+  importConfiguration?: (file: File) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+}) {
+  const [activeSubTab, setActiveSubTab] = useState("general");
+  const [importStatus, setImportStatus] = useState<{
+    message: string;
+    type: "success" | "error" | null;
+  }>({ message: "", type: null });
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportFileName, setExportFileName] = useState("");
+
+  const subTabs = [
+    { id: "general", name: "General", icon: "⚙️" },
+    { id: "embedFlags", name: "Embed Flags", icon: "🚩" },
+  ];
+
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <h3
+        style={{
+          marginBottom: "24px",
+          fontSize: "20px",
+          fontWeight: "bold",
+        }}
+      >
+        Configuration
+      </h3>
+
+      {/* Sub-tabs */}
+      <div
+        style={{
+          display: "flex",
+          borderBottom: "1px solid #e2e8f0",
+          marginBottom: "24px",
+          flexShrink: 0,
+        }}
+      >
+        {subTabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveSubTab(tab.id)}
+            style={{
+              padding: "12px 20px",
+              border: "none",
+              background: activeSubTab === tab.id ? "#3182ce" : "transparent",
+              color: activeSubTab === tab.id ? "white" : "#4a5568",
+              cursor: "pointer",
+              fontWeight: activeSubTab === tab.id ? "600" : "400",
+              borderBottom:
+                activeSubTab === tab.id ? "2px solid #3182ce" : "none",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <span style={{ fontSize: "16px" }}>{tab.icon}</span>
+            <span>{tab.name}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, overflow: "auto" }}>
+        {activeSubTab === "general" && (
+          <div>
+            <h4
+              style={{
+                fontSize: "18px",
+                fontWeight: "600",
+                marginBottom: "20px",
+              }}
+            >
+              General Configuration
+            </h4>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "24px",
+              }}
+            >
+              {/* Left Column */}
+              <div>
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontWeight: "500",
+                      fontSize: "14px",
+                    }}
+                  >
+                    ThoughtSpot URL
+                  </label>
+                  <input
+                    type="url"
+                    value={appConfig.thoughtspotUrl}
+                    onChange={(e) => {
+                      updateAppConfig({
+                        ...appConfig,
+                        thoughtspotUrl: e.target.value,
+                      });
+                    }}
+                    placeholder="https://your-instance.thoughtspot.cloud/"
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                    }}
+                  />
+                  <p
+                    style={{
+                      margin: "4px 0 0 0",
+                      fontSize: "12px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    The URL of your ThoughtSpot instance
+                  </p>
+                </div>
+
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontWeight: "500",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Application Name
+                  </label>
+                  <input
+                    type="text"
+                    value={appConfig.applicationName}
+                    onChange={(e) => {
+                      updateAppConfig({
+                        ...appConfig,
+                        applicationName: e.target.value,
+                      });
+                    }}
+                    placeholder="TSE Demo Builder"
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                    }}
+                  />
+                  <p
+                    style={{
+                      margin: "4px 0 0 0",
+                      fontSize: "12px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    The name displayed in the application header
+                  </p>
+                </div>
+              </div>
+
+              {/* Right Column */}
+              <div>
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontWeight: "500",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Logo URL
+                  </label>
+                  <input
+                    type="url"
+                    value={appConfig.logo}
+                    onChange={(e) =>
+                      updateAppConfig({
+                        ...appConfig,
+                        logo: e.target.value,
+                      })
+                    }
+                    placeholder="https://example.com/logo.png"
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                    }}
+                  />
+                  <p
+                    style={{
+                      margin: "4px 0 0 0",
+                      fontSize: "12px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    URL to your application logo (optional)
+                  </p>
+                </div>
+
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontWeight: "500",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Early Access Flags
+                  </label>
+                  <textarea
+                    value={appConfig.earlyAccessFlags}
+                    onChange={(e) =>
+                      updateAppConfig({
+                        ...appConfig,
+                        earlyAccessFlags: e.target.value,
+                      })
+                    }
+                    placeholder="Enter early access flags (one per line)"
+                    rows={4}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                      resize: "vertical",
+                    }}
+                  />
+                  <p
+                    style={{
+                      margin: "4px 0 0 0",
+                      fontSize: "12px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    Feature flags for early access features (optional)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Import Status Message */}
+            {importStatus.type && (
+              <div
+                style={{
+                  marginTop: "16px",
+                  padding: "12px 16px",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  backgroundColor:
+                    importStatus.type === "success" ? "#d1fae5" : "#fee2e2",
+                  color:
+                    importStatus.type === "success" ? "#065f46" : "#991b1b",
+                  border: `1px solid ${
+                    importStatus.type === "success" ? "#a7f3d0" : "#fecaca"
+                  }`,
+                }}
+              >
+                {importStatus.message}
+              </div>
+            )}
+
+            {/* Export Dialog */}
+            {showExportDialog && (
+              <div
+                style={{
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 1000,
+                }}
+              >
+                <div
+                  style={{
+                    backgroundColor: "white",
+                    padding: "24px",
+                    borderRadius: "8px",
+                    minWidth: "400px",
+                    maxWidth: "500px",
+                  }}
+                >
+                  <h3
+                    style={{
+                      marginBottom: "16px",
+                      fontSize: "18px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Export Configuration
+                  </h3>
+                  <p
+                    style={{
+                      marginBottom: "16px",
+                      fontSize: "14px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    Choose a name for your configuration file (optional). If
+                    left empty, a default name will be used.
+                  </p>
+                  <input
+                    type="text"
+                    value={exportFileName}
+                    onChange={(e) => setExportFileName(e.target.value)}
+                    placeholder="e.g., my-demo-config, production-setup"
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                      marginBottom: "16px",
+                    }}
+                  />
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "12px",
+                      justifyContent: "flex-end",
+                    }}
+                  >
+                    <button
+                      onClick={() => {
+                        setShowExportDialog(false);
+                        setExportFileName("");
+                      }}
+                      style={{
+                        padding: "8px 16px",
+                        backgroundColor: "#6b7280",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        const fileName = exportFileName.trim();
+                        // Validate filename - only allow alphanumeric, hyphens, underscores, and spaces
+                        const validFileName = fileName.replace(
+                          /[^a-zA-Z0-9\s\-_]/g,
+                          ""
+                        );
+                        exportConfiguration?.(validFileName || undefined);
+                        setShowExportDialog(false);
+                        setExportFileName("");
+                      }}
+                      style={{
+                        padding: "8px 16px",
+                        backgroundColor: "#059669",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Export
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div
+              style={{
+                marginTop: "32px",
+                paddingTop: "24px",
+                borderTop: "1px solid #e5e7eb",
+                display: "flex",
+                gap: "12px",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div style={{ display: "flex", gap: "12px" }}>
+                <button
+                  onClick={() => setShowExportDialog(true)}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: "#059669",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                  }}
+                >
+                  Export Configuration
+                </button>
+                <label
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: "#3b82f6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    display: "inline-block",
+                  }}
+                >
+                  Import Configuration
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file && importConfiguration) {
+                        const result = await importConfiguration(file);
+                        if (!result.success) {
+                          setImportStatus({
+                            message: `Import failed: ${result.error}`,
+                            type: "error",
+                          });
+                        } else {
+                          setImportStatus({
+                            message: "Configuration imported successfully!",
+                            type: "success",
+                          });
+                        }
+                        // Clear status after 3 seconds
+                        setTimeout(
+                          () => setImportStatus({ message: "", type: null }),
+                          3000
+                        );
+                      }
+                      // Reset the input
+                      e.target.value = "";
+                    }}
+                    style={{ display: "none" }}
+                  />
+                </label>
+              </div>
+              <button
+                onClick={clearAllConfigurations}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#dc2626",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Clear All Configurations
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeSubTab === "embedFlags" && (
+          <div>
+            <h4
+              style={{
+                fontSize: "18px",
+                fontWeight: "600",
+                marginBottom: "20px",
+              }}
+            >
+              Embed Flags Configuration
+            </h4>
+            <p
+              style={{
+                marginBottom: "20px",
+                color: "#6b7280",
+                fontSize: "14px",
+              }}
+            >
+              Configure embed-specific flags for different ThoughtSpot embed
+              types.
+            </p>
+            <EmbedFlagsEditor
+              embedFlags={stylingConfig.embedFlags || {}}
+              onChange={(embedFlags) =>
+                updateStylingConfig({
+                  ...stylingConfig,
+                  embedFlags,
+                })
+              }
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsModal({
   isOpen,
   onClose,
@@ -3046,415 +3583,15 @@ export default function SettingsModal({
       id: "configuration",
       name: "Configuration",
       content: (
-        <div>
-          <h3
-            style={{
-              marginBottom: "24px",
-              fontSize: "20px",
-              fontWeight: "bold",
-            }}
-          >
-            General Configuration
-          </h3>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "24px",
-            }}
-          >
-            {/* Left Column */}
-            <div>
-              <div style={{ marginBottom: "24px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "8px",
-                    fontWeight: "500",
-                    fontSize: "14px",
-                  }}
-                >
-                  ThoughtSpot URL
-                </label>
-                <input
-                  type="url"
-                  value={pendingAppConfig.thoughtspotUrl}
-                  onChange={(e) => {
-                    updatePendingAppConfig({
-                      ...pendingAppConfig,
-                      thoughtspotUrl: e.target.value,
-                    });
-                  }}
-                  placeholder="https://your-instance.thoughtspot.cloud/"
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
-                    fontSize: "14px",
-                  }}
-                />
-                <p
-                  style={{
-                    margin: "4px 0 0 0",
-                    fontSize: "12px",
-                    color: "#6b7280",
-                  }}
-                >
-                  The URL of your ThoughtSpot instance
-                </p>
-              </div>
-
-              <div style={{ marginBottom: "24px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "8px",
-                    fontWeight: "500",
-                    fontSize: "14px",
-                  }}
-                >
-                  Application Name
-                </label>
-                <input
-                  type="text"
-                  value={pendingAppConfig.applicationName}
-                  onChange={(e) => {
-                    updatePendingAppConfig({
-                      ...pendingAppConfig,
-                      applicationName: e.target.value,
-                    });
-                  }}
-                  placeholder="TSE Demo Builder"
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
-                    fontSize: "14px",
-                  }}
-                />
-                <p
-                  style={{
-                    margin: "4px 0 0 0",
-                    fontSize: "12px",
-                    color: "#6b7280",
-                  }}
-                >
-                  The name displayed in the application header
-                </p>
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div>
-              <div style={{ marginBottom: "24px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "8px",
-                    fontWeight: "500",
-                    fontSize: "14px",
-                  }}
-                >
-                  Logo URL
-                </label>
-                <input
-                  type="url"
-                  value={pendingAppConfig.logo}
-                  onChange={(e) =>
-                    updatePendingAppConfig({
-                      ...pendingAppConfig,
-                      logo: e.target.value,
-                    })
-                  }
-                  placeholder="https://example.com/logo.png"
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
-                    fontSize: "14px",
-                  }}
-                />
-                <p
-                  style={{
-                    margin: "4px 0 0 0",
-                    fontSize: "12px",
-                    color: "#6b7280",
-                  }}
-                >
-                  URL to your application logo (optional)
-                </p>
-              </div>
-
-              <div style={{ marginBottom: "24px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "8px",
-                    fontWeight: "500",
-                    fontSize: "14px",
-                  }}
-                >
-                  Early Access Flags
-                </label>
-                <textarea
-                  value={pendingAppConfig.earlyAccessFlags}
-                  onChange={(e) =>
-                    updatePendingAppConfig({
-                      ...pendingAppConfig,
-                      earlyAccessFlags: e.target.value,
-                    })
-                  }
-                  placeholder="Enter early access flags (one per line)"
-                  rows={4}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
-                    fontSize: "14px",
-                    resize: "vertical",
-                  }}
-                />
-                <p
-                  style={{
-                    margin: "4px 0 0 0",
-                    fontSize: "12px",
-                    color: "#6b7280",
-                  }}
-                >
-                  Feature flags for early access features (optional)
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Import Status Message */}
-          {importStatus.type && (
-            <div
-              style={{
-                marginTop: "16px",
-                padding: "12px 16px",
-                borderRadius: "6px",
-                fontSize: "14px",
-                backgroundColor:
-                  importStatus.type === "success" ? "#d1fae5" : "#fee2e2",
-                color: importStatus.type === "success" ? "#065f46" : "#991b1b",
-                border: `1px solid ${
-                  importStatus.type === "success" ? "#a7f3d0" : "#fecaca"
-                }`,
-              }}
-            >
-              {importStatus.message}
-            </div>
-          )}
-
-          {/* Export Dialog */}
-          {showExportDialog && (
-            <div
-              style={{
-                position: "fixed",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: "rgba(0, 0, 0, 0.5)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                zIndex: 1000,
-              }}
-            >
-              <div
-                style={{
-                  backgroundColor: "white",
-                  padding: "24px",
-                  borderRadius: "8px",
-                  minWidth: "400px",
-                  maxWidth: "500px",
-                }}
-              >
-                <h3
-                  style={{
-                    marginBottom: "16px",
-                    fontSize: "18px",
-                    fontWeight: "bold",
-                  }}
-                >
-                  Export Configuration
-                </h3>
-                <p
-                  style={{
-                    marginBottom: "16px",
-                    fontSize: "14px",
-                    color: "#6b7280",
-                  }}
-                >
-                  Choose a name for your configuration file (optional). If left
-                  empty, a default name will be used.
-                </p>
-                <input
-                  type="text"
-                  value={exportFileName}
-                  onChange={(e) => setExportFileName(e.target.value)}
-                  placeholder="e.g., my-demo-config, production-setup"
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
-                    fontSize: "14px",
-                    marginBottom: "16px",
-                  }}
-                />
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "12px",
-                    justifyContent: "flex-end",
-                  }}
-                >
-                  <button
-                    onClick={() => {
-                      setShowExportDialog(false);
-                      setExportFileName("");
-                    }}
-                    style={{
-                      padding: "8px 16px",
-                      backgroundColor: "#6b7280",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => {
-                      const fileName = exportFileName.trim();
-                      // Validate filename - only allow alphanumeric, hyphens, underscores, and spaces
-                      const validFileName = fileName.replace(
-                        /[^a-zA-Z0-9\s\-_]/g,
-                        ""
-                      );
-                      exportConfiguration?.(validFileName || undefined);
-                      setShowExportDialog(false);
-                      setExportFileName("");
-                    }}
-                    style={{
-                      padding: "8px 16px",
-                      backgroundColor: "#059669",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Export
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div
-            style={{
-              marginTop: "32px",
-              paddingTop: "24px",
-              borderTop: "1px solid #e5e7eb",
-              display: "flex",
-              gap: "12px",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div style={{ display: "flex", gap: "12px" }}>
-              <button
-                onClick={() => setShowExportDialog(true)}
-                style={{
-                  padding: "8px 16px",
-                  backgroundColor: "#059669",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                }}
-              >
-                Export Configuration
-              </button>
-              <label
-                style={{
-                  padding: "8px 16px",
-                  backgroundColor: "#3b82f6",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  display: "inline-block",
-                }}
-              >
-                Import Configuration
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file && importConfiguration) {
-                      const result = await importConfiguration(file);
-                      if (!result.success) {
-                        setImportStatus({
-                          message: `Import failed: ${result.error}`,
-                          type: "error",
-                        });
-                      } else {
-                        setImportStatus({
-                          message: "Configuration imported successfully!",
-                          type: "success",
-                        });
-                      }
-                      // Clear status after 3 seconds
-                      setTimeout(
-                        () => setImportStatus({ message: "", type: null }),
-                        3000
-                      );
-                    }
-                    // Reset the input
-                    e.target.value = "";
-                  }}
-                  style={{ display: "none" }}
-                />
-              </label>
-            </div>
-            <button
-              onClick={clearAllConfigurations}
-              style={{
-                padding: "8px 16px",
-                backgroundColor: "#dc2626",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontSize: "14px",
-                fontWeight: "500",
-              }}
-            >
-              Clear All Configurations
-            </button>
-          </div>
-        </div>
+        <ConfigurationContent
+          appConfig={pendingAppConfig}
+          updateAppConfig={updatePendingAppConfig}
+          stylingConfig={pendingStylingConfig}
+          updateStylingConfig={updatePendingStylingConfig}
+          clearAllConfigurations={clearAllConfigurations}
+          exportConfiguration={exportConfiguration}
+          importConfiguration={importConfiguration}
+        />
       ),
     },
     {

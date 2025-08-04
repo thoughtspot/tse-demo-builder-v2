@@ -22,6 +22,7 @@ export default function SpotterPage({
   // Try to get configuration from context if not provided as props
   let contextSpotterModelId: string | undefined;
   let contextSpotterSearchQuery: string | undefined;
+  let contextEmbedFlags: Record<string, unknown> | undefined;
 
   try {
     const spotterMenu = context.standardMenus.find(
@@ -33,6 +34,7 @@ export default function SpotterPage({
     );
     contextSpotterModelId = spotterMenu?.spotterModelId;
     contextSpotterSearchQuery = spotterMenu?.spotterSearchQuery;
+    contextEmbedFlags = context.stylingConfig.embedFlags?.spotterEmbed;
   } catch (error) {
     // Context not available, use props or defaults
   }
@@ -41,6 +43,7 @@ export default function SpotterPage({
   const finalSpotterModelId = propSpotterModelId || contextSpotterModelId;
   const finalSpotterSearchQuery =
     propSpotterSearchQuery || contextSpotterSearchQuery;
+  const finalEmbedFlags = contextEmbedFlags || {};
 
   // Handle ThoughtSpot embed
   useEffect(() => {
@@ -66,6 +69,7 @@ export default function SpotterPage({
               width: "100%",
               height: "600px",
             },
+            ...finalEmbedFlags,
           };
 
           // Only add searchOptions if searchQuery is provided

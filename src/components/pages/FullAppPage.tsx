@@ -9,7 +9,7 @@ export default function FullAppPage() {
   const embedRef = useRef<HTMLDivElement>(null);
   const embedInstanceRef = useRef<{ destroy?: () => void } | null>(null);
 
-  const { fullAppConfig } = useAppContext();
+  const { fullAppConfig, stylingConfig } = useAppContext();
 
   useEffect(() => {
     const initEmbed = async () => {
@@ -38,6 +38,7 @@ export default function FullAppPage() {
             HomepageModule.MyLibrary,
           ],
           pageId: Page.Home,
+          ...(stylingConfig.embedFlags?.appEmbed || {}),
         });
 
         embedInstanceRef.current = embedInstance;
