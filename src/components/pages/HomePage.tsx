@@ -157,7 +157,9 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
                   height: "100%",
                 },
               });
-              await embedInstance.render();
+              if (embedInstance.render) {
+                await embedInstance.render();
+              }
             }
             break;
 
@@ -170,7 +172,9 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
                   height: "600px",
                 },
               });
-              await embedInstance.render();
+              if (embedInstance.render) {
+                await embedInstance.render();
+              }
             }
             break;
 
@@ -183,7 +187,9 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
                   height: "600px",
                 },
               });
-              await embedInstance.render();
+              if (embedInstance.render) {
+                await embedInstance.render();
+              }
             }
             break;
         }

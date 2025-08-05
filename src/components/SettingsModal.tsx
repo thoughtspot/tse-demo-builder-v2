@@ -3646,11 +3646,15 @@ function ConfigurationContent({
       const configData = await loadConfigurationFromGitHub(filename);
 
       // Apply the configuration to the app
-      if (configData.appConfig) {
-        updateAppConfig(configData.appConfig);
+      if (configData.appConfig && 
+          typeof configData.appConfig === 'object' && 
+          'thoughtspotUrl' in configData.appConfig) {
+        updateAppConfig(configData.appConfig as AppConfig);
       }
-      if (configData.stylingConfig) {
-        updateStylingConfig(configData.stylingConfig);
+      if (configData.stylingConfig && 
+          typeof configData.stylingConfig === 'object' && 
+          'application' in configData.stylingConfig) {
+        updateStylingConfig(configData.stylingConfig as StylingConfig);
       }
 
       setImportStatus({

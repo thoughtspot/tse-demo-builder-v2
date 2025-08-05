@@ -85,7 +85,9 @@ export default function SpotterPage({
             };
           }
 
-          embedInstance = new SpotterEmbed(embedRef.current, embedConfig);
+          if (embedConfig.worksheetId) {
+            embedInstance = new SpotterEmbed(embedRef.current, embedConfig as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+          }
           embedInstanceRef.current = embedInstance;
           await (embedInstance as { render: () => Promise<void> }).render();
         }

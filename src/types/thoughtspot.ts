@@ -1,6 +1,6 @@
 // ThoughtSpot SDK Types
 export interface ThoughtSpotEmbedInstance {
-  render?: () => Promise<void>;
+  render?: () => Promise<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   destroy?: () => void;
   sendMessage?: (message: string) => Promise<{
     container?: HTMLElement;
@@ -11,7 +11,7 @@ export interface ThoughtSpotEmbedInstance {
 
 export interface ThoughtSpotInitConfig {
   thoughtSpotHost: string;
-  authType: unknown; // Using unknown for AuthType enum from SDK
+  authType: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   additionalFlags?: Record<string, boolean>;
   customizations?: {
     content?: {
@@ -57,8 +57,9 @@ export interface ThoughtSpotSearchEmbedConfig {
 export interface ThoughtSpotContent {
   id: string;
   name: string;
-  type: "liveboard" | "answer" | "model";
+  type: "liveboard" | "answer" | "model" | "worksheet";
   description?: string;
+  lastAccessed?: number;
 }
 
 export interface SavedConfiguration {

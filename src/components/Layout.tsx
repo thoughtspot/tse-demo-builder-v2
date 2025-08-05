@@ -790,7 +790,7 @@ export default function Layout({ children }: LayoutProps) {
           );
           console.log(
             "CSS Rules:",
-            initConfig.customizations.style.rules_UNSTABLE
+            initConfig.customizations.style.customCSS?.rules_UNSTABLE
           );
         }
         console.log("==================================");
