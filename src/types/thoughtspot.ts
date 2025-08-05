@@ -1,12 +1,71 @@
+// ThoughtSpot SDK Types
+export interface ThoughtSpotEmbedInstance {
+  render?: () => Promise<void>;
+  destroy?: () => void;
+  sendMessage?: (message: string) => Promise<{
+    container?: HTMLElement;
+    error?: string;
+    viz?: unknown;
+  }>;
+}
+
+export interface ThoughtSpotInitConfig {
+  thoughtSpotHost: string;
+  authType: unknown; // Using unknown for AuthType enum from SDK
+  additionalFlags?: Record<string, boolean>;
+  customizations?: {
+    content?: {
+      strings?: Record<string, string>;
+      stringIDs?: Record<string, string>;
+    };
+    style?: {
+      customCSSUrl?: string;
+      customCSS?: {
+        variables?: Record<string, string>;
+        rules_UNSTABLE?: Record<string, Record<string, string>>;
+      };
+    };
+  };
+}
+
+export interface ThoughtSpotEmbedConfig {
+  worksheetId?: string;
+  liveboardId?: string;
+  answerId?: string;
+  frameParams?: {
+    width: string;
+    height: string;
+  };
+  searchOptions?: {
+    searchQuery: string;
+  };
+  hiddenActions?: string[];
+}
+
+export interface ThoughtSpotSearchEmbedConfig {
+  frameParams: Record<string, string | number | boolean | undefined>;
+  dataSource: string;
+  dataPanelV2?: boolean;
+  collapseDataSources?: boolean;
+  searchOptions?: {
+    searchTokenString: string;
+    executeSearch: boolean;
+  };
+  hiddenActions?: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+}
+
 export interface ThoughtSpotContent {
   id: string;
   name: string;
-  type: "liveboard" | "answer" | "model" | "worksheet";
+  type: "liveboard" | "answer" | "model";
   description?: string;
-  authorName?: string;
-  created?: number;
-  modified?: number;
-  lastAccessed?: number;
+}
+
+export interface SavedConfiguration {
+  name: string;
+  description?: string;
+  config: Record<string, unknown>;
+  filename: string;
 }
 
 export interface CustomMenu {

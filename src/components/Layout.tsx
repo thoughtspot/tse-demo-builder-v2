@@ -12,6 +12,7 @@ import {
   StylingConfig,
   EmbedFlags,
   UserConfig,
+  ThoughtSpotInitConfig,
 } from "../types/thoughtspot";
 import { setThoughtSpotBaseUrl } from "../services/thoughtspotApi";
 
@@ -740,8 +741,7 @@ export default function Layout({ children }: LayoutProps) {
           appConfig.earlyAccessFlags
         );
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const initConfig: any = {
+        const initConfig: ThoughtSpotInitConfig = {
           thoughtSpotHost: appConfig.thoughtspotUrl,
           authType: AuthType.None,
           additionalFlags: {

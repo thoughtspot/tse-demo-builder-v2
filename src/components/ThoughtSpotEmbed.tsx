@@ -51,7 +51,7 @@ export default function ThoughtSpotEmbed({
           (u) => u.id === context.userConfig.currentUserId
         );
         const hiddenActions = currentUser?.access.hiddenActions?.enabled
-          ? (currentUser.access.hiddenActions.actions as any[])
+          ? (currentUser.access.hiddenActions.actions as any[]) // eslint-disable-line @typescript-eslint/no-explicit-any
           : [];
 
         if (content.type === "liveboard") {

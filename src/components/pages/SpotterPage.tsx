@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useAppContext } from "../Layout";
+import { ThoughtSpotEmbedConfig } from "../../types/thoughtspot";
 
 interface SpotterPageProps {
   spotterModelId?: string;
@@ -64,15 +65,10 @@ export default function SpotterPage({
             (u) => u.id === context.userConfig.currentUserId
           );
           const hiddenActions = currentUser?.access.hiddenActions?.enabled
-            ? (currentUser.access.hiddenActions.actions as any[])
+            ? (currentUser.access.hiddenActions.actions as any[]) // eslint-disable-line @typescript-eslint/no-explicit-any
             : [];
 
-          const embedConfig: {
-            worksheetId: string;
-            frameParams: { width: string; height: string };
-            searchOptions?: { searchQuery: string };
-            hiddenActions?: any[];
-          } = {
+          const embedConfig: ThoughtSpotEmbedConfig = {
             worksheetId: finalSpotterModelId,
             frameParams: {
               width: "100%",

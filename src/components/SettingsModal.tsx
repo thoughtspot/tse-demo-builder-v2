@@ -15,7 +15,12 @@ import StringMappingEditor from "./StringMappingEditor";
 import CSSVariablesEditor from "./CSSVariablesEditor";
 import CSSRulesEditor from "./CSSRulesEditor";
 import EmbedFlagsEditor from "./EmbedFlagsEditor";
-import { User, UserConfig, HiddenActionsConfig } from "../types/thoughtspot";
+import {
+  User,
+  UserConfig,
+  HiddenActionsConfig,
+  SavedConfiguration,
+} from "../types/thoughtspot";
 import HiddenActionsEditor from "./HiddenActionsEditor";
 import {
   fetchSavedConfigurations,
@@ -3606,12 +3611,7 @@ function ConfigurationContent({
 
   // GitHub configuration loading state
   const [savedConfigurations, setSavedConfigurations] = useState<
-    Array<{
-      name: string;
-      description?: string;
-      config: any;
-      filename: string;
-    }>
+    SavedConfiguration[]
   >([]);
   const [isLoadingConfigurations, setIsLoadingConfigurations] = useState(false);
   const [showGitHubDialog, setShowGitHubDialog] = useState(false);

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useAppContext } from "../Layout";
+import { ThoughtSpotSearchEmbedConfig } from "../../types/thoughtspot";
 
 interface SearchPageProps {
   searchDataSource?: string;
@@ -76,20 +77,10 @@ export default function SearchPage({
             (u) => u.id === context.userConfig.currentUserId
           );
           const hiddenActions = currentUser?.access.hiddenActions?.enabled
-            ? (currentUser.access.hiddenActions.actions as any[])
+            ? (currentUser.access.hiddenActions.actions as any[]) // eslint-disable-line @typescript-eslint/no-explicit-any
             : [];
 
-          const embedConfig: {
-            frameParams: Record<string, string | number | boolean | undefined>;
-            dataSource: string;
-            dataPanelV2?: boolean;
-            collapseDataSources?: boolean;
-            searchOptions?: {
-              searchTokenString: string;
-              executeSearch: boolean;
-            };
-            hiddenActions?: any[];
-          } = {
+          const embedConfig: ThoughtSpotSearchEmbedConfig = {
             frameParams: {},
             dataSource: finalSearchDataSource,
             dataPanelV2: true,

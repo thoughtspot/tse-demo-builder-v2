@@ -2,7 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import { fetchModels } from "../services/thoughtspotApi";
-import { ThoughtSpotContent } from "../types/thoughtspot";
+import {
+  ThoughtSpotContent,
+  ThoughtSpotEmbedInstance,
+} from "../types/thoughtspot";
 import { useAppContext } from "./Layout";
 
 interface Message {
@@ -31,8 +34,8 @@ export default function Chatbot({ isOpen, onClose }: ChatbotProps) {
   const [selectedModel, setSelectedModel] = useState<ThoughtSpotContent | null>(
     null
   );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [conversation, setConversation] = useState<any>(null);
+  const [conversation, setConversation] =
+    useState<ThoughtSpotEmbedInstance | null>(null);
   const [userQuery, setUserQuery] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -188,6 +191,9 @@ export default function Chatbot({ isOpen, onClose }: ChatbotProps) {
     setIsLoading(true);
 
     try {
+      if (!conversation.sendMessage) {
+        throw new Error("Send message method not available");
+      }
       const { container, error } = await conversation.sendMessage(inputValue);
 
       if (error) {

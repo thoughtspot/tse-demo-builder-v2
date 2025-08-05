@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useAppContext } from "../Layout";
+import { ThoughtSpotEmbedInstance } from "../../types/thoughtspot";
 
 interface HomePageConfig {
   type: "image" | "html" | "iframe" | "liveboard" | "answer" | "spotter";
@@ -137,8 +138,7 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
       return;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let embedInstance: any = null;
+    let embedInstance: ThoughtSpotEmbedInstance | null = null;
 
     const initEmbed = async () => {
       try {
