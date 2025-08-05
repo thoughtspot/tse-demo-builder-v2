@@ -46,6 +46,14 @@ export default function ThoughtSpotEmbed({
             ? context.stylingConfig.embedFlags?.liveboardEmbed || {}
             : context.stylingConfig.embedFlags?.searchEmbed || {};
 
+        // Get hidden actions for current user
+        const currentUser = context.userConfig.users.find(
+          (u) => u.id === context.userConfig.currentUserId
+        );
+        const hiddenActions = currentUser?.access.hiddenActions?.enabled
+          ? (currentUser.access.hiddenActions.actions as any[])
+          : [];
+
         if (content.type === "liveboard") {
           embedInstance = new LiveboardEmbed(embedRef.current, {
             liveboardId: content.id,
@@ -54,6 +62,7 @@ export default function ThoughtSpotEmbed({
               height,
             },
             ...embedFlags,
+            ...(hiddenActions.length > 0 && { hiddenActions }),
           });
         } else if (content.type === "answer") {
           embedInstance = new SearchEmbed(embedRef.current, {
@@ -63,6 +72,7 @@ export default function ThoughtSpotEmbed({
               height,
             },
             ...embedFlags,
+            ...(hiddenActions.length > 0 && { hiddenActions }),
           });
         } else if (content.type === "model") {
           // For models, use SearchEmbed with dataSource
@@ -73,6 +83,7 @@ export default function ThoughtSpotEmbed({
               height,
             },
             ...embedFlags,
+            ...(hiddenActions.length > 0 && { hiddenActions }),
           });
         }
 

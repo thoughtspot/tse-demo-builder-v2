@@ -71,6 +71,14 @@ export default function SearchPage({
         const { SearchEmbed } = await import("@thoughtspot/visual-embed-sdk");
 
         if (embedRef.current) {
+          // Get hidden actions for current user
+          const currentUser = context.userConfig.users.find(
+            (u) => u.id === context.userConfig.currentUserId
+          );
+          const hiddenActions = currentUser?.access.hiddenActions?.enabled
+            ? (currentUser.access.hiddenActions.actions as any[])
+            : [];
+
           const embedConfig: {
             frameParams: Record<string, string | number | boolean | undefined>;
             dataSource: string;
@@ -80,6 +88,7 @@ export default function SearchPage({
               searchTokenString: string;
               executeSearch: boolean;
             };
+            hiddenActions?: any[];
           } = {
             frameParams: {},
             dataSource: finalSearchDataSource,
@@ -88,6 +97,7 @@ export default function SearchPage({
               finalSearchTokenString && finalSearchTokenString.trim()
             ),
             ...finalEmbedFlags,
+            ...(hiddenActions.length > 0 && { hiddenActions }),
           };
 
           // Only add searchOptions if searchTokenString is provided

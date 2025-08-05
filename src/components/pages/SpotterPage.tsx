@@ -59,10 +59,19 @@ export default function SpotterPage({
         const { SpotterEmbed } = await import("@thoughtspot/visual-embed-sdk");
 
         if (embedRef.current) {
+          // Get hidden actions for current user
+          const currentUser = context.userConfig.users.find(
+            (u) => u.id === context.userConfig.currentUserId
+          );
+          const hiddenActions = currentUser?.access.hiddenActions?.enabled
+            ? (currentUser.access.hiddenActions.actions as any[])
+            : [];
+
           const embedConfig: {
             worksheetId: string;
             frameParams: { width: string; height: string };
             searchOptions?: { searchQuery: string };
+            hiddenActions?: any[];
           } = {
             worksheetId: finalSpotterModelId,
             frameParams: {
@@ -70,6 +79,7 @@ export default function SpotterPage({
               height: "600px",
             },
             ...finalEmbedFlags,
+            ...(hiddenActions.length > 0 && { hiddenActions }),
           };
 
           // Only add searchOptions if searchQuery is provided

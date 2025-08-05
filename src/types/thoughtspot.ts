@@ -32,6 +32,11 @@ export interface ThoughtSpotTag {
 }
 
 // User access control types
+export interface HiddenActionsConfig {
+  enabled: boolean;
+  actions: string[]; // Array of action names (Action enum values or custom strings)
+}
+
 export interface UserAccess {
   standardMenus: {
     home: boolean;
@@ -42,6 +47,7 @@ export interface UserAccess {
     "full-app": boolean;
   };
   customMenus: string[]; // Array of custom menu IDs that the user can access
+  hiddenActions?: HiddenActionsConfig; // Configuration for hidden actions
 }
 
 export interface User {

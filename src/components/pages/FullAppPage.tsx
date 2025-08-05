@@ -22,6 +22,14 @@ export default function FullAppPage() {
         const { AppEmbed, HomeLeftNavItem, HomepageModule, Page } =
           await import("@thoughtspot/visual-embed-sdk");
 
+        // Get hidden actions for current user
+        const currentUser = context.userConfig.users.find(
+          (u) => u.id === context.userConfig.currentUserId
+        );
+        const hiddenActions = currentUser?.access.hiddenActions?.enabled
+          ? (currentUser.access.hiddenActions.actions as any[])
+          : [];
+
         const embedInstance = new AppEmbed(embedRef.current, {
           showPrimaryNavbar: fullAppConfig.showPrimaryNavbar,
           modularHomeExperience: true,
@@ -39,6 +47,7 @@ export default function FullAppPage() {
           ],
           pageId: Page.Home,
           ...(stylingConfig.embedFlags?.appEmbed || {}),
+          ...(hiddenActions.length > 0 && { hiddenActions }),
         });
 
         embedInstanceRef.current = embedInstance;

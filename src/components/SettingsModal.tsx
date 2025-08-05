@@ -15,7 +15,8 @@ import StringMappingEditor from "./StringMappingEditor";
 import CSSVariablesEditor from "./CSSVariablesEditor";
 import CSSRulesEditor from "./CSSRulesEditor";
 import EmbedFlagsEditor from "./EmbedFlagsEditor";
-import { User, UserConfig } from "../types/thoughtspot";
+import { User, UserConfig, HiddenActionsConfig } from "../types/thoughtspot";
+import HiddenActionsEditor from "./HiddenActionsEditor";
 
 interface StandardMenu {
   id: string;
@@ -2949,6 +2950,7 @@ function UserConfigContent({
           "full-app": true,
         },
         customMenus: [],
+        hiddenActions: { enabled: false, actions: [] },
       },
     },
     {
@@ -2965,6 +2967,7 @@ function UserConfigContent({
           "full-app": false,
         },
         customMenus: [],
+        hiddenActions: { enabled: false, actions: [] },
       },
     },
   ];
@@ -2994,6 +2997,7 @@ function UserConfigContent({
           "full-app": true,
         },
         customMenus: [],
+        hiddenActions: { enabled: false, actions: [] },
       },
     };
     setEditingUser(newUser);
@@ -3319,6 +3323,36 @@ function UserConfigContent({
                 marginBottom: "12px",
               }}
             >
+              Hidden Actions Configuration
+            </h5>
+            <HiddenActionsEditor
+              config={
+                editingUser.access.hiddenActions || {
+                  enabled: false,
+                  actions: [],
+                }
+              }
+              onChange={(hiddenActionsConfig) => {
+                const updatedUser = {
+                  ...editingUser,
+                  access: {
+                    ...editingUser.access,
+                    hiddenActions: hiddenActionsConfig,
+                  },
+                };
+                setEditingUser(updatedUser);
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: "20px" }}>
+            <h5
+              style={{
+                fontSize: "14px",
+                fontWeight: "600",
+                marginBottom: "12px",
+              }}
+            >
               Custom Menu Access
             </h5>
             {customMenus.length === 0 ? (
@@ -3517,6 +3551,15 @@ function UserConfigContent({
                       {" "}
                       + {user.access.customMenus.length} custom menu
                       {user.access.customMenus.length !== 1 ? "s" : ""}
+                    </>
+                  )}
+                  {user.access.hiddenActions?.enabled && (
+                    <>
+                      {" "}
+                      • {user.access.hiddenActions.actions.length} hidden action
+                      {user.access.hiddenActions.actions.length !== 1
+                        ? "s"
+                        : ""}
                     </>
                   )}
                 </div>
