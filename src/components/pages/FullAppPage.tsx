@@ -9,7 +9,7 @@ export default function FullAppPage() {
   const embedRef = useRef<HTMLDivElement>(null);
   const embedInstanceRef = useRef<{ destroy?: () => void } | null>(null);
 
-  const { fullAppConfig, stylingConfig } = useAppContext();
+  const { fullAppConfig, stylingConfig, userConfig } = useAppContext();
 
   useEffect(() => {
     const initEmbed = async () => {
@@ -23,8 +23,8 @@ export default function FullAppPage() {
           await import("@thoughtspot/visual-embed-sdk");
 
         // Get hidden actions for current user
-        const currentUser = context.userConfig.users.find(
-          (u) => u.id === context.userConfig.currentUserId
+        const currentUser = userConfig.users.find(
+          (u) => u.id === userConfig.currentUserId
         );
         const hiddenActions = currentUser?.access.hiddenActions?.enabled
           ? (currentUser.access.hiddenActions.actions as any[])

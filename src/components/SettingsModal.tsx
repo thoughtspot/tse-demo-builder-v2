@@ -17,6 +17,10 @@ import CSSRulesEditor from "./CSSRulesEditor";
 import EmbedFlagsEditor from "./EmbedFlagsEditor";
 import { User, UserConfig, HiddenActionsConfig } from "../types/thoughtspot";
 import HiddenActionsEditor from "./HiddenActionsEditor";
+import {
+  fetchSavedConfigurations,
+  loadConfigurationFromGitHub,
+} from "../services/githubApi";
 
 interface StandardMenu {
   id: string;
@@ -3600,10 +3604,73 @@ function ConfigurationContent({
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportFileName, setExportFileName] = useState("");
 
+  // GitHub configuration loading state
+  const [savedConfigurations, setSavedConfigurations] = useState<
+    Array<{
+      name: string;
+      description?: string;
+      config: any;
+      filename: string;
+    }>
+  >([]);
+  const [isLoadingConfigurations, setIsLoadingConfigurations] = useState(false);
+  const [showGitHubDialog, setShowGitHubDialog] = useState(false);
+  const [selectedConfiguration, setSelectedConfiguration] =
+    useState<string>("");
+
   const subTabs = [
     { id: "general", name: "General", icon: "⚙️" },
     { id: "embedFlags", name: "Embed Flags", icon: "🚩" },
   ];
+
+  // Load saved configurations from GitHub
+  const loadSavedConfigurations = async () => {
+    try {
+      setIsLoadingConfigurations(true);
+      const configs = await fetchSavedConfigurations();
+      setSavedConfigurations(configs);
+    } catch (error) {
+      console.error("Failed to load saved configurations:", error);
+      setImportStatus({
+        message: "Failed to load saved configurations from GitHub",
+        type: "error",
+      });
+    } finally {
+      setIsLoadingConfigurations(false);
+    }
+  };
+
+  // Load a specific configuration from GitHub
+  const loadConfiguration = async (filename: string) => {
+    try {
+      const configData = await loadConfigurationFromGitHub(filename);
+
+      // Apply the configuration to the app
+      if (configData.appConfig) {
+        updateAppConfig(configData.appConfig);
+      }
+      if (configData.stylingConfig) {
+        updateStylingConfig(configData.stylingConfig);
+      }
+
+      setImportStatus({
+        message: "Configuration loaded successfully from GitHub!",
+        type: "success",
+      });
+
+      // Clear status after 3 seconds
+      setTimeout(() => setImportStatus({ message: "", type: null }), 3000);
+
+      setShowGitHubDialog(false);
+      setSelectedConfiguration("");
+    } catch (error) {
+      console.error("Failed to load configuration:", error);
+      setImportStatus({
+        message: "Failed to load configuration from GitHub",
+        type: "error",
+      });
+    }
+  };
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -3973,6 +4040,151 @@ function ConfigurationContent({
               </div>
             )}
 
+            {/* GitHub Configuration Dialog */}
+            {showGitHubDialog && (
+              <div
+                style={{
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 1000,
+                }}
+              >
+                <div
+                  style={{
+                    backgroundColor: "white",
+                    padding: "24px",
+                    borderRadius: "8px",
+                    minWidth: "500px",
+                    maxWidth: "600px",
+                    maxHeight: "80vh",
+                    overflow: "auto",
+                  }}
+                >
+                  <h3
+                    style={{
+                      marginBottom: "16px",
+                      fontSize: "18px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Load Configuration from GitHub
+                  </h3>
+                  <p
+                    style={{
+                      marginBottom: "16px",
+                      fontSize: "14px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    Select a saved configuration to load from the ThoughtSpot
+                    repository.
+                  </p>
+
+                  {isLoadingConfigurations ? (
+                    <div style={{ textAlign: "center", padding: "20px" }}>
+                      <p>Loading saved configurations...</p>
+                    </div>
+                  ) : savedConfigurations.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "20px" }}>
+                      <p>No saved configurations found.</p>
+                    </div>
+                  ) : (
+                    <div style={{ marginBottom: "16px" }}>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "8px",
+                          fontWeight: "500",
+                          fontSize: "14px",
+                        }}
+                      >
+                        Select Configuration
+                      </label>
+                      <select
+                        value={selectedConfiguration}
+                        onChange={(e) =>
+                          setSelectedConfiguration(e.target.value)
+                        }
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "4px",
+                          fontSize: "14px",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        <option value="">Choose a configuration...</option>
+                        {savedConfigurations.map((config) => (
+                          <option key={config.filename} value={config.filename}>
+                            {config.name} - {config.description}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "12px",
+                      justifyContent: "flex-end",
+                    }}
+                  >
+                    <button
+                      onClick={() => {
+                        setShowGitHubDialog(false);
+                        setSelectedConfiguration("");
+                      }}
+                      style={{
+                        padding: "8px 16px",
+                        backgroundColor: "#6b7280",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (selectedConfiguration) {
+                          loadConfiguration(selectedConfiguration);
+                        }
+                      }}
+                      disabled={!selectedConfiguration}
+                      style={{
+                        padding: "8px 16px",
+                        backgroundColor: selectedConfiguration
+                          ? "#8b5cf6"
+                          : "#9ca3af",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: selectedConfiguration
+                          ? "pointer"
+                          : "not-allowed",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Load Configuration
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div
               style={{
@@ -4045,6 +4257,24 @@ function ConfigurationContent({
                     style={{ display: "none" }}
                   />
                 </label>
+                <button
+                  onClick={() => {
+                    setShowGitHubDialog(true);
+                    loadSavedConfigurations();
+                  }}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: "#8b5cf6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                  }}
+                >
+                  Load from GitHub
+                </button>
               </div>
               <button
                 onClick={clearAllConfigurations}
