@@ -253,9 +253,17 @@ const loadFromStorage = (key: string, defaultValue: unknown): unknown => {
 
   try {
     const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : defaultValue;
+    if (!stored) {
+      console.log(`No stored data found for key: ${key}, using default`);
+      return defaultValue;
+    }
+
+    const parsed = JSON.parse(stored);
+    console.log(`Loaded ${key}:`, parsed);
+    return parsed;
   } catch (error) {
     console.error(`Failed to load ${key} from localStorage:`, error);
+    console.log(`Using default value for ${key}:`, defaultValue);
     return defaultValue;
   }
 };
@@ -279,11 +287,27 @@ const migrateStandardMenus = (menus: StandardMenu[]): StandardMenu[] => {
   });
 };
 
+// Validation function for custom menus
+const validateCustomMenu = (menu: unknown): menu is CustomMenu => {
+  if (!menu || typeof menu !== "object") return false;
+  const menuObj = menu as Record<string, unknown>;
+  if (!menuObj.id || typeof menuObj.id !== "string") return false;
+  if (!menuObj.name || typeof menuObj.name !== "string") return false;
+  if (!menuObj.description || typeof menuObj.description !== "string")
+    return false;
+  if (!menuObj.icon || typeof menuObj.icon !== "string") return false;
+  if (typeof menuObj.enabled !== "boolean") return false;
+  if (!menuObj.contentSelection || typeof menuObj.contentSelection !== "object")
+    return false;
+  return true;
+};
+
 const saveToStorage = (key: string, value: unknown): void => {
   if (typeof window === "undefined") return;
 
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    console.log(`Saved ${key}:`, value);
   } catch (error) {
     console.error(`Failed to save ${key} to localStorage:`, error);
   }
@@ -296,6 +320,7 @@ const clearAllStorage = (): void => {
     Object.values(STORAGE_KEYS).forEach((key) => {
       localStorage.removeItem(key);
     });
+    console.log("Cleared all localStorage");
   } catch (error) {
     console.error("Failed to clear localStorage:", error);
   }
@@ -346,29 +371,64 @@ const importConfiguration = async (
   file: File
 ): Promise<{
   success: boolean;
-  data?: {
-    standardMenus: StandardMenu[];
-    customMenus: CustomMenu[];
-    menuOrder: string[];
-    homePageConfig: HomePageConfig;
-    appConfig: AppConfig;
-    fullAppConfig: FullAppConfig;
-    stylingConfig: StylingConfig;
-    userConfig: UserConfig;
-  };
+  data?: ConfigurationData;
+  error?: string;
+}> => {
+  return loadConfigurationFromSource({ type: "file", data: file });
+};
+
+// Unified configuration loading system
+interface ConfigurationData {
+  standardMenus: StandardMenu[];
+  customMenus: CustomMenu[];
+  menuOrder: string[];
+  homePageConfig: HomePageConfig;
+  appConfig: AppConfig;
+  fullAppConfig: FullAppConfig;
+  stylingConfig: StylingConfig;
+  userConfig: UserConfig;
+}
+
+interface ConfigurationSource {
+  type: "file" | "github";
+  data: File | string; // File for local, string (filename) for GitHub
+}
+
+// Unified configuration loader
+export const loadConfigurationFromSource = async (
+  source: ConfigurationSource
+): Promise<{
+  success: boolean;
+  data?: ConfigurationData;
   error?: string;
 }> => {
   try {
-    const text = await file.text();
-    const imported = JSON.parse(text);
+    let configData: Record<string, unknown>;
+
+    if (source.type === "file") {
+      // Load from local file
+      const file = source.data as File;
+      const text = await file.text();
+      configData = JSON.parse(text);
+      console.log("Loaded configuration from file:", configData);
+    } else {
+      // Load from GitHub
+      const filename = source.data as string;
+      const { loadConfigurationFromGitHub } = await import(
+        "../services/githubApi"
+      );
+      configData = await loadConfigurationFromGitHub(filename);
+      console.log("Loaded configuration from GitHub:", configData);
+    }
 
     // Validate basic structure
-    if (!imported.version || !imported.timestamp) {
-      return { success: false, error: "Invalid configuration file format" };
+    if (!configData.version || !configData.timestamp) {
+      console.warn("Missing version or timestamp in configuration");
+      // Don't fail for missing version/timestamp, just warn
     }
 
     // Log all fields in the imported configuration for debugging
-    console.log("Imported configuration fields:", Object.keys(imported));
+    console.log("Configuration fields:", Object.keys(configData));
 
     // Check for missing or unknown fields and log them
     const expectedFields = [
@@ -382,8 +442,8 @@ const importConfiguration = async (
       "userConfig",
     ];
 
-    const missingFields = expectedFields.filter((field) => !imported[field]);
-    const unknownFields = Object.keys(imported).filter(
+    const missingFields = expectedFields.filter((field) => !configData[field]);
+    const unknownFields = Object.keys(configData).filter(
       (field) =>
         !expectedFields.includes(field) &&
         field !== "version" &&
@@ -392,11 +452,11 @@ const importConfiguration = async (
     );
 
     if (missingFields.length > 0) {
-      console.log("Missing fields in imported configuration:", missingFields);
+      console.log("Missing fields in configuration:", missingFields);
     }
 
     if (unknownFields.length > 0) {
-      console.log("Unknown fields in imported configuration:", unknownFields);
+      console.log("Unknown fields in configuration:", unknownFields);
     }
 
     // Validate required fields exist
@@ -408,22 +468,45 @@ const importConfiguration = async (
       "stylingConfig",
     ];
     for (const field of requiredFields) {
-      if (!imported[field]) {
+      if (!configData[field]) {
+        console.error(`Missing required field: ${field}`);
         return { success: false, error: `Missing required field: ${field}` };
       }
     }
 
     // Merge with defaults to handle missing fields gracefully
-    const mergedConfig = {
-      standardMenus: imported.standardMenus || DEFAULT_CONFIG.standardMenus,
-      customMenus: imported.customMenus || DEFAULT_CONFIG.customMenus,
-      menuOrder: imported.menuOrder || DEFAULT_CONFIG.menuOrder,
-      homePageConfig: imported.homePageConfig || DEFAULT_CONFIG.homePageConfig,
-      appConfig: imported.appConfig || DEFAULT_CONFIG.appConfig,
-      fullAppConfig: imported.fullAppConfig || DEFAULT_CONFIG.fullAppConfig,
-      stylingConfig: imported.stylingConfig || DEFAULT_CONFIG.stylingConfig,
-      userConfig: imported.userConfig || DEFAULT_CONFIG.userConfig,
+    const mergedConfig: ConfigurationData = {
+      standardMenus:
+        (configData.standardMenus as StandardMenu[]) ||
+        DEFAULT_CONFIG.standardMenus,
+      customMenus:
+        (configData.customMenus as CustomMenu[]) || DEFAULT_CONFIG.customMenus,
+      menuOrder: (configData.menuOrder as string[]) || DEFAULT_CONFIG.menuOrder,
+      homePageConfig:
+        (configData.homePageConfig as HomePageConfig) ||
+        DEFAULT_CONFIG.homePageConfig,
+      appConfig:
+        (configData.appConfig as AppConfig) || DEFAULT_CONFIG.appConfig,
+      fullAppConfig:
+        (configData.fullAppConfig as FullAppConfig) ||
+        DEFAULT_CONFIG.fullAppConfig,
+      stylingConfig:
+        (configData.stylingConfig as StylingConfig) ||
+        DEFAULT_CONFIG.stylingConfig,
+      userConfig:
+        (configData.userConfig as UserConfig) || DEFAULT_CONFIG.userConfig,
     };
+
+    console.log("Merged configuration:", {
+      standardMenus: mergedConfig.standardMenus.length,
+      customMenus: mergedConfig.customMenus.length,
+      menuOrder: mergedConfig.menuOrder.length,
+      hasHomePageConfig: !!mergedConfig.homePageConfig,
+      hasAppConfig: !!mergedConfig.appConfig,
+      hasFullAppConfig: !!mergedConfig.fullAppConfig,
+      hasStylingConfig: !!mergedConfig.stylingConfig,
+      hasUserConfig: !!mergedConfig.userConfig,
+    });
 
     // Validate that the imported data has the correct structure
     if (!Array.isArray(mergedConfig.standardMenus)) {
@@ -440,6 +523,7 @@ const importConfiguration = async (
 
     return { success: true, data: mergedConfig };
   } catch (error) {
+    console.error("Error in loadConfigurationFromSource:", error);
     return {
       success: false,
       error:
@@ -448,6 +532,248 @@ const importConfiguration = async (
           : "Failed to parse configuration file",
     };
   }
+};
+
+// Apply configuration to the app state
+export const applyConfiguration = (
+  config: ConfigurationData,
+  updateFunctions: {
+    updateStandardMenu: (
+      id: string,
+      field: string,
+      value: string | boolean
+    ) => void;
+    addCustomMenu: (menu: CustomMenu) => void;
+    updateHomePageConfig: (config: HomePageConfig) => void;
+    updateAppConfig: (config: AppConfig) => void;
+    updateFullAppConfig: (config: FullAppConfig) => void;
+    updateStylingConfig: (config: StylingConfig) => void;
+    updateUserConfig: (config: UserConfig) => void;
+    setMenuOrder?: (order: string[]) => void; // Add menu order update function
+  }
+) => {
+  console.log("=== Applying Configuration ===");
+  console.log("Configuration to apply:", {
+    standardMenus: config.standardMenus.length,
+    customMenus: config.customMenus.length,
+    menuOrder: config.menuOrder.length,
+    hasHomePageConfig: !!config.homePageConfig,
+    hasAppConfig: !!config.appConfig,
+    hasFullAppConfig: !!config.fullAppConfig,
+    hasStylingConfig: !!config.stylingConfig,
+    hasUserConfig: !!config.userConfig,
+  });
+
+  // Apply app config
+  console.log("Applying app config:", config.appConfig);
+  console.log(
+    "updateAppConfig function type:",
+    typeof updateFunctions.updateAppConfig
+  );
+  updateFunctions.updateAppConfig(config.appConfig);
+
+  // Apply styling config
+  console.log("Applying styling config:", config.stylingConfig);
+  console.log(
+    "updateStylingConfig function type:",
+    typeof updateFunctions.updateStylingConfig
+  );
+  updateFunctions.updateStylingConfig(config.stylingConfig);
+
+  // Apply standard menus
+  console.log("Applying standard menus:", config.standardMenus.length);
+  console.log(
+    "updateStandardMenu function type:",
+    typeof updateFunctions.updateStandardMenu
+  );
+  config.standardMenus.forEach((menu, index) => {
+    if (menu.id && menu.name) {
+      console.log(`Applying standard menu ${index + 1}:`, menu.name, menu.id);
+      console.log(
+        `Calling updateStandardMenu for ${menu.id}.name = ${menu.name}`
+      );
+      updateFunctions.updateStandardMenu(menu.id, "name", menu.name);
+      console.log(
+        `Calling updateStandardMenu for ${menu.id}.enabled = ${menu.enabled}`
+      );
+      updateFunctions.updateStandardMenu(menu.id, "enabled", menu.enabled);
+      console.log(
+        `Calling updateStandardMenu for ${menu.id}.icon = ${menu.icon}`
+      );
+      updateFunctions.updateStandardMenu(menu.id, "icon", menu.icon);
+      if (menu.homePageType) {
+        console.log(
+          `Calling updateStandardMenu for ${menu.id}.homePageType = ${menu.homePageType}`
+        );
+        updateFunctions.updateStandardMenu(
+          menu.id,
+          "homePageType",
+          menu.homePageType
+        );
+      }
+      if (menu.homePageValue) {
+        console.log(
+          `Calling updateStandardMenu for ${menu.id}.homePageValue = ${menu.homePageValue}`
+        );
+        updateFunctions.updateStandardMenu(
+          menu.id,
+          "homePageValue",
+          menu.homePageValue
+        );
+      }
+
+      // Apply advanced menu properties
+      if (menu.modelId) {
+        console.log(
+          `Calling updateStandardMenu for ${menu.id}.modelId = ${menu.modelId}`
+        );
+        updateFunctions.updateStandardMenu(menu.id, "modelId", menu.modelId);
+      }
+
+      if (menu.contentId) {
+        console.log(
+          `Calling updateStandardMenu for ${menu.id}.contentId = ${menu.contentId}`
+        );
+        updateFunctions.updateStandardMenu(
+          menu.id,
+          "contentId",
+          menu.contentId
+        );
+      }
+
+      if (menu.contentType) {
+        console.log(
+          `Calling updateStandardMenu for ${menu.id}.contentType = ${menu.contentType}`
+        );
+        updateFunctions.updateStandardMenu(
+          menu.id,
+          "contentType",
+          menu.contentType
+        );
+      }
+
+      if (menu.namePattern) {
+        console.log(
+          `Calling updateStandardMenu for ${menu.id}.namePattern = ${menu.namePattern}`
+        );
+        updateFunctions.updateStandardMenu(
+          menu.id,
+          "namePattern",
+          menu.namePattern
+        );
+      }
+
+      if (menu.spotterModelId) {
+        console.log(
+          `Calling updateStandardMenu for ${menu.id}.spotterModelId = ${menu.spotterModelId}`
+        );
+        updateFunctions.updateStandardMenu(
+          menu.id,
+          "spotterModelId",
+          menu.spotterModelId
+        );
+      }
+
+      if (menu.spotterSearchQuery) {
+        console.log(
+          `Calling updateStandardMenu for ${menu.id}.spotterSearchQuery = ${menu.spotterSearchQuery}`
+        );
+        updateFunctions.updateStandardMenu(
+          menu.id,
+          "spotterSearchQuery",
+          menu.spotterSearchQuery
+        );
+      }
+
+      if (menu.searchDataSource) {
+        console.log(
+          `Calling updateStandardMenu for ${menu.id}.searchDataSource = ${menu.searchDataSource}`
+        );
+        updateFunctions.updateStandardMenu(
+          menu.id,
+          "searchDataSource",
+          menu.searchDataSource
+        );
+      }
+
+      if (menu.searchTokenString) {
+        console.log(
+          `Calling updateStandardMenu for ${menu.id}.searchTokenString = ${menu.searchTokenString}`
+        );
+        updateFunctions.updateStandardMenu(
+          menu.id,
+          "searchTokenString",
+          menu.searchTokenString
+        );
+      }
+
+      if (menu.runSearch !== undefined) {
+        console.log(
+          `Calling updateStandardMenu for ${menu.id}.runSearch = ${menu.runSearch}`
+        );
+        updateFunctions.updateStandardMenu(
+          menu.id,
+          "runSearch",
+          menu.runSearch
+        );
+      }
+    } else {
+      console.warn(`Skipping invalid standard menu at index ${index}:`, menu);
+    }
+  });
+
+  // Apply custom menus
+  console.log("Applying custom menus:", config.customMenus.length);
+  config.customMenus.forEach((menu, index) => {
+    if (menu.id && menu.name) {
+      console.log(`Applying custom menu ${index + 1}:`, menu.name, menu.id);
+      updateFunctions.addCustomMenu(menu);
+    } else {
+      console.warn(`Skipping invalid custom menu at index ${index}:`, menu);
+    }
+  });
+
+  // Apply menu order if available
+  if (config.menuOrder.length > 0 && updateFunctions.setMenuOrder) {
+    console.log("Applying menu order:", config.menuOrder);
+
+    // Filter out menu IDs that don't exist in standard or custom menus
+    const allMenuIds = [
+      ...config.standardMenus.map((menu) => menu.id),
+      ...config.customMenus.map((menu) => menu.id),
+    ];
+
+    const validMenuOrder = config.menuOrder.filter((menuId) => {
+      const exists = allMenuIds.includes(menuId);
+      if (!exists) {
+        console.warn(
+          `Menu ID "${menuId}" in menu order not found in standard or custom menus`
+        );
+      }
+      return exists;
+    });
+
+    console.log("Valid menu order (filtered):", validMenuOrder);
+    updateFunctions.setMenuOrder(validMenuOrder);
+  } else {
+    console.log(
+      "Menu order not applied (no setMenuOrder function or empty order)"
+    );
+  }
+
+  // Apply home page config
+  console.log("Applying home page config:", config.homePageConfig);
+  updateFunctions.updateHomePageConfig(config.homePageConfig);
+
+  // Apply full app config
+  console.log("Applying full app config:", config.fullAppConfig);
+  updateFunctions.updateFullAppConfig(config.fullAppConfig);
+
+  // Apply user config
+  console.log("Applying user config:", config.userConfig);
+  updateFunctions.updateUserConfig(config.userConfig);
+
+  console.log("=== Configuration Applied Successfully ===");
 };
 
 interface LayoutProps {
@@ -507,8 +833,19 @@ export default function Layout({ children }: LayoutProps) {
       },
     ]) as StandardMenu[];
 
+    console.log("Raw loaded standard menus:", loadedMenus);
+
+    // Validate that loadedMenus is an array
+    if (!Array.isArray(loadedMenus)) {
+      console.error("Loaded standard menus is not an array:", loadedMenus);
+      return DEFAULT_CONFIG.standardMenus;
+    }
+
     // Apply migration to convert emoji icons to file paths
-    return migrateStandardMenus(loadedMenus);
+    const migratedMenus = migrateStandardMenus(loadedMenus);
+    console.log("Migrated standard menus:", migratedMenus);
+
+    return migratedMenus;
   });
 
   // Custom menus state
@@ -518,11 +855,25 @@ export default function Layout({ children }: LayoutProps) {
       []
     ) as CustomMenu[];
 
+    console.log("Raw loaded custom menus:", loadedMenus);
+
+    // Validate that loadedMenus is an array
+    if (!Array.isArray(loadedMenus)) {
+      console.error("Loaded custom menus is not an array:", loadedMenus);
+      return [];
+    }
+
     // Clean up any duplicate IDs that might exist
     const uniqueMenus: CustomMenu[] = [];
     const seenIds = new Set<string>();
 
-    loadedMenus.forEach((menu) => {
+    loadedMenus.forEach((menu, index) => {
+      // Validate each menu object
+      if (!validateCustomMenu(menu)) {
+        console.error(`Invalid custom menu at index ${index}:`, menu);
+        return;
+      }
+
       if (!seenIds.has(menu.id)) {
         seenIds.add(menu.id);
         uniqueMenus.push(menu);
@@ -541,7 +892,7 @@ export default function Layout({ children }: LayoutProps) {
     });
 
     console.log(
-      "Loaded custom menus:",
+      "Final loaded custom menus:",
       validMenus.length,
       validMenus.map((m) => ({ id: m.id, name: m.name }))
     );
@@ -555,11 +906,25 @@ export default function Layout({ children }: LayoutProps) {
       []
     ) as string[];
 
+    console.log("Raw loaded menu order:", loadedOrder);
+
+    // Validate that loadedOrder is an array
+    if (!Array.isArray(loadedOrder)) {
+      console.error("Loaded menu order is not an array:", loadedOrder);
+      return [];
+    }
+
     // Clean up any duplicate entries in menu order
     const uniqueOrder: string[] = [];
     const seenIds = new Set<string>();
 
-    loadedOrder.forEach((id) => {
+    loadedOrder.forEach((id, index) => {
+      // Validate that each item is a string
+      if (typeof id !== "string") {
+        console.error(`Invalid menu order item at index ${index}:`, id);
+        return;
+      }
+
       if (!seenIds.has(id)) {
         seenIds.add(id);
         uniqueOrder.push(id);
@@ -568,6 +933,7 @@ export default function Layout({ children }: LayoutProps) {
       }
     });
 
+    console.log("Final menu order:", uniqueOrder);
     return uniqueOrder;
   });
 
@@ -690,6 +1056,35 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.USER_CONFIG, userConfig);
   }, [userConfig]);
+
+  // Debug effect to log current state
+  useEffect(() => {
+    console.log("=== Current Configuration State ===");
+    console.log(
+      "Standard menus:",
+      standardMenus.length,
+      standardMenus.map((m) => ({ id: m.id, name: m.name, enabled: m.enabled }))
+    );
+    console.log(
+      "Custom menus:",
+      customMenus.length,
+      customMenus.map((m) => ({ id: m.id, name: m.name, enabled: m.enabled }))
+    );
+    console.log("Menu order:", menuOrder);
+    console.log("Home page config:", homePageConfig);
+    console.log("App config:", appConfig);
+    console.log("Full app config:", fullAppConfig);
+    console.log("User config:", userConfig);
+    console.log("===================================");
+  }, [
+    standardMenus,
+    customMenus,
+    menuOrder,
+    homePageConfig,
+    appConfig,
+    fullAppConfig,
+    userConfig,
+  ]);
 
   // Update document title when application name changes
   useEffect(() => {
@@ -837,12 +1232,12 @@ export default function Layout({ children }: LayoutProps) {
     field: string,
     value: string | boolean
   ) => {
-    setStandardMenus((prev) => {
-      const updated = prev.map((menu) =>
-        menu.id === id ? { ...menu, [field]: value } : menu
-      );
-      return updated;
-    });
+    console.log(
+      `[Layout] updateStandardMenu called: ${id}.${field} = ${value}`
+    );
+    setStandardMenus((prev) =>
+      prev.map((menu) => (menu.id === id ? { ...menu, [field]: value } : menu))
+    );
 
     // Update menu order if the enabled field is being changed
     if (field === "enabled") {
@@ -864,113 +1259,61 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const updateHomePageConfig = (config: HomePageConfig) => {
+    console.log(`[Layout] updateHomePageConfig called:`, config);
     setHomePageConfig(config);
   };
 
   const updateAppConfig = (config: AppConfig) => {
+    console.log(`[Layout] updateAppConfig called:`, config);
     setAppConfig(config);
   };
 
   const updateFullAppConfig = (config: FullAppConfig) => {
+    console.log(`[Layout] updateFullAppConfig called:`, config);
     setFullAppConfig(config);
   };
 
   const updateStylingConfig = (config: StylingConfig) => {
+    console.log(`[Layout] updateStylingConfig called:`, config);
     setStylingConfig(config);
   };
 
   const updateUserConfig = (config: UserConfig) => {
+    console.log(`[Layout] updateUserConfig called:`, config);
     setUserConfig(config);
   };
 
   const addCustomMenu = (menu: CustomMenu) => {
-    console.log("addCustomMenu called with:", menu.name, "id:", menu.id);
+    console.log(
+      `[Layout] addCustomMenu called with: ${menu.name} id: ${menu.id}`
+    );
+    console.log(`[Layout] Current custom menus count: ${customMenus.length}`);
 
-    // Check for duplicate IDs and regenerate if necessary
+    // Check if menu already exists
+    const existingMenu = customMenus.find((m) => m.id === menu.id);
+    if (existingMenu) {
+      console.log(
+        `[Layout] Menu already exists, updating instead: ${menu.name}`
+      );
+      updateCustomMenu(menu.id, menu);
+      return;
+    }
+
+    console.log(`[Layout] Adding new menu: ${menu.name} id: ${menu.id}`);
     setCustomMenus((prev) => {
-      console.log("Current custom menus count:", prev.length);
+      const updated = [...prev, menu];
+      console.log(`[Layout] Updated custom menus count: ${updated.length}`);
+      return updated;
+    });
 
-      const existingIds = new Set(prev.map((m) => m.id));
-      let finalMenu = menu;
-
-      if (existingIds.has(menu.id)) {
-        // Regenerate ID if duplicate found
-        const newId = `custom-${Date.now()}-${Math.random()
-          .toString(36)
-          .substr(2, 9)}`;
-        finalMenu = { ...menu, id: newId };
-        console.log("Duplicate ID detected, regenerated:", newId);
-      }
-
-      // Also check for duplicate names to prevent confusion
-      const existingNames = new Set(prev.map((m) => m.name.toLowerCase()));
-      if (existingNames.has(menu.name.toLowerCase())) {
-        const baseName = menu.name;
-        let counter = 1;
-        let newName = `${baseName} (${counter})`;
-        while (existingNames.has(newName.toLowerCase())) {
-          counter++;
-          newName = `${baseName} (${counter})`;
-        }
-        finalMenu = { ...finalMenu, name: newName };
-        console.log("Duplicate name detected, renamed to:", newName);
-      }
-
-      // Enhanced duplicate detection - check for identical content
-      const existingMenu = prev.find((m) => {
-        const nameMatch = m.name === finalMenu.name;
-        const descriptionMatch = m.description === finalMenu.description;
-        const iconMatch = m.icon === finalMenu.icon;
-        const enabledMatch = m.enabled === finalMenu.enabled;
-        const contentMatch =
-          JSON.stringify(m.contentSelection) ===
-          JSON.stringify(finalMenu.contentSelection);
-
-        const isDuplicate =
-          nameMatch &&
-          descriptionMatch &&
-          iconMatch &&
-          enabledMatch &&
-          contentMatch;
-
-        if (isDuplicate) {
-          console.log("Duplicate menu detected:", {
-            existing: { name: m.name, id: m.id },
-            incoming: { name: finalMenu.name, id: finalMenu.id },
-            matches: {
-              nameMatch,
-              descriptionMatch,
-              iconMatch,
-              enabledMatch,
-              contentMatch,
-            },
-          });
-        }
-
-        return isDuplicate;
-      });
-
-      if (existingMenu) {
-        console.log("Duplicate menu detected, skipping:", finalMenu.name);
+    // Add to menu order if not already present
+    setMenuOrder((prev) => {
+      if (prev.includes(menu.id)) {
+        console.log(`[Layout] Menu ID already in order, skipping: ${menu.id}`);
         return prev;
       }
-
-      console.log("Adding new menu:", finalMenu.name, "id:", finalMenu.id);
-
-      // If the menu is enabled, add it to the menu order
-      if (finalMenu.enabled) {
-        setMenuOrder((prev) => {
-          const finalId = finalMenu.id;
-          // Check if ID already exists in menu order
-          if (prev.includes(finalId)) {
-            console.log("Menu ID already in order, skipping:", finalId);
-            return prev;
-          }
-          return [...prev, finalId];
-        });
-      }
-
-      return [...prev, finalMenu];
+      console.log(`[Layout] Adding menu ID to order: ${menu.id}`);
+      return [...prev, menu.id];
     });
   };
 
@@ -1012,6 +1355,8 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const clearAllConfigurations = () => {
+    console.log("Clearing all configurations...");
+
     // Reset to default values
     setStandardMenus(DEFAULT_CONFIG.standardMenus);
     setCustomMenus(DEFAULT_CONFIG.customMenus);
@@ -1024,6 +1369,108 @@ export default function Layout({ children }: LayoutProps) {
 
     // Clear localStorage
     clearAllStorage();
+
+    console.log("All configurations cleared and reset to defaults");
+  };
+
+  const testConfigLoading = () => {
+    console.log("Testing config loading with test data...");
+
+    // Create test custom menu
+    const testCustomMenu: CustomMenu = {
+      id: "test-custom-menu",
+      name: "Test Custom Menu",
+      description: "A test custom menu for debugging",
+      icon: "🧪",
+      enabled: true,
+      contentSelection: {
+        type: "specific",
+        specificContent: {
+          liveboards: [],
+          answers: [],
+        },
+      },
+    };
+
+    // Save test data to localStorage
+    saveToStorage(STORAGE_KEYS.CUSTOM_MENUS, [testCustomMenu]);
+    saveToStorage(STORAGE_KEYS.MENU_ORDER, [
+      "home",
+      "test-custom-menu",
+      "favorites",
+    ]);
+
+    console.log("Test data saved to localStorage");
+
+    // Reload the page to test loading
+    window.location.reload();
+  };
+
+  const testGitHubConfig = async () => {
+    console.log("Testing GitHub configuration loading...");
+
+    // Capture console output
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+
+    const capturedLogs: string[] = [];
+
+    console.log = (...args) => {
+      capturedLogs.push(`[LOG] ${args.join(" ")}`);
+      originalLog.apply(console, args);
+    };
+
+    console.error = (...args) => {
+      capturedLogs.push(`[ERROR] ${args.join(" ")}`);
+      originalError.apply(console, args);
+    };
+
+    console.warn = (...args) => {
+      capturedLogs.push(`[WARN] ${args.join(" ")}`);
+      originalWarn.apply(console, args);
+    };
+
+    try {
+      const { loadConfigurationFromSource } = await import("./Layout");
+      const result = await loadConfigurationFromSource({
+        type: "github",
+        data: "sage-test.json", // Use the actual filename from GitHub
+      });
+
+      if (result.success && result.data) {
+        console.log("GitHub config loaded successfully:", result.data);
+
+        // Test applying the configuration
+        console.log("Testing configuration application...");
+        applyConfiguration(result.data, {
+          updateStandardMenu: updateStandardMenu,
+          addCustomMenu: addCustomMenu,
+          updateHomePageConfig: updateHomePageConfig,
+          updateAppConfig: updateAppConfig,
+          updateFullAppConfig: updateFullAppConfig,
+          updateStylingConfig: updateStylingConfig,
+          updateUserConfig: updateUserConfig,
+          setMenuOrder: setMenuOrder,
+        });
+
+        console.log("GitHub configuration test completed successfully!");
+      } else {
+        console.error("Failed to load GitHub config:", result.error);
+      }
+    } catch (error) {
+      console.error("Error testing GitHub config:", error);
+    } finally {
+      // Restore original console methods
+      console.log = originalLog;
+      console.error = originalError;
+      console.warn = originalWarn;
+
+      // Log all captured output
+      console.log("=== FULL CONSOLE CAPTURE ===");
+      capturedLogs.forEach((log) => console.log(log));
+      console.log("=== END CONSOLE CAPTURE ===");
+    }
   };
 
   const handleExportConfiguration = (customName?: string) => {
@@ -1045,20 +1492,84 @@ export default function Layout({ children }: LayoutProps) {
   const handleImportConfiguration = async (file: File) => {
     const result = await importConfiguration(file);
     if (result.success && result.data) {
-      const config = result.data;
-      setStandardMenus(config.standardMenus);
-      setCustomMenus(config.customMenus);
-      setMenuOrder(config.menuOrder);
-      setHomePageConfig(config.homePageConfig);
-      setAppConfig(config.appConfig);
-      setFullAppConfig(config.fullAppConfig);
-      setStylingConfig(config.stylingConfig);
-      setUserConfig(config.userConfig);
+      applyConfiguration(result.data, {
+        updateStandardMenu,
+        addCustomMenu,
+        updateHomePageConfig,
+        updateAppConfig,
+        updateFullAppConfig,
+        updateStylingConfig,
+        updateUserConfig,
+        setMenuOrder,
+      });
       return { success: true };
     } else {
       return { success: false, error: result.error };
     }
   };
+
+  const testSettingsModalGitHub = async () => {
+    console.log("Testing Settings Modal GitHub loading simulation...");
+    try {
+      // Simulate what the Settings modal does
+      const { loadConfigurationFromSource, applyConfiguration } = await import(
+        "./Layout"
+      );
+      const result = await loadConfigurationFromSource({
+        type: "github",
+        data: "sage-test.json",
+      });
+
+      if (result.success && result.data) {
+        console.log(
+          "GitHub config loaded successfully in Settings modal simulation"
+        );
+
+        // Simulate the Settings modal approach (without setMenuOrder)
+        applyConfiguration(result.data, {
+          updateStandardMenu: updateStandardMenu,
+          addCustomMenu: addCustomMenu,
+          updateHomePageConfig: updateHomePageConfig,
+          updateAppConfig: updateAppConfig,
+          updateFullAppConfig: updateFullAppConfig,
+          updateStylingConfig: updateStylingConfig,
+          updateUserConfig: updateUserConfig,
+          // Note: setMenuOrder is not available in SettingsModal
+        });
+
+        console.log("Settings modal simulation completed successfully!");
+      } else {
+        console.error(
+          "Failed to load GitHub config in Settings modal simulation:",
+          result.error
+        );
+      }
+    } catch (error) {
+      console.error("Error in Settings modal simulation:", error);
+    }
+  };
+
+  // Create unfiltered versions for Settings modal (bypass user access control)
+  const allStandardMenus = standardMenus; // These are already all standard menus
+  const allCustomMenus = customMenus; // These are already all custom menus
+
+  // Filter menus based on current user access for navigation
+  const accessibleStandardMenus = standardMenus.filter((menu) => {
+    const currentUser = userConfig.users.find(
+      (u) => u.id === userConfig.currentUserId
+    );
+    const standardMenuAccess = currentUser?.access?.standardMenus as
+      | Record<string, boolean>
+      | undefined;
+    return standardMenuAccess?.[menu.id] !== false;
+  });
+
+  const accessibleCustomMenus = customMenus.filter((menu) => {
+    const currentUser = userConfig.users.find(
+      (u) => u.id === userConfig.currentUserId
+    );
+    return currentUser?.access?.customMenus?.includes(menu.id);
+  });
 
   const contextValue: AppContextType = {
     homePageConfig,
@@ -1119,8 +1630,8 @@ export default function Layout({ children }: LayoutProps) {
             {/* Side Navigation */}
             <SideNav
               onSettingsClick={() => setIsSettingsOpen(true)}
-              standardMenus={standardMenus}
-              customMenus={customMenus}
+              standardMenus={accessibleStandardMenus}
+              customMenus={accessibleCustomMenus}
               menuOrder={menuOrder}
               onMenuOrderChange={setMenuOrder}
               userConfig={userConfig}
@@ -1164,7 +1675,7 @@ export default function Layout({ children }: LayoutProps) {
           <SettingsModal
             isOpen={isSettingsOpen}
             onClose={() => setIsSettingsOpen(false)}
-            standardMenus={standardMenus}
+            standardMenus={allStandardMenus}
             updateStandardMenu={updateStandardMenu}
             homePageConfig={homePageConfig}
             updateHomePageConfig={updateHomePageConfig}
@@ -1172,7 +1683,7 @@ export default function Layout({ children }: LayoutProps) {
             updateAppConfig={updateAppConfig}
             fullAppConfig={fullAppConfig}
             updateFullAppConfig={updateFullAppConfig}
-            customMenus={customMenus}
+            customMenus={allCustomMenus}
             addCustomMenu={addCustomMenu}
             updateCustomMenu={updateCustomMenu}
             deleteCustomMenu={deleteCustomMenu}
@@ -1180,6 +1691,7 @@ export default function Layout({ children }: LayoutProps) {
             updateStylingConfig={updateStylingConfig}
             userConfig={userConfig}
             updateUserConfig={updateUserConfig}
+            setMenuOrder={setMenuOrder}
             clearAllConfigurations={clearAllConfigurations}
             exportConfiguration={handleExportConfiguration}
             importConfiguration={handleImportConfiguration}

@@ -92,6 +92,7 @@ interface SettingsModalProps {
   updateStylingConfig: (config: StylingConfig) => void;
   userConfig: UserConfig;
   updateUserConfig: (config: UserConfig) => void;
+  setMenuOrder?: (order: string[]) => void;
   clearAllConfigurations?: () => void;
   exportConfiguration?: (customName?: string) => void;
   importConfiguration?: (file: File) => Promise<{
@@ -3589,6 +3590,12 @@ function ConfigurationContent({
   clearAllConfigurations,
   exportConfiguration,
   importConfiguration,
+  updateStandardMenu,
+  addCustomMenu,
+  updateHomePageConfig,
+  updateFullAppConfig,
+  updateUserConfig,
+  setMenuOrder,
 }: {
   appConfig: AppConfig;
   updateAppConfig: (config: AppConfig) => void;
@@ -3600,6 +3607,16 @@ function ConfigurationContent({
     success: boolean;
     error?: string;
   }>;
+  updateStandardMenu?: (
+    id: string,
+    field: string,
+    value: string | boolean
+  ) => void;
+  addCustomMenu?: (menu: CustomMenu) => void;
+  updateHomePageConfig?: (config: HomePageConfig) => void;
+  updateFullAppConfig?: (config: FullAppConfig) => void;
+  updateUserConfig?: (config: UserConfig) => void;
+  setMenuOrder?: (order: string[]) => void;
 }) {
   const [activeSubTab, setActiveSubTab] = useState("general");
   const [importStatus, setImportStatus] = useState<{
@@ -3640,39 +3657,165 @@ function ConfigurationContent({
     }
   };
 
-  // Load a specific configuration from GitHub
+  // Load a specific configuration from GitHub using unified system
   const loadConfiguration = async (filename: string) => {
+    // Capture console output for debugging
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+
+    const capturedLogs: string[] = [];
+
+    console.log = (...args) => {
+      capturedLogs.push(`[SETTINGS-LOG] ${args.join(" ")}`);
+      originalLog.apply(console, args);
+    };
+
+    console.error = (...args) => {
+      capturedLogs.push(`[SETTINGS-ERROR] ${args.join(" ")}`);
+      originalError.apply(console, args);
+    };
+
+    console.warn = (...args) => {
+      capturedLogs.push(`[SETTINGS-WARN] ${args.join(" ")}`);
+      originalWarn.apply(console, args);
+    };
+
     try {
-      const configData = await loadConfigurationFromGitHub(filename);
+      console.log("Loading configuration from GitHub:", filename);
 
-      // Apply the configuration to the app
-      if (configData.appConfig && 
-          typeof configData.appConfig === 'object' && 
-          'thoughtspotUrl' in configData.appConfig) {
-        updateAppConfig(configData.appConfig as AppConfig);
-      }
-      if (configData.stylingConfig && 
-          typeof configData.stylingConfig === 'object' && 
-          'application' in configData.stylingConfig) {
-        updateStylingConfig(configData.stylingConfig as StylingConfig);
-      }
-
-      setImportStatus({
-        message: "Configuration loaded successfully from GitHub!",
-        type: "success",
+      // Use the unified configuration loading system
+      const { loadConfigurationFromSource, applyConfiguration } = await import(
+        "../components/Layout"
+      );
+      const result = await loadConfigurationFromSource({
+        type: "github",
+        data: filename,
       });
 
-      // Clear status after 3 seconds
-      setTimeout(() => setImportStatus({ message: "", type: null }), 3000);
+      if (result.success && result.data) {
+        // Temporarily switch to power user to ensure all menus are accessible
+        const powerUser = result.data.userConfig?.users?.find(
+          (user) => user.id === "power-user"
+        );
+        if (powerUser && updateUserConfig) {
+          console.log(
+            "Temporarily switching to power user for configuration loading"
+          );
+          // Create a modified user config that keeps power-user as current
+          const modifiedUserConfig = {
+            ...result.data.userConfig,
+            currentUserId: "power-user",
+          };
 
-      setShowGitHubDialog(false);
-      setSelectedConfiguration("");
+          // Use the unified configuration application system
+          applyConfiguration(
+            {
+              ...result.data,
+              userConfig: modifiedUserConfig, // Use the modified user config
+            },
+            {
+              updateStandardMenu: updateStandardMenu || (() => {}),
+              addCustomMenu: addCustomMenu || (() => {}),
+              updateHomePageConfig: updateHomePageConfig || (() => {}),
+              updateAppConfig: updateAppConfig || (() => {}),
+              updateFullAppConfig: updateFullAppConfig || (() => {}),
+              updateStylingConfig: updateStylingConfig || (() => {}),
+              updateUserConfig: updateUserConfig || (() => {}),
+              setMenuOrder: setMenuOrder || (() => {}), // Add menu order function
+            }
+          );
+
+          // Also apply changes immediately to bypass pending system
+          console.log(
+            "Applying changes immediately to bypass pending system..."
+          );
+
+          // Apply app config immediately using direct function from props
+          if (updateAppConfig) {
+            console.log(
+              "Applying app config immediately:",
+              result.data.appConfig
+            );
+            console.log("updateAppConfig function:", updateAppConfig);
+            console.log("updateAppConfig function name:", updateAppConfig.name);
+            updateAppConfig(result.data.appConfig);
+          }
+
+          // Apply styling config immediately using direct function from props
+          if (updateStylingConfig) {
+            console.log(
+              "Applying styling config immediately:",
+              result.data.stylingConfig
+            );
+            console.log("updateStylingConfig function:", updateStylingConfig);
+            console.log(
+              "updateStylingConfig function name:",
+              updateStylingConfig.name
+            );
+            updateStylingConfig(result.data.stylingConfig);
+          }
+
+          // Apply home page config immediately using direct function from props
+          if (updateHomePageConfig) {
+            console.log(
+              "Applying home page config immediately:",
+              result.data.homePageConfig
+            );
+            updateHomePageConfig(result.data.homePageConfig);
+          }
+
+          // Apply full app config immediately using direct function from props
+          if (updateFullAppConfig) {
+            console.log(
+              "Applying full app config immediately:",
+              result.data.fullAppConfig
+            );
+            updateFullAppConfig(result.data.fullAppConfig);
+          }
+
+          console.log(
+            "Settings modal: Configuration loaded and applied successfully with power-user access"
+          );
+        } else {
+          // Fallback: apply configuration normally
+          applyConfiguration(result.data, {
+            updateStandardMenu: updateStandardMenu || (() => {}),
+            addCustomMenu: addCustomMenu || (() => {}),
+            updateHomePageConfig: updateHomePageConfig || (() => {}),
+            updateAppConfig,
+            updateFullAppConfig: updateFullAppConfig || (() => {}),
+            updateStylingConfig,
+            updateUserConfig: updateUserConfig || (() => {}),
+            // Note: setMenuOrder is not available in SettingsModal, menu order will be handled by Layout component
+          });
+
+          console.log(
+            "Settings modal: Configuration loaded and applied successfully"
+          );
+        }
+      } else {
+        console.error(
+          "Settings modal: Failed to load configuration:",
+          result.error
+        );
+      }
     } catch (error) {
-      console.error("Failed to load configuration:", error);
+      console.error("Settings modal: Error loading configuration:", error);
       setImportStatus({
         message: "Failed to load configuration from GitHub",
         type: "error",
       });
+    } finally {
+      // Restore original console methods
+      console.log = originalLog;
+      console.error = originalError;
+      console.warn = originalWarn;
+
+      // Log all captured output
+      console.log("=== SETTINGS MODAL CONSOLE CAPTURE ===");
+      capturedLogs.forEach((log: string) => console.log(log));
+      console.log("=== END SETTINGS MODAL CONSOLE CAPTURE ===");
     }
   };
 
@@ -4355,6 +4498,7 @@ export default function SettingsModal({
   updateStylingConfig,
   userConfig,
   updateUserConfig,
+  setMenuOrder,
   clearAllConfigurations,
   exportConfiguration,
   importConfiguration,
@@ -4534,12 +4678,18 @@ export default function SettingsModal({
       content: (
         <ConfigurationContent
           appConfig={pendingAppConfig}
-          updateAppConfig={updatePendingAppConfig}
+          updateAppConfig={updateAppConfig}
           stylingConfig={pendingStylingConfig}
-          updateStylingConfig={updatePendingStylingConfig}
+          updateStylingConfig={updateStylingConfig}
           clearAllConfigurations={clearAllConfigurations}
           exportConfiguration={exportConfiguration}
           importConfiguration={importConfiguration}
+          updateStandardMenu={updateStandardMenu}
+          addCustomMenu={addCustomMenu}
+          updateHomePageConfig={updateHomePageConfig}
+          updateFullAppConfig={updateFullAppConfig}
+          updateUserConfig={updateUserConfig}
+          setMenuOrder={setMenuOrder}
         />
       ),
     },

@@ -24,6 +24,7 @@ interface GitHubApiResponse {
 
 export async function fetchSavedConfigurations(): Promise<GitHubConfig[]> {
   try {
+    console.log("Fetching saved configurations from GitHub...");
     const repoOwner = "thoughtspot";
     const repoName = "tse-demo-builders-pre-built";
     const configsPath = "configs";
@@ -44,17 +45,20 @@ export async function fetchSavedConfigurations(): Promise<GitHubConfig[]> {
     }
 
     const contents: GitHubApiResponse[] = await response.json();
+    console.log("GitHub directory contents:", contents);
 
     // Filter for JSON files only
     const jsonFiles = contents.filter(
       (item) => item.type === "file" && item.name.endsWith(".json")
     );
+    console.log("JSON files found:", jsonFiles);
 
     // Fetch each configuration file
     const configs: GitHubConfig[] = [];
 
     for (const file of jsonFiles) {
       try {
+        console.log("Fetching config file:", file.name);
         const configResponse = await fetch(file.download_url);
         if (configResponse.ok) {
           const configData = await configResponse.json();
@@ -68,6 +72,7 @@ export async function fetchSavedConfigurations(): Promise<GitHubConfig[]> {
             config: configData,
             filename: file.name,
           });
+          console.log("Successfully loaded config:", name);
         }
       } catch (error) {
         console.error(`Failed to fetch config ${file.name}:`, error);
@@ -75,6 +80,7 @@ export async function fetchSavedConfigurations(): Promise<GitHubConfig[]> {
       }
     }
 
+    console.log("Total configurations loaded:", configs.length);
     return configs;
   } catch (error) {
     console.error("Error fetching saved configurations:", error);
@@ -86,6 +92,7 @@ export async function loadConfigurationFromGitHub(
   filename: string
 ): Promise<Record<string, unknown>> {
   try {
+    console.log("Loading configuration from GitHub:", filename);
     const repoOwner = "thoughtspot";
     const repoName = "tse-demo-builders-pre-built";
     const configsPath = "configs";
@@ -104,6 +111,7 @@ export async function loadConfigurationFromGitHub(
     }
 
     const fileData: GitHubApiResponse = await response.json();
+    console.log("GitHub file data:", fileData);
 
     // Fetch the actual file content
     const contentResponse = await fetch(fileData.download_url);
@@ -114,6 +122,7 @@ export async function loadConfigurationFromGitHub(
     }
 
     const configData = await contentResponse.json();
+    console.log("Loaded config data from GitHub:", configData);
     return configData;
   } catch (error) {
     console.error("Error loading configuration from GitHub:", error);

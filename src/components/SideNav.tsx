@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { CustomMenu, UserConfig } from "../types/thoughtspot";
 
 // Utility function to generate appropriate colors based on background and foreground
@@ -105,6 +105,24 @@ export default function SideNav({
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [showDragHandles, setShowDragHandles] = useState(false);
 
+  // Debug logging
+  useEffect(() => {
+    console.log("=== SideNav Debug ===");
+    console.log(
+      "Standard menus:",
+      standardMenus.length,
+      standardMenus.map((m) => ({ id: m.id, name: m.name, enabled: m.enabled }))
+    );
+    console.log(
+      "Custom menus:",
+      customMenus.length,
+      customMenus.map((m) => ({ id: m.id, name: m.name, enabled: m.enabled }))
+    );
+    console.log("Menu order:", menuOrder);
+    console.log("User config:", userConfig);
+    console.log("=====================");
+  }, [standardMenus, customMenus, menuOrder, userConfig]);
+
   // Generate appropriate colors based on background and foreground, or use explicit colors if provided
   const generatedColors = generateNavColors(backgroundColor, foregroundColor);
   const navColors = {
@@ -173,13 +191,23 @@ export default function SideNav({
 
   // Create navigation items based on menuOrder or default order
   const createNavItems = (): NavItem[] => {
+    console.log("Creating nav items with:", {
+      menuOrder,
+      allMenusSize: allMenus.size,
+      accessibleStandardMenus: accessibleStandardMenus.length,
+      accessibleCustomMenus: accessibleCustomMenus.length,
+    });
+
     if (menuOrder && menuOrder.length > 0) {
       // Use the stored order
       const orderedItems: NavItem[] = [];
 
       menuOrder.forEach((id) => {
         const menuData = allMenus.get(id);
-        if (!menuData) return;
+        if (!menuData) {
+          console.log(`Menu with id ${id} not found in allMenus`);
+          return;
+        }
 
         const { menu, isCustom } = menuData;
 
@@ -213,6 +241,14 @@ export default function SideNav({
         }
       });
 
+      console.log(
+        "Created ordered nav items:",
+        orderedItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          isCustom: item.isCustom,
+        }))
+      );
       return orderedItems;
     } else {
       // Default order: standard menus first, then custom menus
@@ -247,7 +283,16 @@ export default function SideNav({
           isCustom: true,
         }));
 
-      return [...standardNavItems, ...customNavItems];
+      const allItems = [...standardNavItems, ...customNavItems];
+      console.log(
+        "Created default nav items:",
+        allItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          isCustom: item.isCustom,
+        }))
+      );
+      return allItems;
     }
   };
 

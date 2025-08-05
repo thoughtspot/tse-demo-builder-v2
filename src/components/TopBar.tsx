@@ -80,111 +80,113 @@ export default function TopBar({
       </div>
 
       {/* User Menu */}
-      <div style={{ position: "relative" }}>
-        <button
-          onClick={() => {
-            const menu = document.getElementById("user-menu");
-            if (menu) {
-              menu.style.display =
-                menu.style.display === "block" ? "none" : "block";
-            }
-          }}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            padding: "8px",
-            borderRadius: "50%",
-            backgroundColor: "#e2e8f0",
-            width: "40px",
-            height: "40px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "16px",
-            fontWeight: "bold",
-          }}
-        >
-          {currentUser.name.charAt(0)}
-        </button>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{ position: "relative" }}>
+          <button
+            onClick={() => {
+              const menu = document.getElementById("user-menu");
+              if (menu) {
+                menu.style.display =
+                  menu.style.display === "block" ? "none" : "block";
+              }
+            }}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: "8px",
+              borderRadius: "50%",
+              backgroundColor: "#e2e8f0",
+              width: "40px",
+              height: "40px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "16px",
+              fontWeight: "bold",
+            }}
+          >
+            {currentUser.name.charAt(0)}
+          </button>
 
-        <div
-          id="user-menu"
-          style={{
-            display: "none",
-            position: "absolute",
-            right: 0,
-            top: "100%",
-            backgroundColor: "white",
-            border: "1px solid #e2e8f0",
-            borderRadius: "8px",
-            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-            minWidth: "200px",
-            zIndex: 1000,
-          }}
-        >
-          {users.map((user) => (
-            <button
-              key={user.id}
-              onClick={() => {
-                onUserChange?.(user.id);
-                const menu = document.getElementById("user-menu");
-                if (menu) menu.style.display = "none";
-              }}
-              style={{
-                width: "100%",
-                padding: "12px 16px",
-                border: "none",
-                background:
-                  currentUser.id === user.id ? "#ebf8ff" : "transparent",
-                cursor: "pointer",
-                textAlign: "left",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-              }}
-            >
-              <div
+          <div
+            id="user-menu"
+            style={{
+              display: "none",
+              position: "absolute",
+              right: 0,
+              top: "100%",
+              backgroundColor: "white",
+              border: "1px solid #e2e8f0",
+              borderRadius: "8px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              minWidth: "200px",
+              zIndex: 1000,
+            }}
+          >
+            {users.map((user) => (
+              <button
+                key={user.id}
+                onClick={() => {
+                  onUserChange?.(user.id);
+                  const menu = document.getElementById("user-menu");
+                  if (menu) menu.style.display = "none";
+                }}
                 style={{
-                  width: "24px",
-                  height: "24px",
-                  borderRadius: "50%",
-                  backgroundColor: "#e2e8f0",
+                  width: "100%",
+                  padding: "12px 16px",
+                  border: "none",
+                  background:
+                    currentUser.id === user.id ? "#ebf8ff" : "transparent",
+                  cursor: "pointer",
+                  textAlign: "left",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "12px",
-                  fontWeight: "bold",
+                  gap: "8px",
                 }}
               >
-                {user.name.charAt(0)}
-              </div>
-              <span>{user.name}</span>
-            </button>
-          ))}
+                <div
+                  style={{
+                    width: "24px",
+                    height: "24px",
+                    borderRadius: "50%",
+                    backgroundColor: "#e2e8f0",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {user.name.charAt(0)}
+                </div>
+                <span>{user.name}</span>
+              </button>
+            ))}
 
-          {/* Version display */}
-          {thoughtSpotVersion && (
-            <>
-              <hr
-                style={{
-                  margin: "8px 0",
-                  border: "none",
-                  borderTop: "1px solid #e2e8f0",
-                }}
-              />
-              <div
-                style={{
-                  padding: "8px 16px",
-                  fontSize: "12px",
-                  color: "#6b7280",
-                  textAlign: "center",
-                }}
-              >
-                Version {thoughtSpotVersion}
-              </div>
-            </>
-          )}
+            {/* Version display */}
+            {thoughtSpotVersion && (
+              <>
+                <hr
+                  style={{
+                    margin: "8px 0",
+                    border: "none",
+                    borderTop: "1px solid #e2e8f0",
+                  }}
+                />
+                <div
+                  style={{
+                    padding: "8px 16px",
+                    fontSize: "12px",
+                    color: "#6b7280",
+                    textAlign: "center",
+                  }}
+                >
+                  Version {thoughtSpotVersion}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
