@@ -2,33 +2,33 @@
 
 import { useState, useEffect } from "react";
 
-interface CSSVariablesEditorProps {
-  variables: Record<string, string>;
-  onChange: (variables: Record<string, string>) => void;
+interface CSSRulesEditorProps {
+  rules: Record<string, Record<string, string>>;
+  onChange: (rules: Record<string, Record<string, string>>) => void;
   title: string;
   description?: string;
 }
 
-export default function CSSVariablesEditor({
-  variables,
+export default function CSSRulesEditor({
+  rules,
   onChange,
   title,
   description,
-}: CSSVariablesEditorProps) {
+}: CSSRulesEditorProps) {
   const [jsonInput, setJsonInput] = useState("");
   const [isValid, setIsValid] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     try {
-      const jsonString = JSON.stringify(variables, null, 2);
+      const jsonString = JSON.stringify(rules, null, 2);
       setJsonInput(jsonString);
       setIsValid(true);
       setError(null);
     } catch (err) {
-      setError("Failed to format variables");
+      setError("Failed to format rules");
     }
-  }, [variables]);
+  }, [rules]);
 
   const handleJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
@@ -42,12 +42,44 @@ export default function CSSVariablesEditor({
     }
 
     try {
-      const parsed = JSON.parse(newValue);
-      if (typeof parsed === "object" && parsed !== null) {
-        // Validate that all values are strings
-        const isValidObject = Object.values(parsed).every(
-          (value) => typeof value === "string"
-        );
+      // Try to parse as JavaScript object first (allows single quotes)
+      let parsed;
+      try {
+        // Use Function constructor to safely evaluate JavaScript object syntax
+        parsed = new Function(`return ${newValue}`)();
+      } catch (jsError) {
+        // If JavaScript parsing fails, try strict JSON
+        parsed = JSON.parse(newValue);
+      }
+
+      console.log("Parsed object:", parsed);
+      console.log("Type:", typeof parsed);
+      console.log("Is Array:", Array.isArray(parsed));
+
+      if (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        !Array.isArray(parsed)
+      ) {
+        // Validate that all values are objects with string values
+        const isValidObject = Object.values(parsed).every((value) => {
+          const isObject =
+            typeof value === "object" &&
+            value !== null &&
+            !Array.isArray(value);
+          const hasStringValues =
+            isObject &&
+            Object.values(value).every((v) => typeof v === "string");
+          console.log(
+            "Value:",
+            value,
+            "isObject:",
+            isObject,
+            "hasStringValues:",
+            hasStringValues
+          );
+          return isObject && hasStringValues;
+        });
 
         if (isValidObject) {
           setIsValid(true);
@@ -55,15 +87,16 @@ export default function CSSVariablesEditor({
           onChange(parsed);
         } else {
           setIsValid(false);
-          setError("All values must be strings");
+          setError("All values must be objects with string properties");
         }
       } else {
         setIsValid(false);
-        setError("Must be a valid JSON object");
+        setError("Must be a valid object (not an array)");
       }
     } catch (err) {
+      console.error("Parse error:", err);
       setIsValid(false);
-      setError("Invalid JSON format");
+      setError("Invalid object format. Use JavaScript object syntax or JSON.");
     }
   };
 
@@ -80,40 +113,12 @@ export default function CSSVariablesEditor({
   };
 
   const handleReset = () => {
-    const defaultVariables = {
-      "--ts-var-button--secondary-background": "#F0EBFF",
-      "--ts-var-button--secondary--hover-background": "#E3D9FC",
-      "--ts-var-root-background": "#F7F5FF",
+    const defaultRules = {
+      '[data-testid="list-item-v2-label"]': {
+        color: "red",
+      },
     };
-    onChange(defaultVariables);
-  };
-
-  const handleGenerateNavColors = () => {
-    // This function demonstrates how the automatic color generation works
-    const sampleBg = "#f7fafc";
-    const sampleFg = "#4a5568";
-
-    // Simple color generation logic (simplified version of what's in SideNav)
-    const isLightBg = true; // Sample light background
-    const hoverFactor = isLightBg ? -0.08 : 0.12;
-
-    const exampleColors = {
-      "Sample Background": sampleBg,
-      "Sample Foreground": sampleFg,
-      "Generated Hover": "#e2e8f0", // Simplified example
-      "Generated Selected": "#3182ce",
-      "Generated Selected Text": "#ffffff",
-    };
-
-    alert(
-      `Automatic Navigation Color Generation Example:\n\n${Object.entries(
-        exampleColors
-      )
-        .map(([key, value]) => `${key}: ${value}`)
-        .join(
-          "\n"
-        )}\n\nHover colors are automatically generated based on your background color. For light backgrounds, hover is slightly darker. For dark backgrounds, hover is slightly lighter.`
-    );
+    onChange(defaultRules);
   };
 
   const handleClear = () => {
@@ -170,21 +175,6 @@ export default function CSSVariablesEditor({
             Reset
           </button>
           <button
-            onClick={handleGenerateNavColors}
-            style={{
-              padding: "4px 8px",
-              backgroundColor: "#10b981",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "12px",
-            }}
-            title="Learn about automatic navigation color generation"
-          >
-            Nav Colors
-          </button>
-          <button
             onClick={handleClear}
             style={{
               padding: "4px 8px",
@@ -232,9 +222,13 @@ export default function CSSVariablesEditor({
           }
         }}
         placeholder={`{
-  "--ts-var-button--secondary-background": "#F0EBFF",
-  "--ts-var-button--secondary--hover-background": "#E3D9FC",
-  "--ts-var-root-background": "#F7F5FF"
+  '[data-testid="list-item-v2-label"]': {
+    color: "red"
+  },
+  '.custom-class': {
+    "background-color": "#f0f0f0",
+    "font-size": "14px"
+  }
 }`}
         style={{
           width: "100%",
@@ -269,7 +263,9 @@ export default function CSSVariablesEditor({
           color: "#6b7280",
         }}
       >
-        Enter CSS variables as a JSON object with string values
+        Enter CSS rules as a JavaScript object with CSS selectors as keys and
+        style objects as values. Supports both JavaScript object syntax and
+        JSON.
       </p>
     </div>
   );

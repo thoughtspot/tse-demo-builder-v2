@@ -194,7 +194,10 @@ const DEFAULT_CONFIG = {
       strings: {},
       stringIDs: {},
       cssUrl: "",
-      customCSS: {},
+      customCSS: {
+        variables: {},
+        rules_UNSTABLE: {},
+      },
     },
     embedFlags: {
       spotterEmbed: {},
@@ -306,6 +309,7 @@ const exportConfiguration = (
     appConfig: AppConfig;
     fullAppConfig: FullAppConfig;
     stylingConfig: StylingConfig;
+    userConfig: UserConfig;
   },
   customName?: string
 ) => {
@@ -348,6 +352,7 @@ const importConfiguration = async (
     appConfig: AppConfig;
     fullAppConfig: FullAppConfig;
     stylingConfig: StylingConfig;
+    userConfig: UserConfig;
   };
   error?: string;
 }> => {
@@ -358,6 +363,34 @@ const importConfiguration = async (
     // Validate basic structure
     if (!imported.version || !imported.timestamp) {
       return { success: false, error: "Invalid configuration file format" };
+    }
+
+    // Log all fields in the imported configuration for debugging
+    console.log("Imported configuration fields:", Object.keys(imported));
+    
+    // Check for missing or unknown fields and log them
+    const expectedFields = [
+      "standardMenus",
+      "customMenus", 
+      "menuOrder",
+      "homePageConfig",
+      "appConfig",
+      "fullAppConfig",
+      "stylingConfig",
+      "userConfig",
+    ];
+    
+    const missingFields = expectedFields.filter(field => !imported[field]);
+    const unknownFields = Object.keys(imported).filter(field => 
+      !expectedFields.includes(field) && field !== "version" && field !== "timestamp" && field !== "description"
+    );
+    
+    if (missingFields.length > 0) {
+      console.log("Missing fields in imported configuration:", missingFields);
+    }
+    
+    if (unknownFields.length > 0) {
+      console.log("Unknown fields in imported configuration:", unknownFields);
     }
 
     // Validate required fields exist
@@ -383,6 +416,7 @@ const importConfiguration = async (
       appConfig: imported.appConfig || DEFAULT_CONFIG.appConfig,
       fullAppConfig: imported.fullAppConfig || DEFAULT_CONFIG.fullAppConfig,
       stylingConfig: imported.stylingConfig || DEFAULT_CONFIG.stylingConfig,
+      userConfig: imported.userConfig || DEFAULT_CONFIG.userConfig,
     };
 
     // Validate that the imported data has the correct structure
@@ -491,7 +525,17 @@ export default function Layout({ children }: LayoutProps) {
       }
     });
 
-    return uniqueMenus;
+    // Also clean up any menus with empty or invalid names
+    const validMenus = uniqueMenus.filter((menu) => {
+      if (!menu.name || menu.name.trim() === '') {
+        console.log("Removing custom menu with empty name:", menu.id);
+        return false;
+      }
+      return true;
+    });
+
+    console.log("Loaded custom menus:", validMenus.length, validMenus.map(m => ({ id: m.id, name: m.name })));
+    return validMenus;
   });
 
   // Menu order state - tracks the order of enabled menu IDs
@@ -581,7 +625,10 @@ export default function Layout({ children }: LayoutProps) {
           strings: {},
           stringIDs: {},
           cssUrl: "",
-          customCSS: {},
+          customCSS: {
+            variables: {},
+            rules_UNSTABLE: {},
+          },
         },
         embedFlags: {
           spotterEmbed: {},
@@ -701,8 +748,12 @@ export default function Layout({ children }: LayoutProps) {
           (stylingConfig.embeddedContent.stringIDs &&
             Object.keys(stylingConfig.embeddedContent.stringIDs).length > 0) ||
           stylingConfig.embeddedContent.cssUrl ||
-          (stylingConfig.embeddedContent.customCSS &&
-            Object.keys(stylingConfig.embeddedContent.customCSS).length > 0)
+          (stylingConfig.embeddedContent.customCSS.variables &&
+            Object.keys(stylingConfig.embeddedContent.customCSS.variables)
+              .length > 0) ||
+          (stylingConfig.embeddedContent.customCSS.rules_UNSTABLE &&
+            Object.keys(stylingConfig.embeddedContent.customCSS.rules_UNSTABLE)
+              .length > 0)
         ) {
           initConfig.customizations = {
             content: {
@@ -712,20 +763,44 @@ export default function Layout({ children }: LayoutProps) {
             style: {
               customCSSUrl: stylingConfig.embeddedContent.cssUrl || undefined,
               customCSS: {
-                variables: stylingConfig.embeddedContent.customCSS,
+                variables:
+                  stylingConfig.embeddedContent.customCSS.variables || {},
+                rules_UNSTABLE:
+                  stylingConfig.embeddedContent.customCSS.rules_UNSTABLE || {},
               },
             },
           };
+
+          console.log("=== ThoughtSpot Initialization ===");
+          console.log("Full initConfig:", initConfig);
+          console.log("Customizations:", initConfig.customizations);
+          if (initConfig.customizations?.style) {
+            console.log(
+              "Style customizations:",
+              initConfig.customizations.style
+            );
+            console.log(
+              "CSS Variables:",
+              initConfig.customizations.style.customCSS?.variables
+            );
+            console.log(
+              "CSS Rules:",
+              initConfig.customizations.style.rules_UNSTABLE
+            );
+          }
+          console.log("==================================");
         }
 
+        console.log("Initializing ThoughtSpot with config:", initConfig);
         init(initConfig);
+        console.log("ThoughtSpot initialization completed");
       } catch (error) {
         console.error("Failed to initialize ThoughtSpot:", error);
       }
     };
 
     initializeThoughtSpot();
-  }, [appConfig.thoughtspotUrl]); // Removed stylingConfig.embeddedContent dependency
+  }, [appConfig.thoughtspotUrl, stylingConfig.embeddedContent]); // Re-added stylingConfig.embeddedContent dependency
 
   const handleUserChange = (userId: string) => {
     // Update the current user in the user configuration
@@ -809,6 +884,8 @@ export default function Layout({ children }: LayoutProps) {
 
     // Check for duplicate IDs and regenerate if necessary
     setCustomMenus((prev) => {
+      console.log("Current custom menus count:", prev.length);
+      
       const existingIds = new Set(prev.map((m) => m.id));
       let finalMenu = menu;
 
@@ -821,21 +898,63 @@ export default function Layout({ children }: LayoutProps) {
         console.log("Duplicate ID detected, regenerated:", newId);
       }
 
+      // Also check for duplicate names to prevent confusion
+      const existingNames = new Set(prev.map((m) => m.name.toLowerCase()));
+      if (existingNames.has(menu.name.toLowerCase())) {
+        const baseName = menu.name;
+        let counter = 1;
+        let newName = `${baseName} (${counter})`;
+        while (existingNames.has(newName.toLowerCase())) {
+          counter++;
+          newName = `${baseName} (${counter})`;
+        }
+        finalMenu = { ...finalMenu, name: newName };
+        console.log("Duplicate name detected, renamed to:", newName);
+      }
+
+      // Enhanced duplicate detection - check for identical content
+      const existingMenu = prev.find(m => {
+        const nameMatch = m.name === finalMenu.name;
+        const descriptionMatch = m.description === finalMenu.description;
+        const iconMatch = m.icon === finalMenu.icon;
+        const enabledMatch = m.enabled === finalMenu.enabled;
+        const contentMatch = JSON.stringify(m.contentSelection) === JSON.stringify(finalMenu.contentSelection);
+        
+        const isDuplicate = nameMatch && descriptionMatch && iconMatch && enabledMatch && contentMatch;
+        
+        if (isDuplicate) {
+          console.log("Duplicate menu detected:", {
+            existing: { name: m.name, id: m.id },
+            incoming: { name: finalMenu.name, id: finalMenu.id },
+            matches: { nameMatch, descriptionMatch, iconMatch, enabledMatch, contentMatch }
+          });
+        }
+        
+        return isDuplicate;
+      });
+      
+      if (existingMenu) {
+        console.log("Duplicate menu detected, skipping:", finalMenu.name);
+        return prev;
+      }
+
+      console.log("Adding new menu:", finalMenu.name, "id:", finalMenu.id);
+      
+      // If the menu is enabled, add it to the menu order
+      if (finalMenu.enabled) {
+        setMenuOrder((prev) => {
+          const finalId = finalMenu.id;
+          // Check if ID already exists in menu order
+          if (prev.includes(finalId)) {
+            console.log("Menu ID already in order, skipping:", finalId);
+            return prev;
+          }
+          return [...prev, finalId];
+        });
+      }
+
       return [...prev, finalMenu];
     });
-
-    // If the menu is enabled, add it to the menu order
-    if (menu.enabled) {
-      setMenuOrder((prev) => {
-        const finalId = menu.id;
-        // Check if ID already exists in menu order
-        if (prev.includes(finalId)) {
-          console.log("Menu ID already in order, skipping:", finalId);
-          return prev;
-        }
-        return [...prev, finalId];
-      });
-    }
   };
 
   const updateCustomMenu = (id: string, menu: CustomMenu) => {
@@ -859,10 +978,20 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const deleteCustomMenu = (id: string) => {
-    setCustomMenus((prev) => prev.filter((m) => m.id !== id));
+    console.log("deleteCustomMenu called with id:", id);
+    
+    setCustomMenus((prev) => {
+      const filtered = prev.filter((m) => m.id !== id);
+      console.log("Custom menus after deletion:", filtered.length, "remaining");
+      return filtered;
+    });
 
     // Remove from menu order
-    setMenuOrder((prev) => prev.filter((menuId) => menuId !== id));
+    setMenuOrder((prev) => {
+      const filtered = prev.filter((menuId) => menuId !== id);
+      console.log("Menu order after deletion:", filtered);
+      return filtered;
+    });
   };
 
   const clearAllConfigurations = () => {
@@ -890,6 +1019,7 @@ export default function Layout({ children }: LayoutProps) {
         appConfig,
         fullAppConfig,
         stylingConfig,
+        userConfig,
       },
       customName
     );
@@ -906,6 +1036,7 @@ export default function Layout({ children }: LayoutProps) {
       setAppConfig(config.appConfig);
       setFullAppConfig(config.fullAppConfig);
       setStylingConfig(config.stylingConfig);
+      setUserConfig(config.userConfig);
       return { success: true };
     } else {
       return { success: false, error: result.error };
@@ -981,6 +1112,11 @@ export default function Layout({ children }: LayoutProps) {
               }
               foregroundColor={
                 stylingConfig.application.sidebar.foregroundColor
+              }
+              hoverColor={stylingConfig.application.sidebar.hoverColor}
+              selectedColor={stylingConfig.application.sidebar.selectedColor}
+              selectedTextColor={
+                stylingConfig.application.sidebar.selectedTextColor
               }
             />
 

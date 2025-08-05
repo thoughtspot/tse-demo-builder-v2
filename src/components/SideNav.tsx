@@ -4,6 +4,54 @@ import { useRouter, usePathname } from "next/navigation";
 import { useState, useRef, useCallback } from "react";
 import { CustomMenu, UserConfig } from "../types/thoughtspot";
 
+// Utility function to generate appropriate colors based on background and foreground
+const generateNavColors = (
+  backgroundColor: string,
+  foregroundColor: string
+) => {
+  // Helper function to determine if a color is light or dark
+  const isLightColor = (color: string) => {
+    const hex = color.replace("#", "");
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness > 128;
+  };
+
+  // Helper function to adjust color brightness
+  const adjustColorBrightness = (color: string, factor: number) => {
+    const hex = color.replace("#", "");
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+
+    const newR = Math.max(0, Math.min(255, Math.round(r + 255 * factor)));
+    const newG = Math.max(0, Math.min(255, Math.round(g + 255 * factor)));
+    const newB = Math.max(0, Math.min(255, Math.round(b + 255 * factor)));
+
+    return `#${newR.toString(16).padStart(2, "0")}${newG
+      .toString(16)
+      .padStart(2, "0")}${newB.toString(16).padStart(2, "0")}`;
+  };
+
+  const isLightBg = isLightColor(backgroundColor);
+
+  // Generate hover color - slightly darker for light backgrounds, lighter for dark backgrounds
+  const hoverFactor = isLightBg ? -0.08 : 0.12;
+  const hoverColor = adjustColorBrightness(backgroundColor, hoverFactor);
+
+  // Generate selected color - use the hover color for consistency
+  const selectedColor = hoverColor;
+  const selectedTextColor = foregroundColor; // Use the foreground color for text
+
+  return {
+    hoverColor,
+    selectedColor,
+    selectedTextColor,
+  };
+};
+
 interface StandardMenu {
   id: string;
   icon: string;
@@ -31,6 +79,9 @@ interface SideNavProps {
   userConfig?: UserConfig;
   backgroundColor?: string;
   foregroundColor?: string;
+  hoverColor?: string;
+  selectedColor?: string;
+  selectedTextColor?: string;
 }
 
 export default function SideNav({
@@ -42,6 +93,9 @@ export default function SideNav({
   userConfig,
   backgroundColor = "#f7fafc",
   foregroundColor = "#4a5568",
+  hoverColor,
+  selectedColor,
+  selectedTextColor,
 }: SideNavProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -51,12 +105,25 @@ export default function SideNav({
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [showDragHandles, setShowDragHandles] = useState(false);
 
+  // Generate appropriate colors based on background and foreground, or use explicit colors if provided
+  const generatedColors = generateNavColors(backgroundColor, foregroundColor);
+  const navColors = {
+    hoverColor: hoverColor || generatedColors.hoverColor,
+    selectedColor: selectedColor || generatedColors.selectedColor,
+    selectedTextColor: selectedTextColor || generatedColors.selectedTextColor,
+  };
+
   // Get current user access permissions
-  const currentUser = userConfig?.users.find((u) => u.id === userConfig?.currentUserId);
+  const currentUser = userConfig?.users.find(
+    (u) => u.id === userConfig?.currentUserId
+  );
   const userAccess = currentUser?.access;
 
   // Filter menus based on user access
-  const filterMenusByUserAccess = (menus: StandardMenu[] | CustomMenu[], isCustom: boolean) => {
+  const filterMenusByUserAccess = (
+    menus: StandardMenu[] | CustomMenu[],
+    isCustom: boolean
+  ) => {
     if (!userAccess) return menus; // If no user access defined, show all menus
 
     return menus.filter((menu) => {
@@ -67,7 +134,11 @@ export default function SideNav({
       } else {
         // For standard menus, check if the user has access to this menu type
         const standardMenu = menu as StandardMenu;
-        return userAccess.standardMenus[standardMenu.id as keyof typeof userAccess.standardMenus] === true;
+        return (
+          userAccess.standardMenus[
+            standardMenu.id as keyof typeof userAccess.standardMenus
+          ] === true
+        );
       }
     });
   };
@@ -79,7 +150,10 @@ export default function SideNav({
   >();
 
   // Add enabled standard menus (filtered by user access)
-  const accessibleStandardMenus = filterMenusByUserAccess(standardMenus, false) as StandardMenu[];
+  const accessibleStandardMenus = filterMenusByUserAccess(
+    standardMenus,
+    false
+  ) as StandardMenu[];
   accessibleStandardMenus
     .filter((menu) => menu.enabled)
     .forEach((menu) => {
@@ -87,7 +161,10 @@ export default function SideNav({
     });
 
   // Add enabled custom menus (filtered by user access)
-  const accessibleCustomMenus = filterMenusByUserAccess(customMenus, true) as CustomMenu[];
+  const accessibleCustomMenus = filterMenusByUserAccess(
+    customMenus,
+    true
+  ) as CustomMenu[];
   accessibleCustomMenus
     .filter((menu) => menu.enabled)
     .forEach((menu) => {
@@ -314,8 +391,14 @@ export default function SideNav({
                 width: "100%",
                 padding: isHovered ? "12px 24px" : "12px 16px",
                 border: "none",
-                background: pathname === item.route ? "#3182ce" : "transparent",
-                color: pathname === item.route ? "white" : foregroundColor,
+                background:
+                  pathname === item.route
+                    ? navColors.selectedColor
+                    : "transparent",
+                color:
+                  pathname === item.route
+                    ? navColors.selectedTextColor
+                    : foregroundColor,
                 cursor: "pointer",
                 textAlign: "left",
                 display: "flex",
@@ -325,12 +408,12 @@ export default function SideNav({
                 fontWeight: pathname === item.route ? "600" : "400",
                 transition: "all 0.2s",
                 justifyContent: isHovered ? "flex-start" : "center",
-                borderLeft: item.isCustom ? "3px solid #10b981" : "none",
+
                 position: "relative",
               }}
               onMouseEnter={(e) => {
                 if (pathname !== item.route) {
-                  e.currentTarget.style.backgroundColor = "#edf2f7";
+                  e.currentTarget.style.backgroundColor = navColors.hoverColor;
                 }
               }}
               onMouseLeave={(e) => {
@@ -410,7 +493,7 @@ export default function SideNav({
             padding: isHovered ? "12px 16px" : "12px 8px",
             border: "none",
             background: "transparent",
-            color: "#4a5568",
+            color: foregroundColor,
             cursor: "pointer",
             textAlign: "left",
             display: "flex",
@@ -422,7 +505,7 @@ export default function SideNav({
             justifyContent: isHovered ? "flex-start" : "center",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "#edf2f7";
+            e.currentTarget.style.backgroundColor = navColors.hoverColor;
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.backgroundColor = "transparent";

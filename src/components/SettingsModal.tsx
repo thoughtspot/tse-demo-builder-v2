@@ -13,6 +13,7 @@ import ColorPicker from "./ColorPicker";
 import ImageUpload from "./ImageUpload";
 import StringMappingEditor from "./StringMappingEditor";
 import CSSVariablesEditor from "./CSSVariablesEditor";
+import CSSRulesEditor from "./CSSRulesEditor";
 import EmbedFlagsEditor from "./EmbedFlagsEditor";
 import { User, UserConfig } from "../types/thoughtspot";
 
@@ -137,7 +138,10 @@ interface StylingConfig {
     strings: Record<string, string>;
     stringIDs: Record<string, string>;
     cssUrl?: string;
-    customCSS: Record<string, string>;
+    customCSS: {
+      variables?: Record<string, string>;
+      rules_UNSTABLE?: Record<string, Record<string, string>>;
+    };
   };
   embedFlags?: {
     spotterEmbed?: Record<string, unknown>;
@@ -1579,6 +1583,9 @@ function CustomMenusContent({
   const [editingMenu, setEditingMenu] = useState<CustomMenu | null>(null);
   const [originalMenu, setOriginalMenu] = useState<CustomMenu | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasSavedRef = useRef(false);
   const [availableLiveboards, setAvailableLiveboards] = useState<
     Array<{ id: string; name: string }>
   >([]);
@@ -1683,36 +1690,111 @@ function CustomMenusContent({
     setEditingMenu(newMenu);
     setOriginalMenu(null); // No original for new menus
     setIsCreating(true);
+    hasSavedRef.current = false; // Reset the save flag
   };
 
-  const handleSaveMenu = () => {
-    if (editingMenu && editingMenu.name.trim()) {
-      console.log(
-        "Saving menu from form:",
-        editingMenu.name,
-        "isCreating:",
-        isCreating
-      );
-      if (isCreating) {
-        addCustomMenu(editingMenu);
-      } else {
-        updateCustomMenu(editingMenu.id, editingMenu);
-      }
-      setEditingMenu(null);
-      setOriginalMenu(null);
-      setIsCreating(false);
-      onUnsavedChange?.(false);
-      onSaveMenu?.();
+  const handleSaveMenu = useCallback(() => {
+    console.log("handleSaveMenu called", {
+      isSaving,
+      editingMenu: editingMenu?.name,
+      isCreating,
+    });
+
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
-  };
 
-  const handleCancelEdit = () => {
+    // Prevent infinite loops and rapid calls
+    if (isSaving) {
+      console.log("Already saving, skipping duplicate call");
+      return;
+    }
+
+    // Additional safeguard - prevent if no editing menu
+    if (!editingMenu) {
+      console.log("Cannot save - no editing menu");
+      return;
+    }
+
+    // Debounce the save operation to prevent rapid successive calls
+    saveTimeoutRef.current = setTimeout(() => {
+      console.log("Executing debounced save operation");
+
+      // Prevent multiple saves of the same menu
+      if (hasSavedRef.current) {
+        console.log("Menu already saved, skipping duplicate save");
+        return;
+      }
+
+      if (isCreating) {
+        // For new menus, require a name
+        if (!editingMenu.name.trim()) {
+          console.log("Cannot save - menu name is empty");
+          return;
+        }
+
+        console.log(
+          "Saving new menu:",
+          editingMenu.name,
+          "isCreating:",
+          isCreating
+        );
+
+        hasSavedRef.current = true;
+        setIsSaving(true);
+        console.log("Calling addCustomMenu with:", editingMenu);
+        addCustomMenu(editingMenu);
+
+        setEditingMenu(null);
+        setOriginalMenu(null);
+        setIsCreating(false);
+        setIsSaving(false);
+        onUnsavedChange?.(false);
+        onSaveMenu?.();
+      } else {
+        // For existing menus, allow saving even with empty name
+        console.log(
+          "Updating existing menu:",
+          editingMenu.name,
+          "id:",
+          editingMenu.id
+        );
+
+        setIsSaving(true);
+        console.log(
+          "Calling updateCustomMenu with:",
+          editingMenu.id,
+          editingMenu
+        );
+        updateCustomMenu(editingMenu.id, editingMenu);
+
+        setEditingMenu(null);
+        setOriginalMenu(null);
+        setIsCreating(false);
+        setIsSaving(false);
+        onUnsavedChange?.(false);
+        onSaveMenu?.();
+      }
+    }, 100); // 100ms debounce
+  }, [
+    editingMenu,
+    isCreating,
+    isSaving,
+    addCustomMenu,
+    updateCustomMenu,
+    onUnsavedChange,
+    onSaveMenu,
+  ]);
+
+  const handleCancelEdit = useCallback(() => {
     setEditingMenu(null);
     setOriginalMenu(null);
     setIsCreating(false);
+    hasSavedRef.current = false; // Reset the save flag
     onUnsavedChange?.(false);
     onCancelEdit?.();
-  };
+  }, [onUnsavedChange, onCancelEdit]);
 
   const handleEditMenu = (menu: CustomMenu) => {
     setEditingMenu({ ...menu });
@@ -1723,90 +1805,25 @@ function CustomMenusContent({
   };
 
   const handleDeleteMenu = (id: string) => {
-    if (confirm("Are you sure you want to delete this custom menu?")) {
+    const menu = customMenus.find((m) => m.id === id);
+    const menuName = menu?.name || "this custom menu";
+
+    if (
+      confirm(
+        `Are you sure you want to delete "${menuName}"? This action cannot be undone.`
+      )
+    ) {
+      console.log("Deleting custom menu:", id, menuName);
       deleteCustomMenu(id);
     }
   };
 
-  // Check if there are actual changes
-  const hasChanges = useCallback(() => {
-    if (!editingMenu) return false;
-
-    if (isCreating) {
-      // For new menus, check if any field has been filled
-      const hasNewMenuChanges =
-        editingMenu.name.trim() !== "" ||
-        editingMenu.description.trim() !== "" ||
-        editingMenu.icon !== "📋" ||
-        (editingMenu.contentSelection.specificContent?.liveboards?.length ||
-          0) > 0 ||
-        (editingMenu.contentSelection.specificContent?.answers?.length || 0) >
-          0 ||
-        (editingMenu.contentSelection.tagIdentifiers?.length || 0) > 0;
-      console.log("New menu changes detected:", hasNewMenuChanges, {
-        name: editingMenu.name.trim(),
-        description: editingMenu.description.trim(),
-        icon: editingMenu.icon,
-        liveboards:
-          editingMenu.contentSelection.specificContent?.liveboards?.length || 0,
-        answers:
-          editingMenu.contentSelection.specificContent?.answers?.length || 0,
-        tags: editingMenu.contentSelection.tagIdentifiers?.length || 0,
-      });
-      return hasNewMenuChanges;
-    } else {
-      // For existing menus, compare with original
-      if (!originalMenu) {
-        console.log("No original menu to compare against");
-        return false;
-      }
-
-      const hasExistingMenuChanges =
-        editingMenu.name !== originalMenu.name ||
-        editingMenu.description !== originalMenu.description ||
-        editingMenu.icon !== originalMenu.icon ||
-        editingMenu.enabled !== originalMenu.enabled ||
-        editingMenu.contentSelection.type !==
-          originalMenu.contentSelection.type ||
-        JSON.stringify(editingMenu.contentSelection.specificContent) !==
-          JSON.stringify(originalMenu.contentSelection.specificContent) ||
-        JSON.stringify(editingMenu.contentSelection.tagIdentifiers) !==
-          JSON.stringify(originalMenu.contentSelection.tagIdentifiers);
-
-      console.log("Existing menu changes detected:", hasExistingMenuChanges, {
-        nameChanged: editingMenu.name !== originalMenu.name,
-        descriptionChanged:
-          editingMenu.description !== originalMenu.description,
-        iconChanged: editingMenu.icon !== originalMenu.icon,
-        enabledChanged: editingMenu.enabled !== originalMenu.enabled,
-        typeChanged:
-          editingMenu.contentSelection.type !==
-          originalMenu.contentSelection.type,
-      });
-
-      return hasExistingMenuChanges;
-    }
-  }, [editingMenu, originalMenu, isCreating]);
-
-  // Track changes to the editing menu
+  // Track changes to the editing menu - simplified to prevent infinite loops
   useEffect(() => {
     if (editingMenu) {
-      const changes = hasChanges();
-      console.log("useEffect triggered - hasChanges:", changes);
-      onUnsavedChange?.(changes);
-    } else {
-      console.log("useEffect triggered - no editing menu");
-      onUnsavedChange?.(false);
+      onEditingMenuChange?.(editingMenu);
     }
-    onEditingMenuChange?.(editingMenu);
-  }, [
-    editingMenu,
-    originalMenu,
-    isCreating,
-    hasChanges,
-    onUnsavedChange,
-    onEditingMenuChange,
-  ]);
+  }, [editingMenu, onEditingMenuChange]);
 
   // Expose functions through ref
   useEffect(() => {
@@ -1816,7 +1833,16 @@ function CustomMenusContent({
         cancelEdit: handleCancelEdit,
       };
     }
-  }, [ref, editingMenu, isCreating]);
+  }, [ref, handleSaveMenu, handleCancelEdit]);
+
+  // Debug logging for custom menus
+  useEffect(() => {
+    console.log(
+      "CustomMenusContent - customMenus updated:",
+      customMenus.length,
+      customMenus.map((m) => ({ id: m.id, name: m.name }))
+    );
+  }, [customMenus]);
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -2861,10 +2887,32 @@ function StylingContent({
 
             {/* CSS Variables */}
             <CSSVariablesEditor
-              variables={stylingConfig.embeddedContent.customCSS}
-              onChange={(value) => updateEmbeddedContent("customCSS", value)}
+              variables={
+                stylingConfig.embeddedContent.customCSS.variables || {}
+              }
+              onChange={(value) =>
+                updateEmbeddedContent("customCSS", {
+                  ...stylingConfig.embeddedContent.customCSS,
+                  variables: value,
+                })
+              }
               title="Custom CSS Variables"
               description="Define custom CSS variables for ThoughtSpot styling"
+            />
+
+            {/* CSS Rules */}
+            <CSSRulesEditor
+              rules={
+                stylingConfig.embeddedContent.customCSS.rules_UNSTABLE || {}
+              }
+              onChange={(value) =>
+                updateEmbeddedContent("customCSS", {
+                  ...stylingConfig.embeddedContent.customCSS,
+                  rules_UNSTABLE: value,
+                })
+              }
+              title="Custom CSS Rules (rules_UNSTABLE)"
+              description="Define custom CSS rules for ThoughtSpot styling. Use valid JSON with CSS selectors as keys and style objects as values."
             />
           </div>
         )}
@@ -4036,14 +4084,14 @@ export default function SettingsModal({
   initialTab,
   initialSubTab,
 }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState("configuration");
+  const [activeTab, setActiveTab] = useState(initialTab || "configuration");
 
-  // Update activeTab when initialTab prop changes
+  // Update activeTab when initialTab prop changes, but only if it's different
   useEffect(() => {
-    if (initialTab) {
+    if (initialTab && initialTab !== activeTab) {
       setActiveTab(initialTab);
     }
-  }, [initialTab]);
+  }, [initialTab, activeTab]);
 
   // Temporary state for unsaved changes
   const [pendingStandardMenus, setPendingStandardMenus] =
@@ -4184,7 +4232,18 @@ export default function SettingsModal({
   }>(null);
 
   const handleCustomMenuSave = () => {
-    customMenuRef.current?.saveMenu();
+    console.log("handleCustomMenuSave called", {
+      pendingCustomMenuSave: pendingCustomMenuSave?.name,
+      customMenuRef: customMenuRef.current ? "available" : "null",
+    });
+
+    // Add a safeguard to prevent multiple rapid calls
+    if (customMenuRef.current) {
+      console.log("Calling saveMenu through ref");
+      customMenuRef.current.saveMenu();
+    } else {
+      console.log("customMenuRef.current is null, cannot save");
+    }
   };
 
   const handleCustomMenuCancel = () => {
@@ -4401,20 +4460,19 @@ export default function SettingsModal({
                 </button>
                 <button
                   onClick={handleCustomMenuSave}
-                  disabled={!pendingCustomMenuSave?.name.trim()}
+                  disabled={false} // Temporarily enable for testing
                   style={{
                     padding: "8px 16px",
-                    backgroundColor: pendingCustomMenuSave?.name.trim()
-                      ? "#3182ce"
-                      : "#9ca3af",
+                    backgroundColor: "#3182ce", // Always enabled for testing
                     color: "white",
                     border: "none",
                     borderRadius: "6px",
-                    cursor: pendingCustomMenuSave?.name.trim()
-                      ? "pointer"
-                      : "not-allowed",
+                    cursor: "pointer", // Always enabled for testing
                     fontSize: "14px",
                   }}
+                  title={`Button state: pendingCustomMenuSave=${
+                    pendingCustomMenuSave?.name || "null"
+                  }, ref=${customMenuRef.current ? "available" : "null"}`}
                 >
                   {isCreatingCustomMenu ? "Create" : "Save"}
                 </button>

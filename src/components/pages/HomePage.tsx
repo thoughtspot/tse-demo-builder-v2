@@ -25,29 +25,27 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
   const searchRef = useRef<HTMLDivElement>(null);
   const spotterRef = useRef<HTMLDivElement>(null);
 
+  // Always call the hook to follow React rules
+  const context = useAppContext();
+
   // Use context if available, otherwise fall back to props
   let contextConfig: HomePageConfig | undefined;
-  let contextUpdate: ((config: HomePageConfig) => void) | undefined;
+  const contextUpdate: ((config: HomePageConfig) => void) | undefined =
+    context.updateHomePageConfig;
   let appName = "TSE Demo Builder";
 
-  try {
-    const context = useAppContext();
-    // Get home page configuration from standard menus
-    const homeMenu = context.standardMenus.find((m) => m.id === "home");
-    if (homeMenu && homeMenu.homePageType) {
-      contextConfig = {
-        type: homeMenu.homePageType,
-        value: homeMenu.homePageValue || "",
-      };
-    } else {
-      // Fallback to old homePageConfig if available
-      contextConfig = context.homePageConfig;
-    }
-    contextUpdate = context.updateHomePageConfig;
-    appName = context.appConfig.applicationName || "TSE Demo Builder";
-  } catch (error) {
-    // Context not available, use props
+  // Get home page configuration from standard menus
+  const homeMenu = context.standardMenus.find((m) => m.id === "home");
+  if (homeMenu && homeMenu.homePageType) {
+    contextConfig = {
+      type: homeMenu.homePageType,
+      value: homeMenu.homePageValue || "",
+    };
+  } else {
+    // Fallback to old homePageConfig if available
+    contextConfig = context.homePageConfig;
   }
+  appName = context.appConfig.applicationName || "TSE Demo Builder";
 
   // Use context config if available, otherwise use props, otherwise use default
   const homePageConfig = contextConfig ||
@@ -386,6 +384,9 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
                 </div>
               ) : (
                 <div
+                  key={`home-liveboard-embed-${JSON.stringify(
+                    context.stylingConfig.embeddedContent
+                  )}`}
                   ref={liveboardRef}
                   style={{
                     width: "100%",
@@ -468,6 +469,9 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
                 </div>
               ) : (
                 <div
+                  key={`home-search-embed-${JSON.stringify(
+                    context.stylingConfig.embeddedContent
+                  )}`}
                   ref={searchRef}
                   style={{
                     width: "100%",
@@ -549,6 +553,9 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
                 </div>
               ) : (
                 <div
+                  key={`home-spotter-embed-${JSON.stringify(
+                    context.stylingConfig.embeddedContent
+                  )}`}
                   ref={spotterRef}
                   style={{
                     width: "100%",

@@ -234,6 +234,9 @@ export default function SearchPage({
             </div>
           ) : (
             <div
+              key={`search-embed-${JSON.stringify(
+                context.stylingConfig.embeddedContent
+              )}`}
               ref={embedRef}
               style={{
                 width: "100%",

@@ -215,6 +215,9 @@ export default function SpotterPage({
             </div>
           ) : (
             <div
+              key={`spotter-embed-${JSON.stringify(
+                context.stylingConfig.embeddedContent
+              )}`}
               ref={embedRef}
               style={{
                 width: "100%",

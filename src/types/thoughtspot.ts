@@ -58,10 +58,10 @@ export interface UserConfig {
 
 // Embed-specific flags configuration
 export interface EmbedFlags {
-  spotterEmbed?: Record<string, any>;
-  liveboardEmbed?: Record<string, any>;
-  searchEmbed?: Record<string, any>;
-  appEmbed?: Record<string, any>;
+  spotterEmbed?: Record<string, unknown>;
+  liveboardEmbed?: Record<string, unknown>;
+  searchEmbed?: Record<string, unknown>;
+  appEmbed?: Record<string, unknown>;
 }
 
 // Styling configuration types
@@ -74,6 +74,9 @@ export interface ApplicationStyles {
   sidebar: {
     backgroundColor: string;
     foregroundColor: string;
+    hoverColor?: string;
+    selectedColor?: string;
+    selectedTextColor?: string;
   };
   footer: {
     backgroundColor: string;
@@ -89,7 +92,10 @@ export interface EmbeddedContentCustomization {
   strings: Record<string, string>;
   stringIDs: Record<string, string>;
   cssUrl?: string;
-  customCSS: Record<string, string>;
+  customCSS: {
+    variables?: Record<string, string>;
+    rules_UNSTABLE?: Record<string, Record<string, string>>;
+  };
 }
 
 export interface StylingConfig {
