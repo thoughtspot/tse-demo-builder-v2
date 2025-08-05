@@ -6,6 +6,7 @@ import SideNav from "./SideNav";
 import SettingsModal from "./SettingsModal";
 import Footer from "./Footer";
 import SessionChecker from "./SessionChecker";
+import ChatBubble from "./ChatBubble";
 import {
   CustomMenu,
   StylingConfig,
@@ -367,11 +368,11 @@ const importConfiguration = async (
 
     // Log all fields in the imported configuration for debugging
     console.log("Imported configuration fields:", Object.keys(imported));
-    
+
     // Check for missing or unknown fields and log them
     const expectedFields = [
       "standardMenus",
-      "customMenus", 
+      "customMenus",
       "menuOrder",
       "homePageConfig",
       "appConfig",
@@ -379,16 +380,20 @@ const importConfiguration = async (
       "stylingConfig",
       "userConfig",
     ];
-    
-    const missingFields = expectedFields.filter(field => !imported[field]);
-    const unknownFields = Object.keys(imported).filter(field => 
-      !expectedFields.includes(field) && field !== "version" && field !== "timestamp" && field !== "description"
+
+    const missingFields = expectedFields.filter((field) => !imported[field]);
+    const unknownFields = Object.keys(imported).filter(
+      (field) =>
+        !expectedFields.includes(field) &&
+        field !== "version" &&
+        field !== "timestamp" &&
+        field !== "description"
     );
-    
+
     if (missingFields.length > 0) {
       console.log("Missing fields in imported configuration:", missingFields);
     }
-    
+
     if (unknownFields.length > 0) {
       console.log("Unknown fields in imported configuration:", unknownFields);
     }
@@ -527,14 +532,18 @@ export default function Layout({ children }: LayoutProps) {
 
     // Also clean up any menus with empty or invalid names
     const validMenus = uniqueMenus.filter((menu) => {
-      if (!menu.name || menu.name.trim() === '') {
+      if (!menu.name || menu.name.trim() === "") {
         console.log("Removing custom menu with empty name:", menu.id);
         return false;
       }
       return true;
     });
 
-    console.log("Loaded custom menus:", validMenus.length, validMenus.map(m => ({ id: m.id, name: m.name })));
+    console.log(
+      "Loaded custom menus:",
+      validMenus.length,
+      validMenus.map((m) => ({ id: m.id, name: m.name }))
+    );
     return validMenus;
   });
 
@@ -741,55 +750,50 @@ export default function Layout({ children }: LayoutProps) {
           },
         };
 
-        // Add customizations if any are configured
-        if (
-          (stylingConfig.embeddedContent.strings &&
-            Object.keys(stylingConfig.embeddedContent.strings).length > 0) ||
-          (stylingConfig.embeddedContent.stringIDs &&
-            Object.keys(stylingConfig.embeddedContent.stringIDs).length > 0) ||
-          stylingConfig.embeddedContent.cssUrl ||
-          (stylingConfig.embeddedContent.customCSS.variables &&
-            Object.keys(stylingConfig.embeddedContent.customCSS.variables)
-              .length > 0) ||
-          (stylingConfig.embeddedContent.customCSS.rules_UNSTABLE &&
-            Object.keys(stylingConfig.embeddedContent.customCSS.rules_UNSTABLE)
-              .length > 0)
-        ) {
-          initConfig.customizations = {
-            content: {
-              strings: stylingConfig.embeddedContent.strings,
-              stringIDs: stylingConfig.embeddedContent.stringIDs,
-            },
-            style: {
-              customCSSUrl: stylingConfig.embeddedContent.cssUrl || undefined,
-              customCSS: {
-                variables:
-                  stylingConfig.embeddedContent.customCSS.variables || {},
-                rules_UNSTABLE:
-                  stylingConfig.embeddedContent.customCSS.rules_UNSTABLE || {},
-              },
-            },
-          };
+        // Always add customizations to ensure embed containers work properly
+        const baseRules = {
+          ".embed-module__tsEmbedContainer": {
+            "min-height": "0px !important",
+            "min-width": "0px !important",
+          },
+        };
 
-          console.log("=== ThoughtSpot Initialization ===");
-          console.log("Full initConfig:", initConfig);
-          console.log("Customizations:", initConfig.customizations);
-          if (initConfig.customizations?.style) {
-            console.log(
-              "Style customizations:",
-              initConfig.customizations.style
-            );
-            console.log(
-              "CSS Variables:",
-              initConfig.customizations.style.customCSS?.variables
-            );
-            console.log(
-              "CSS Rules:",
-              initConfig.customizations.style.rules_UNSTABLE
-            );
-          }
-          console.log("==================================");
+        // Merge user rules with base rules
+        const mergedRules = {
+          ...baseRules,
+          ...(stylingConfig.embeddedContent.customCSS.rules_UNSTABLE || {}),
+        };
+
+        initConfig.customizations = {
+          content: {
+            strings: stylingConfig.embeddedContent.strings || {},
+            stringIDs: stylingConfig.embeddedContent.stringIDs || {},
+          },
+          style: {
+            customCSSUrl: stylingConfig.embeddedContent.cssUrl || undefined,
+            customCSS: {
+              variables:
+                stylingConfig.embeddedContent.customCSS.variables || {},
+              rules_UNSTABLE: mergedRules,
+            },
+          },
+        };
+
+        console.log("=== ThoughtSpot Initialization ===");
+        console.log("Full initConfig:", initConfig);
+        console.log("Customizations:", initConfig.customizations);
+        if (initConfig.customizations?.style) {
+          console.log("Style customizations:", initConfig.customizations.style);
+          console.log(
+            "CSS Variables:",
+            initConfig.customizations.style.customCSS?.variables
+          );
+          console.log(
+            "CSS Rules:",
+            initConfig.customizations.style.rules_UNSTABLE
+          );
         }
+        console.log("==================================");
 
         console.log("Initializing ThoughtSpot with config:", initConfig);
         init(initConfig);
@@ -885,7 +889,7 @@ export default function Layout({ children }: LayoutProps) {
     // Check for duplicate IDs and regenerate if necessary
     setCustomMenus((prev) => {
       console.log("Current custom menus count:", prev.length);
-      
+
       const existingIds = new Set(prev.map((m) => m.id));
       let finalMenu = menu;
 
@@ -913,33 +917,46 @@ export default function Layout({ children }: LayoutProps) {
       }
 
       // Enhanced duplicate detection - check for identical content
-      const existingMenu = prev.find(m => {
+      const existingMenu = prev.find((m) => {
         const nameMatch = m.name === finalMenu.name;
         const descriptionMatch = m.description === finalMenu.description;
         const iconMatch = m.icon === finalMenu.icon;
         const enabledMatch = m.enabled === finalMenu.enabled;
-        const contentMatch = JSON.stringify(m.contentSelection) === JSON.stringify(finalMenu.contentSelection);
-        
-        const isDuplicate = nameMatch && descriptionMatch && iconMatch && enabledMatch && contentMatch;
-        
+        const contentMatch =
+          JSON.stringify(m.contentSelection) ===
+          JSON.stringify(finalMenu.contentSelection);
+
+        const isDuplicate =
+          nameMatch &&
+          descriptionMatch &&
+          iconMatch &&
+          enabledMatch &&
+          contentMatch;
+
         if (isDuplicate) {
           console.log("Duplicate menu detected:", {
             existing: { name: m.name, id: m.id },
             incoming: { name: finalMenu.name, id: finalMenu.id },
-            matches: { nameMatch, descriptionMatch, iconMatch, enabledMatch, contentMatch }
+            matches: {
+              nameMatch,
+              descriptionMatch,
+              iconMatch,
+              enabledMatch,
+              contentMatch,
+            },
           });
         }
-        
+
         return isDuplicate;
       });
-      
+
       if (existingMenu) {
         console.log("Duplicate menu detected, skipping:", finalMenu.name);
         return prev;
       }
 
       console.log("Adding new menu:", finalMenu.name, "id:", finalMenu.id);
-      
+
       // If the menu is enabled, add it to the menu order
       if (finalMenu.enabled) {
         setMenuOrder((prev) => {
@@ -979,7 +996,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const deleteCustomMenu = (id: string) => {
     console.log("deleteCustomMenu called with id:", id);
-    
+
     setCustomMenus((prev) => {
       const filtered = prev.filter((m) => m.id !== id);
       console.log("Custom menus after deletion:", filtered.length, "remaining");
@@ -1169,6 +1186,9 @@ export default function Layout({ children }: LayoutProps) {
             initialTab={settingsInitialTab}
             initialSubTab={settingsInitialSubTab}
           />
+
+          {/* Chat Bubble */}
+          <ChatBubble />
         </div>
       </SessionChecker>
     </AppContext.Provider>
