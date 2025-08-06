@@ -449,7 +449,7 @@ export default function SideNav({
                 display: "flex",
                 alignItems: "center",
                 gap: "12px",
-                fontSize: "14px",
+                fontSize: "18px",
                 fontWeight: pathname === item.route ? "600" : "400",
                 transition: "all 0.2s",
                 justifyContent: isHovered ? "flex-start" : "center",
@@ -472,8 +472,8 @@ export default function SideNav({
                   src={item.icon}
                   alt="Menu icon"
                   style={{
-                    width: "18px",
-                    height: "18px",
+                    width: "26px",
+                    height: "26px",
                     objectFit: "contain",
                   }}
                 />
@@ -482,13 +482,13 @@ export default function SideNav({
                   src={item.icon}
                   alt="Menu icon"
                   style={{
-                    width: "18px",
-                    height: "18px",
+                    width: "26px",
+                    height: "26px",
                     objectFit: "contain",
                   }}
                 />
               ) : (
-                <span style={{ fontSize: "18px" }}>{item.icon}</span>
+                <span style={{ fontSize: "26px" }}>{item.icon}</span>
               )}
               {isHovered && <span>{item.name}</span>}
 
@@ -544,7 +544,7 @@ export default function SideNav({
             display: "flex",
             alignItems: "center",
             gap: "12px",
-            fontSize: "14px",
+            fontSize: "18px",
             fontWeight: "400",
             transition: "all 0.2s",
             justifyContent: isHovered ? "flex-start" : "center",
@@ -556,7 +556,7 @@ export default function SideNav({
             e.currentTarget.style.backgroundColor = "transparent";
           }}
         >
-          <span style={{ fontSize: "18px" }}>⚙️</span>
+          <span style={{ fontSize: "26px" }}>⚙️</span>
           {isHovered && <span>Settings</span>}
         </button>
       </div>

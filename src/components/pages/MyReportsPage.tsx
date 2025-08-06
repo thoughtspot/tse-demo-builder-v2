@@ -13,6 +13,7 @@ export default function MyReportsPage() {
     ? {
         contentType: myReportsMenu.contentType,
         namePattern: myReportsMenu.namePattern,
+        tagFilter: myReportsMenu.tagFilter,
       }
     : undefined;
 

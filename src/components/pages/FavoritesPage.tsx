@@ -13,6 +13,7 @@ export default function FavoritesPage() {
     ? {
         contentType: favoritesMenu.contentType,
         namePattern: favoritesMenu.namePattern,
+        tagFilter: favoritesMenu.tagFilter,
       }
     : undefined;
 

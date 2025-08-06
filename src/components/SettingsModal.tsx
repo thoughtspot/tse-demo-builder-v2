@@ -22,35 +22,14 @@ import {
   SavedConfiguration,
 } from "../types/thoughtspot";
 import HiddenActionsEditor from "./HiddenActionsEditor";
+import TagFilterComponent from "./TagFilterComponent";
 import {
   fetchSavedConfigurations,
   loadConfigurationFromGitHub,
 } from "../services/githubApi";
 
-interface StandardMenu {
-  id: string;
-  icon: string;
-  name: string;
-  enabled: boolean;
-  modelId?: string;
-  contentId?: string;
-  contentType?: "Answer" | "Liveboard";
-  namePattern?: string;
-  spotterModelId?: string;
-  spotterSearchQuery?: string;
-  searchDataSource?: string;
-  searchTokenString?: string;
-  runSearch?: boolean;
-  // Home page configuration fields
-  homePageType?:
-    | "image"
-    | "html"
-    | "iframe"
-    | "liveboard"
-    | "answer"
-    | "spotter";
-  homePageValue?: string;
-}
+// Import StandardMenu from Layout to avoid duplication
+import { StandardMenu } from "./Layout";
 
 interface HomePageConfig {
   type: "image" | "html" | "iframe" | "liveboard" | "answer" | "spotter";
@@ -62,6 +41,7 @@ interface AppConfig {
   applicationName: string;
   logo: string;
   earlyAccessFlags: string;
+  favicon?: string;
 }
 
 interface FullAppConfig {
@@ -101,6 +81,7 @@ interface SettingsModalProps {
   }>;
   initialTab?: string;
   initialSubTab?: string;
+  onTabChange?: (tab: string, subTab?: string) => void;
 }
 
 interface Tab {
@@ -162,12 +143,149 @@ interface StylingConfig {
   };
 }
 
+// Add this component before the StandardMenusContent function
+function ModelSearchInput({
+  onApply,
+  placeholder = "Search models...",
+}: {
+  onApply: (value: string) => void;
+  placeholder?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      const value = inputRef.current?.value || "";
+      onApply(value);
+    }
+  };
+
+  return (
+    <div style={{ position: "relative", marginBottom: "8px" }}>
+      <input
+        ref={inputRef}
+        type="text"
+        placeholder={placeholder}
+        defaultValue=""
+        onKeyPress={handleKeyPress}
+        style={{
+          width: "100%",
+          padding: "8px 12px",
+          paddingRight: "32px",
+          border: "1px solid #d1d5db",
+          borderRadius: "4px",
+          fontSize: "14px",
+        }}
+      />
+      <button
+        onClick={() => {
+          const value = inputRef.current?.value || "";
+          onApply(value);
+        }}
+        style={{
+          position: "absolute",
+          right: "4px",
+          top: "50%",
+          transform: "translateY(-50%)",
+          padding: "4px 8px",
+          backgroundColor: "transparent",
+          color: "#6b7280",
+          border: "none",
+          cursor: "pointer",
+          fontSize: "12px",
+          borderRadius: "2px",
+        }}
+        title="Press Enter or click to search"
+      >
+        ↵
+      </button>
+    </div>
+  );
+}
+
+// Search query input with enter functionality and no preview updates while typing
+function SearchQueryInput({
+  value,
+  onChange,
+  placeholder,
+  onCommit,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  onCommit?: (value: string) => void;
+}) {
+  const [localValue, setLocalValue] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  const handleCommit = () => {
+    onChange(localValue);
+    onCommit?.(localValue);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleCommit();
+    }
+  };
+
+  const handleBlur = () => {
+    handleCommit();
+  };
+
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        ref={inputRef}
+        type="text"
+        placeholder={placeholder}
+        value={localValue}
+        onChange={(e) => setLocalValue(e.target.value)}
+        onKeyPress={handleKeyPress}
+        onBlur={handleBlur}
+        style={{
+          width: "100%",
+          padding: "8px 12px",
+          paddingRight: "32px",
+          border: "1px solid #d1d5db",
+          borderRadius: "4px",
+          fontSize: "14px",
+        }}
+      />
+      <button
+        onClick={handleCommit}
+        style={{
+          position: "absolute",
+          right: "4px",
+          top: "50%",
+          transform: "translateY(-50%)",
+          padding: "4px 8px",
+          backgroundColor: "transparent",
+          color: "#6b7280",
+          border: "none",
+          cursor: "pointer",
+          fontSize: "12px",
+          borderRadius: "2px",
+        }}
+        title="Press Enter or click to apply"
+      >
+        ↵
+      </button>
+    </div>
+  );
+}
+
 function StandardMenusContent({
   standardMenus,
   updateStandardMenu,
   initialSubTab,
   fullAppConfig,
   updateFullAppConfig,
+  onSubTabChange,
 }: {
   standardMenus: StandardMenu[];
   updateStandardMenu: (
@@ -178,6 +296,7 @@ function StandardMenusContent({
   initialSubTab?: string;
   fullAppConfig: FullAppConfig;
   updateFullAppConfig: (config: FullAppConfig) => void;
+  onSubTabChange?: (subTab: string) => void;
 }) {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "home");
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
@@ -200,6 +319,12 @@ function StandardMenusContent({
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [worksheetsError, setWorksheetsError] = useState<string | null>(null);
   const [contentError, setContentError] = useState<string | null>(null);
+  const [availableTags, setAvailableTags] = useState<
+    Array<{ id: string; name: string; color: string }>
+  >([]);
+  const [isLoadingTags, setIsLoadingTags] = useState(false);
+  const [tagsError, setTagsError] = useState<string | null>(null);
+  const [debouncedModelFilter, setDebouncedModelFilter] = useState("");
 
   // Fetch models on component mount
   useEffect(() => {
@@ -296,6 +421,26 @@ function StandardMenusContent({
     fetchContent();
   }, []);
 
+  // Fetch tags on component mount
+  useEffect(() => {
+    const fetchTags = async () => {
+      try {
+        setIsLoadingTags(true);
+        setTagsError(null);
+        const { fetchTags } = await import("../services/thoughtspotApi");
+        const tagsData = await fetchTags();
+        setAvailableTags(tagsData);
+      } catch (error) {
+        console.error("Failed to fetch tags:", error);
+        setTagsError("Failed to load tags");
+      } finally {
+        setIsLoadingTags(false);
+      }
+    };
+
+    fetchTags();
+  }, []);
+
   // Combine models and worksheets into a single list (treating worksheets as models)
   useEffect(() => {
     // Create a map to track unique items by ID
@@ -320,6 +465,13 @@ function StandardMenusContent({
 
     setCombinedOptions(combined);
   }, [modelOptions, worksheetOptions]);
+
+  // Remove debounce - only use Apply button to prevent preview updates
+
+  // Filter models based on applied search input
+  const filteredModels = combinedOptions.filter((option) =>
+    option.name.toLowerCase().includes(debouncedModelFilter.toLowerCase())
+  );
 
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -375,16 +527,46 @@ function StandardMenusContent({
   };
 
   const subTabs = [
-    { id: "home", name: "Home", icon: "🏠" },
-    { id: "favorites", name: "Favorites", icon: "⭐" },
-    { id: "my-reports", name: "My Reports", icon: "📊" },
-    { id: "spotter", name: "Spotter", icon: "🔍" },
-    { id: "search", name: "Search", icon: "🔎" },
-    { id: "full-app", name: "Full App", icon: "🌐" },
+    {
+      id: "home",
+      name: "Home",
+      icon: standardMenus.find((m) => m.id === "home")?.icon || "🏠",
+    },
+    {
+      id: "favorites",
+      name: "Favorites",
+      icon: standardMenus.find((m) => m.id === "favorites")?.icon || "⭐",
+    },
+    {
+      id: "my-reports",
+      name: "My Reports",
+      icon: standardMenus.find((m) => m.id === "my-reports")?.icon || "📊",
+    },
+    {
+      id: "spotter",
+      name: "Spotter",
+      icon: standardMenus.find((m) => m.id === "spotter")?.icon || "🔍",
+    },
+    {
+      id: "search",
+      name: "Search",
+      icon: standardMenus.find((m) => m.id === "search")?.icon || "🔎",
+    },
+    {
+      id: "full-app",
+      name: "Full App",
+      icon: standardMenus.find((m) => m.id === "full-app")?.icon || "🌐",
+    },
   ];
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       <h3
         style={{
           marginBottom: "24px",
@@ -407,7 +589,16 @@ function StandardMenusContent({
         {subTabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveSubTab(tab.id)}
+            onClick={(e) => {
+              e.preventDefault();
+              setActiveSubTab(tab.id);
+              onSubTabChange?.(tab.id);
+              // Prevent auto-scroll by ensuring container stays at top
+              const container = e.currentTarget.closest('[style*="overflow"]');
+              if (container) {
+                container.scrollTop = 0;
+              }
+            }}
             style={{
               padding: "12px 20px",
               border: "none",
@@ -422,7 +613,29 @@ function StandardMenusContent({
               gap: "8px",
             }}
           >
-            <span style={{ fontSize: "16px" }}>{tab.icon}</span>
+            {tab.icon.startsWith("data:") ? (
+              <img
+                src={tab.icon}
+                alt="Tab icon"
+                style={{
+                  width: "16px",
+                  height: "16px",
+                  objectFit: "contain",
+                }}
+              />
+            ) : tab.icon.startsWith("/") ? (
+              <img
+                src={tab.icon}
+                alt="Tab icon"
+                style={{
+                  width: "16px",
+                  height: "16px",
+                  objectFit: "contain",
+                }}
+              />
+            ) : (
+              <span style={{ fontSize: "16px" }}>{tab.icon}</span>
+            )}
             <span>{tab.name}</span>
           </button>
         ))}
@@ -493,7 +706,14 @@ function StandardMenusContent({
         </div>
       ) : (
         /* Normal mode with preview and configuration side by side */
-        <div style={{ display: "flex", gap: "24px", height: "600px", flex: 1 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: "24px",
+            height: "650px",
+            flex: 1,
+          }}
+        >
           {/* Page Preview */}
           <div style={{ flex: 2, display: "flex", flexDirection: "column" }}>
             <div
@@ -584,12 +804,12 @@ function StandardMenusContent({
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
+                        gridTemplateColumns: "auto 1fr",
                         gap: "16px",
                         marginBottom: "16px",
                       }}
                     >
-                      <div>
+                      <div style={{ minWidth: "200px" }}>
                         <label
                           style={{
                             display: "block",
@@ -682,6 +902,7 @@ function StandardMenusContent({
                           }
                           style={{
                             width: "100%",
+                            minWidth: "150px",
                             padding: "8px 12px",
                             border: "1px solid #d1d5db",
                             borderRadius: "4px",
@@ -803,6 +1024,18 @@ function StandardMenusContent({
                             </p>
                           </div>
                         </div>
+
+                        <TagFilterComponent
+                          value={menu.tagFilter || ""}
+                          onChange={(value) =>
+                            updateStandardMenu(menu.id, "tagFilter", value)
+                          }
+                          availableTags={availableTags}
+                          isLoading={isLoadingTags}
+                          error={tagsError}
+                          label="Tag Filter"
+                          description="Filter favorites by tag"
+                        />
                       </div>
                     )}
 
@@ -890,6 +1123,18 @@ function StandardMenusContent({
                             </p>
                           </div>
                         </div>
+
+                        <TagFilterComponent
+                          value={menu.tagFilter || ""}
+                          onChange={(value) =>
+                            updateStandardMenu(menu.id, "tagFilter", value)
+                          }
+                          availableTags={availableTags}
+                          isLoading={isLoadingTags}
+                          error={tagsError}
+                          label="Tag Filter"
+                          description="Filter reports by tag"
+                        />
                       </div>
                     )}
 
@@ -1184,30 +1429,95 @@ function StandardMenusContent({
                                 >
                                   Spotter Model
                                 </label>
-                                <select
-                                  value={menu.spotterModelId || ""}
-                                  onChange={(e) =>
-                                    updateStandardMenu(
-                                      menu.id,
-                                      "spotterModelId",
-                                      e.target.value
-                                    )
-                                  }
-                                  style={{
-                                    width: "100%",
-                                    padding: "8px 12px",
-                                    border: "1px solid #d1d5db",
-                                    borderRadius: "4px",
-                                    fontSize: "14px",
-                                  }}
-                                >
-                                  <option value="">Select a model</option>
-                                  {combinedOptions.map((option) => (
-                                    <option key={option.id} value={option.id}>
-                                      {option.name}
-                                    </option>
-                                  ))}
-                                </select>
+                                <div style={{ position: "relative" }}>
+                                  <select
+                                    value={menu.spotterModelId || ""}
+                                    onChange={(e) =>
+                                      updateStandardMenu(
+                                        menu.id,
+                                        "spotterModelId",
+                                        e.target.value
+                                      )
+                                    }
+                                    style={{
+                                      width: "100%",
+                                      padding: "8px 12px",
+                                      paddingRight: "32px",
+                                      border: "1px solid #d1d5db",
+                                      borderRadius: "4px",
+                                      fontSize: "14px",
+                                      marginBottom: "8px",
+                                    }}
+                                  >
+                                    <option value="">Select a model</option>
+                                    {filteredModels.map((option) => (
+                                      <option key={option.id} value={option.id}>
+                                        {option.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    onClick={() => {
+                                      const input = prompt(
+                                        "Search models:",
+                                        debouncedModelFilter
+                                      );
+                                      if (input !== null) {
+                                        setDebouncedModelFilter(input);
+                                      }
+                                    }}
+                                    style={{
+                                      position: "absolute",
+                                      right: "4px",
+                                      top: "50%",
+                                      transform: "translateY(-50%)",
+                                      padding: "4px 8px",
+                                      backgroundColor: "transparent",
+                                      color: "#6b7280",
+                                      border: "none",
+                                      cursor: "pointer",
+                                      fontSize: "12px",
+                                      borderRadius: "2px",
+                                      marginTop: "-4px",
+                                    }}
+                                    title="Filter models"
+                                  >
+                                    🔍
+                                  </button>
+                                </div>
+                                {debouncedModelFilter && (
+                                  <div style={{ marginBottom: "8px" }}>
+                                    <p
+                                      style={{
+                                        margin: "0 0 4px 0",
+                                        fontSize: "12px",
+                                        color: "#6b7280",
+                                      }}
+                                    >
+                                      Filter: &quot;{debouncedModelFilter}
+                                      &quot; - Showing {
+                                        filteredModels.length
+                                      }{" "}
+                                      of {combinedOptions.length} models
+                                    </p>
+                                    <button
+                                      onClick={() =>
+                                        setDebouncedModelFilter("")
+                                      }
+                                      style={{
+                                        padding: "2px 6px",
+                                        backgroundColor: "#ef4444",
+                                        color: "white",
+                                        border: "none",
+                                        borderRadius: "3px",
+                                        cursor: "pointer",
+                                        fontSize: "11px",
+                                      }}
+                                    >
+                                      Clear filter
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1222,24 +1532,16 @@ function StandardMenusContent({
                             >
                               Starting Search Query (Optional)
                             </label>
-                            <input
-                              type="text"
+                            <SearchQueryInput
                               value={menu.spotterSearchQuery || ""}
-                              onChange={(e) =>
+                              onChange={(value) =>
                                 updateStandardMenu(
                                   menu.id,
                                   "spotterSearchQuery",
-                                  e.target.value
+                                  value
                                 )
                               }
                               placeholder="Enter a search query to start with..."
-                              style={{
-                                width: "100%",
-                                padding: "8px 12px",
-                                border: "1px solid #d1d5db",
-                                borderRadius: "4px",
-                                fontSize: "14px",
-                              }}
                             />
                             <p
                               style={{
@@ -1303,30 +1605,95 @@ function StandardMenusContent({
                                 >
                                   Search Data Source (Model)
                                 </label>
-                                <select
-                                  value={menu.searchDataSource || ""}
-                                  onChange={(e) =>
-                                    updateStandardMenu(
-                                      menu.id,
-                                      "searchDataSource",
-                                      e.target.value
-                                    )
-                                  }
-                                  style={{
-                                    width: "100%",
-                                    padding: "8px 12px",
-                                    border: "1px solid #d1d5db",
-                                    borderRadius: "4px",
-                                    fontSize: "14px",
-                                  }}
-                                >
-                                  <option value="">Select a model</option>
-                                  {combinedOptions.map((option) => (
-                                    <option key={option.id} value={option.id}>
-                                      {option.name}
-                                    </option>
-                                  ))}
-                                </select>
+                                <div style={{ position: "relative" }}>
+                                  <select
+                                    value={menu.searchDataSource || ""}
+                                    onChange={(e) =>
+                                      updateStandardMenu(
+                                        menu.id,
+                                        "searchDataSource",
+                                        e.target.value
+                                      )
+                                    }
+                                    style={{
+                                      width: "100%",
+                                      padding: "8px 12px",
+                                      paddingRight: "32px",
+                                      border: "1px solid #d1d5db",
+                                      borderRadius: "4px",
+                                      fontSize: "14px",
+                                      marginBottom: "8px",
+                                    }}
+                                  >
+                                    <option value="">Select a model</option>
+                                    {filteredModels.map((option) => (
+                                      <option key={option.id} value={option.id}>
+                                        {option.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    onClick={() => {
+                                      const input = prompt(
+                                        "Search models:",
+                                        debouncedModelFilter
+                                      );
+                                      if (input !== null) {
+                                        setDebouncedModelFilter(input);
+                                      }
+                                    }}
+                                    style={{
+                                      position: "absolute",
+                                      right: "4px",
+                                      top: "50%",
+                                      transform: "translateY(-50%)",
+                                      padding: "4px 8px",
+                                      backgroundColor: "transparent",
+                                      color: "#6b7280",
+                                      border: "none",
+                                      cursor: "pointer",
+                                      fontSize: "12px",
+                                      borderRadius: "2px",
+                                      marginTop: "-4px",
+                                    }}
+                                    title="Filter models"
+                                  >
+                                    🔍
+                                  </button>
+                                </div>
+                                {debouncedModelFilter && (
+                                  <div style={{ marginBottom: "8px" }}>
+                                    <p
+                                      style={{
+                                        margin: "0 0 4px 0",
+                                        fontSize: "12px",
+                                        color: "#6b7280",
+                                      }}
+                                    >
+                                      Filter: &quot;{debouncedModelFilter}
+                                      &quot; - Showing {
+                                        filteredModels.length
+                                      }{" "}
+                                      of {combinedOptions.length} models
+                                    </p>
+                                    <button
+                                      onClick={() =>
+                                        setDebouncedModelFilter("")
+                                      }
+                                      style={{
+                                        padding: "2px 6px",
+                                        backgroundColor: "#ef4444",
+                                        color: "white",
+                                        border: "none",
+                                        borderRadius: "3px",
+                                        cursor: "pointer",
+                                        fontSize: "11px",
+                                      }}
+                                    >
+                                      Clear filter
+                                    </button>
+                                  </div>
+                                )}
                                 <p
                                   style={{
                                     color: "#718096",
@@ -1351,24 +1718,16 @@ function StandardMenusContent({
                             >
                               Search Token String (Optional)
                             </label>
-                            <input
-                              type="text"
+                            <SearchQueryInput
                               value={menu.searchTokenString || ""}
-                              onChange={(e) =>
+                              onChange={(value) =>
                                 updateStandardMenu(
                                   menu.id,
                                   "searchTokenString",
-                                  e.target.value
+                                  value
                                 )
                               }
                               placeholder="Enter a search query to start with..."
-                              style={{
-                                width: "100%",
-                                padding: "8px 12px",
-                                border: "1px solid #d1d5db",
-                                borderRadius: "4px",
-                                fontSize: "14px",
-                              }}
                             />
                             <p
                               style={{
@@ -3596,6 +3955,7 @@ function ConfigurationContent({
   updateFullAppConfig,
   updateUserConfig,
   setMenuOrder,
+  standardMenus,
 }: {
   appConfig: AppConfig;
   updateAppConfig: (config: AppConfig) => void;
@@ -3617,6 +3977,7 @@ function ConfigurationContent({
   updateFullAppConfig?: (config: FullAppConfig) => void;
   updateUserConfig?: (config: UserConfig) => void;
   setMenuOrder?: (order: string[]) => void;
+  standardMenus?: StandardMenu[];
 }) {
   const [activeSubTab, setActiveSubTab] = useState("general");
   const [importStatus, setImportStatus] = useState<{
@@ -4049,6 +4410,92 @@ function ConfigurationContent({
                   >
                     Feature flags for early access features (optional)
                   </p>
+                </div>
+
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontWeight: "500",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Favicon URL
+                  </label>
+                  <input
+                    type="url"
+                    value={appConfig.favicon || ""}
+                    onChange={(e) =>
+                      updateAppConfig({
+                        ...appConfig,
+                        favicon: e.target.value,
+                      })
+                    }
+                    placeholder="https://example.com/favicon.ico"
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                    }}
+                  />
+                  <p
+                    style={{
+                      margin: "4px 0 0 0",
+                      fontSize: "12px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    URL to your browser tab icon (optional). Leave empty to use
+                    the default.
+                  </p>
+                  <div style={{ marginTop: "8px" }}>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={
+                          appConfig.favicon ===
+                          (standardMenus?.find((m) => m.id === "home")?.icon ||
+                            "")
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            const homeMenu = standardMenus?.find(
+                              (m) => m.id === "home"
+                            );
+                            if (homeMenu) {
+                              updateAppConfig({
+                                ...appConfig,
+                                favicon: homeMenu.icon,
+                              });
+                            }
+                          }
+                        }}
+                        style={{ cursor: "pointer" }}
+                      />
+                      <span>Sync with Home menu icon</span>
+                    </label>
+                    <p
+                      style={{
+                        margin: "4px 0 0 0",
+                        fontSize: "12px",
+                        color: "#6b7280",
+                      }}
+                    >
+                      When checked, the favicon will automatically match the
+                      Home menu icon
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -4504,6 +4951,7 @@ export default function SettingsModal({
   importConfiguration,
   initialTab,
   initialSubTab,
+  onTabChange,
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState(initialTab || "configuration");
 
@@ -4644,6 +5092,9 @@ export default function SettingsModal({
       updateStylingConfig(pendingStylingConfig);
 
       setHasUnsavedChanges(false);
+
+      // Note: The activeTab state is preserved automatically since we don't reset it
+      // The activeSubTab state in StandardMenusContent is also preserved since we don't reset it
     }
   };
 
@@ -4678,18 +5129,19 @@ export default function SettingsModal({
       content: (
         <ConfigurationContent
           appConfig={pendingAppConfig}
-          updateAppConfig={updateAppConfig}
+          updateAppConfig={updatePendingAppConfig}
           stylingConfig={pendingStylingConfig}
-          updateStylingConfig={updateStylingConfig}
+          updateStylingConfig={updatePendingStylingConfig}
           clearAllConfigurations={clearAllConfigurations}
           exportConfiguration={exportConfiguration}
           importConfiguration={importConfiguration}
           updateStandardMenu={updateStandardMenu}
           addCustomMenu={addCustomMenu}
-          updateHomePageConfig={updateHomePageConfig}
-          updateFullAppConfig={updateFullAppConfig}
+          updateHomePageConfig={updatePendingHomePageConfig}
+          updateFullAppConfig={updatePendingFullAppConfig}
           updateUserConfig={updateUserConfig}
           setMenuOrder={setMenuOrder}
+          standardMenus={pendingStandardMenus}
         />
       ),
     },
@@ -4703,6 +5155,7 @@ export default function SettingsModal({
           initialSubTab={initialSubTab}
           fullAppConfig={pendingFullAppConfig}
           updateFullAppConfig={updatePendingFullAppConfig}
+          onSubTabChange={(subTab) => onTabChange?.("standard-menus", subTab)}
         />
       ),
     },
@@ -4827,7 +5280,10 @@ export default function SettingsModal({
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                onTabChange?.(tab.id);
+              }}
               style={{
                 padding: "16px 24px",
                 border: "none",

@@ -72,7 +72,7 @@ export default function SpotterPage({
             worksheetId: finalSpotterModelId,
             frameParams: {
               width: "100%",
-              height: "600px",
+              height: "400px",
             },
             ...finalEmbedFlags,
             ...(hiddenActions.length > 0 && { hiddenActions }),
@@ -86,7 +86,10 @@ export default function SpotterPage({
           }
 
           if (embedConfig.worksheetId) {
-            embedInstance = new SpotterEmbed(embedRef.current, embedConfig as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+            embedInstance = new SpotterEmbed(
+              embedRef.current,
+              embedConfig as any
+            ); // eslint-disable-line @typescript-eslint/no-explicit-any
           }
           embedInstanceRef.current = embedInstance;
           await (embedInstance as { render: () => Promise<void> }).render();
@@ -179,16 +182,16 @@ export default function SpotterPage({
         <div
           style={{
             backgroundColor: "white",
-            padding: "20px",
+            padding: "12px",
             borderRadius: "8px",
             border: "1px solid #e2e8f0",
           }}
         >
           <h3
             style={{
-              fontSize: "18px",
+              fontSize: "16px",
               fontWeight: "600",
-              marginBottom: "16px",
+              marginBottom: "12px",
             }}
           >
             AI Analyst
@@ -229,7 +232,7 @@ export default function SpotterPage({
               ref={embedRef}
               style={{
                 width: "100%",
-                height: "600px",
+                height: "400px",
                 borderRadius: "6px",
                 border: "1px solid #e2e8f0",
               }}

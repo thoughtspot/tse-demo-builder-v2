@@ -17,10 +17,12 @@ interface ContentGridProps {
   favoritesConfig?: {
     contentType?: "Answer" | "Liveboard";
     namePattern?: string;
+    tagFilter?: string;
   };
   userContentConfig?: {
     contentType?: "Answer" | "Liveboard";
     namePattern?: string;
+    tagFilter?: string;
   };
   showDirectContent?: boolean;
   onBackClick?: () => void;
@@ -101,18 +103,37 @@ export default function ContentGrid({
             answers = specificContent.answers;
           }
         } else if (fetchUserContent) {
-          const currentUser = await getCurrentUser();
-          if (currentUser) {
-            const userContent = await fetchUserContentWithStats(
-              currentUser.name
-            );
-            liveboards = userContent.liveboards;
-            answers = userContent.answers;
+          // Check if we need to filter by tags
+          if (
+            userContentConfig?.tagFilter &&
+            userContentConfig.tagFilter.trim()
+          ) {
+            const tagFilter = userContentConfig.tagFilter.trim();
+            const tagContent = await fetchContentByTags([tagFilter]);
+            liveboards = tagContent.liveboards;
+            answers = tagContent.answers;
+          } else {
+            const currentUser = await getCurrentUser();
+            if (currentUser) {
+              const userContent = await fetchUserContentWithStats(
+                currentUser.name
+              );
+              liveboards = userContent.liveboards;
+              answers = userContent.answers;
+            }
           }
         } else if (fetchFavorites) {
-          const favoritesContent = await fetchFavoritesWithStats();
-          liveboards = favoritesContent.liveboards;
-          answers = favoritesContent.answers;
+          // Check if we need to filter by tags
+          if (favoritesConfig?.tagFilter && favoritesConfig.tagFilter.trim()) {
+            const tagFilter = favoritesConfig.tagFilter.trim();
+            const tagContent = await fetchContentByTags([tagFilter]);
+            liveboards = tagContent.liveboards;
+            answers = tagContent.answers;
+          } else {
+            const favoritesContent = await fetchFavoritesWithStats();
+            liveboards = favoritesContent.liveboards;
+            answers = favoritesContent.answers;
+          }
         } else {
           const allContent = await fetchAllThoughtSpotContentWithStats();
           liveboards = allContent.liveboards;
@@ -297,7 +318,11 @@ export default function ContentGrid({
       <div>
         {title && (
           <h1
-            style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "24px" }}
+            style={{
+              fontSize: "32px",
+              fontWeight: "bold",
+              marginBottom: "24px",
+            }}
           >
             {title}
           </h1>
@@ -344,7 +369,11 @@ export default function ContentGrid({
       <div>
         {title && (
           <h1
-            style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "24px" }}
+            style={{
+              fontSize: "32px",
+              fontWeight: "bold",
+              marginBottom: "24px",
+            }}
           >
             {title}
           </h1>
@@ -435,7 +464,9 @@ export default function ContentGrid({
 
         {((fetchFavorites &&
           favoritesConfig &&
-          (favoritesConfig.contentType || favoritesConfig.namePattern)) ||
+          (favoritesConfig.contentType ||
+            favoritesConfig.namePattern ||
+            favoritesConfig.tagFilter)) ||
           (fetchUserContent &&
             userContentConfig &&
             (userContentConfig.contentType ||
@@ -472,6 +503,16 @@ export default function ContentGrid({
                 Name: &quot;{userContentConfig.namePattern}&quot;
               </span>
             )}
+            {userContentConfig?.tagFilter && (
+              <span style={{ marginLeft: "8px" }}>
+                Tag: &quot;{userContentConfig.tagFilter}&quot;
+              </span>
+            )}
+            {favoritesConfig?.tagFilter && (
+              <span style={{ marginLeft: "8px" }}>
+                Tag: &quot;{favoritesConfig.tagFilter}&quot;
+              </span>
+            )}
           </div>
         )}
 
@@ -480,12 +521,15 @@ export default function ContentGrid({
             <p style={{ color: "#4a5568", marginBottom: "16px" }}>
               {(fetchFavorites &&
                 favoritesConfig &&
-                (favoritesConfig.contentType || favoritesConfig.namePattern)) ||
+                (favoritesConfig.contentType ||
+                  favoritesConfig.namePattern ||
+                  favoritesConfig.tagFilter)) ||
               (fetchUserContent &&
                 userContentConfig &&
                 (userContentConfig.contentType ||
-                  userContentConfig.namePattern))
-                ? "No items match your current filters. Try adjusting the content type or name pattern in settings."
+                  userContentConfig.namePattern ||
+                  userContentConfig.tagFilter))
+                ? "No items match your current filters. Try adjusting the content type, name pattern, or tag filter in settings."
                 : emptyMessage}
             </p>
             <button

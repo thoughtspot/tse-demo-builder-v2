@@ -16,7 +16,7 @@ import {
 } from "../types/thoughtspot";
 import { setThoughtSpotBaseUrl } from "../services/thoughtspotApi";
 
-interface StandardMenu {
+export interface StandardMenu {
   id: string;
   icon: string;
   name: string;
@@ -25,6 +25,7 @@ interface StandardMenu {
   contentId?: string;
   contentType?: "Answer" | "Liveboard";
   namePattern?: string;
+  tagFilter?: string;
   spotterModelId?: string;
   spotterSearchQuery?: string;
   searchDataSource?: string;
@@ -51,6 +52,7 @@ interface AppConfig {
   applicationName: string;
   logo: string;
   earlyAccessFlags: string;
+  favicon?: string;
 }
 
 interface FullAppConfig {
@@ -167,6 +169,7 @@ const DEFAULT_CONFIG = {
     applicationName: "TSE Demo Builder",
     logo: "",
     earlyAccessFlags: "",
+    favicon: "/ts.png",
   } as AppConfig,
   fullAppConfig: {
     showPrimaryNavbar: false,
@@ -955,6 +958,7 @@ export default function Layout({ children }: LayoutProps) {
         applicationName: "TSE Demo Builder",
         logo: "",
         earlyAccessFlags: "",
+        favicon: "/ts.png",
       }) as AppConfig
   );
 
@@ -1092,6 +1096,17 @@ export default function Layout({ children }: LayoutProps) {
     document.title = title;
   }, [appConfig.applicationName]);
 
+  // Update favicon when app config changes
+  useEffect(() => {
+    const favicon = appConfig.favicon || "/ts.png";
+    const faviconElement = document.getElementById(
+      "favicon"
+    ) as HTMLLinkElement;
+    if (faviconElement) {
+      faviconElement.href = favicon;
+    }
+  }, [appConfig.favicon]);
+
   // Parse early access flags from configuration string
   const parseEarlyAccessFlags = (
     flagsString: string
@@ -1199,7 +1214,11 @@ export default function Layout({ children }: LayoutProps) {
     };
 
     initializeThoughtSpot();
-  }, [appConfig.thoughtspotUrl, stylingConfig.embeddedContent]); // Re-added stylingConfig.embeddedContent dependency
+  }, [
+    appConfig.thoughtspotUrl,
+    appConfig.earlyAccessFlags,
+    stylingConfig.embeddedContent,
+  ]); // Use specific fields instead of entire objects
 
   const handleUserChange = (userId: string) => {
     // Update the current user in the user configuration
@@ -1255,6 +1274,14 @@ export default function Layout({ children }: LayoutProps) {
 
         return prev;
       });
+    }
+
+    // Update favicon when home menu icon changes
+    if (id === "home" && field === "icon") {
+      setAppConfig((prev) => ({
+        ...prev,
+        favicon: value as string,
+      }));
     }
   };
 
@@ -1697,6 +1724,12 @@ export default function Layout({ children }: LayoutProps) {
             importConfiguration={handleImportConfiguration}
             initialTab={settingsInitialTab}
             initialSubTab={settingsInitialSubTab}
+            onTabChange={(tab, subTab) => {
+              setSettingsInitialTab(tab);
+              if (subTab) {
+                setSettingsInitialSubTab(subTab);
+              }
+            }}
           />
 
           {/* Chat Bubble */}
