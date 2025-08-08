@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useAppContext } from "../Layout";
 import { ThoughtSpotEmbedConfig } from "../../types/thoughtspot";
 
@@ -36,7 +36,7 @@ export default function SpotterPage({
     contextSpotterModelId = spotterMenu?.spotterModelId;
     contextSpotterSearchQuery = spotterMenu?.spotterSearchQuery;
     contextEmbedFlags = context.stylingConfig.embedFlags?.spotterEmbed;
-  } catch (error) {
+  } catch {
     // Context not available, use props or defaults
   }
 
@@ -44,7 +44,11 @@ export default function SpotterPage({
   const finalSpotterModelId = propSpotterModelId || contextSpotterModelId;
   const finalSpotterSearchQuery =
     propSpotterSearchQuery || contextSpotterSearchQuery;
-  const finalEmbedFlags = contextEmbedFlags || {};
+
+  // Memoize finalEmbedFlags to prevent re-renders
+  const finalEmbedFlags = useMemo(() => {
+    return contextEmbedFlags || {};
+  }, [contextEmbedFlags]);
 
   // Handle ThoughtSpot embed
   useEffect(() => {
@@ -64,8 +68,9 @@ export default function SpotterPage({
           const currentUser = context.userConfig.users.find(
             (u) => u.id === context.userConfig.currentUserId
           );
-          const hiddenActions = currentUser?.access.hiddenActions?.enabled
-            ? (currentUser.access.hiddenActions.actions as any[]) // eslint-disable-line @typescript-eslint/no-explicit-any
+          const hiddenActionsStrings = currentUser?.access.hiddenActions
+            ?.enabled
+            ? currentUser.access.hiddenActions.actions
             : [];
 
           const embedConfig: ThoughtSpotEmbedConfig = {
@@ -75,7 +80,9 @@ export default function SpotterPage({
               height: "400px",
             },
             ...finalEmbedFlags,
-            ...(hiddenActions.length > 0 && { hiddenActions }),
+            ...(hiddenActionsStrings.length > 0 && {
+              hiddenActions: hiddenActionsStrings,
+            }),
           };
 
           // Only add searchOptions if searchQuery is provided
@@ -86,10 +93,21 @@ export default function SpotterPage({
           }
 
           if (embedConfig.worksheetId) {
+            // Convert hidden actions strings to Action enums for the SpotterEmbed
+            const spotterConfig = {
+              ...embedConfig,
+              worksheetId: embedConfig.worksheetId as string,
+            };
+
+            // Remove hiddenActions from the config as we'll handle it separately
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { hiddenActions, ...configWithoutHiddenActions } =
+              spotterConfig;
+
             embedInstance = new SpotterEmbed(
               embedRef.current,
-              embedConfig as any
-            ); // eslint-disable-line @typescript-eslint/no-explicit-any
+              configWithoutHiddenActions
+            );
           }
           embedInstanceRef.current = embedInstance;
           await (embedInstance as { render: () => Promise<void> }).render();
@@ -111,7 +129,13 @@ export default function SpotterPage({
         embedInstanceRef.current.destroy();
       }
     };
-  }, [finalSpotterModelId, finalSpotterSearchQuery]);
+  }, [
+    finalSpotterModelId,
+    finalSpotterSearchQuery,
+    finalEmbedFlags,
+    context.userConfig.currentUserId,
+    context.userConfig.users,
+  ]);
 
   return (
     <div>
