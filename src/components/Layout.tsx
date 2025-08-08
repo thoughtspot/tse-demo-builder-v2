@@ -257,6 +257,21 @@ const loadFromStorage = (key: string, defaultValue: unknown): unknown => {
   if (typeof window === "undefined") return defaultValue;
 
   try {
+    // First try to load chunked data
+    const chunkedData = retrieveChunkedData(key);
+    if (chunkedData) {
+      try {
+        const parsed = JSON.parse(chunkedData);
+        console.log(`Loaded ${key} from chunked storage:`, parsed);
+        return parsed;
+      } catch (parseError) {
+        console.error(`Failed to parse chunked data for ${key}:`, parseError);
+        // Clear corrupted chunked data
+        clearChunkedData(key);
+      }
+    }
+
+    // Try direct storage
     const stored = localStorage.getItem(key);
     if (!stored) {
       console.log(`No stored data found for key: ${key}, using default`);
@@ -360,10 +375,215 @@ const cleanupStylingConfig = (config: unknown): unknown => {
     }
   }
 
+  // More aggressive cleanup for large objects
+  if (embeddedContent?.strings && typeof embeddedContent.strings === "object") {
+    const strings = embeddedContent.strings as Record<string, string>;
+    const cleanedStrings: Record<string, string> = {};
+
+    // Only keep non-empty strings
+    Object.keys(strings).forEach((key) => {
+      if (strings[key] && strings[key].trim() !== "") {
+        cleanedStrings[key] = strings[key];
+      }
+    });
+
+    if (Object.keys(cleanedStrings).length === 0) {
+      delete embeddedContent.strings;
+    } else {
+      embeddedContent.strings = cleanedStrings;
+    }
+  }
+
+  if (
+    embeddedContent?.stringIDs &&
+    typeof embeddedContent.stringIDs === "object"
+  ) {
+    const stringIDs = embeddedContent.stringIDs as Record<string, string>;
+    const cleanedStringIDs: Record<string, string> = {};
+
+    // Only keep non-empty string IDs
+    Object.keys(stringIDs).forEach((key) => {
+      if (stringIDs[key] && stringIDs[key].trim() !== "") {
+        cleanedStringIDs[key] = stringIDs[key];
+      }
+    });
+
+    if (Object.keys(cleanedStringIDs).length === 0) {
+      delete embeddedContent.stringIDs;
+    } else {
+      embeddedContent.stringIDs = cleanedStringIDs;
+    }
+  }
+
   return cleaned;
 };
 
-const saveToStorage = (key: string, value: unknown): void => {
+// Utility function to compress data using simple compression
+const compressData = (data: string): string => {
+  try {
+    // Simple compression: remove unnecessary whitespace and use shorter property names
+    const compressed = JSON.stringify(JSON.parse(data));
+    return compressed;
+  } catch {
+    return data;
+  }
+};
+
+// Utility function to estimate localStorage usage
+const estimateStorageUsage = (): number => {
+  if (typeof window === "undefined") return 0;
+
+  let totalSize = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key) {
+      const value = localStorage.getItem(key);
+      if (value) {
+        totalSize += key.length + value.length;
+      }
+    }
+  }
+  return totalSize;
+};
+
+// Utility function to clear non-essential storage
+const clearNonEssentialStorage = (): void => {
+  if (typeof window === "undefined") return;
+
+  const keysToClear = [
+    "tse-demo-builder-styling-config",
+    "tse-demo-builder-user-config",
+    "tse-demo-builder-custom-menus",
+  ];
+
+  keysToClear.forEach((key) => {
+    try {
+      localStorage.removeItem(key);
+      clearChunkedData(key);
+      console.log(`Cleared ${key} to make space`);
+    } catch (error) {
+      console.warn(`Failed to clear ${key}:`, error);
+    }
+  });
+};
+
+// Utility function to clear ALL localStorage data
+const clearAllLocalStorage = (): void => {
+  if (typeof window === "undefined") return;
+
+  try {
+    localStorage.clear();
+    console.log("Cleared all localStorage data");
+  } catch (error) {
+    console.error("Failed to clear localStorage:", error);
+  }
+};
+
+// Utility function to chunk large data
+const chunkData = (
+  key: string,
+  data: string,
+  maxChunkSize: number = 10 * 1024 // 10KB chunks - much smaller
+): void => {
+  if (typeof window === "undefined") return;
+
+  // First, clear any existing chunked data for this key
+  clearChunkedData(key);
+
+  const chunks = Math.ceil(data.length / maxChunkSize);
+
+  // Store chunk metadata
+  const metadata = {
+    totalChunks: chunks,
+    totalSize: data.length,
+    timestamp: Date.now(),
+  };
+
+  try {
+    localStorage.setItem(`${key}_metadata`, JSON.stringify(metadata));
+  } catch (error) {
+    console.error(`Failed to store metadata for ${key}:`, error);
+    throw error;
+  }
+
+  // Store chunks
+  for (let i = 0; i < chunks; i++) {
+    const start = i * maxChunkSize;
+    const end = Math.min(start + maxChunkSize, data.length);
+    const chunk = data.slice(start, end);
+
+    try {
+      localStorage.setItem(`${key}_chunk_${i}`, chunk);
+    } catch (error) {
+      console.error(`Failed to store chunk ${i} for ${key}:`, error);
+      // Clean up partial chunks and metadata
+      for (let j = 0; j < i; j++) {
+        try {
+          localStorage.removeItem(`${key}_chunk_${j}`);
+        } catch (cleanupError) {
+          console.warn(`Failed to cleanup chunk ${j}:`, cleanupError);
+        }
+      }
+      try {
+        localStorage.removeItem(`${key}_metadata`);
+      } catch (cleanupError) {
+        console.warn(`Failed to cleanup metadata:`, cleanupError);
+      }
+      throw error;
+    }
+  }
+};
+
+// Utility function to retrieve chunked data
+const retrieveChunkedData = (key: string): string | null => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const metadataStr = localStorage.getItem(`${key}_metadata`);
+    if (!metadataStr) return null;
+
+    const metadata = JSON.parse(metadataStr);
+    let data = "";
+
+    for (let i = 0; i < metadata.totalChunks; i++) {
+      const chunk = localStorage.getItem(`${key}_chunk_${i}`);
+      if (!chunk) {
+        console.warn(`Missing chunk ${i} for ${key}`);
+        return null;
+      }
+      data += chunk;
+    }
+
+    return data;
+  } catch (error) {
+    console.error(`Failed to retrieve chunked data for ${key}:`, error);
+    return null;
+  }
+};
+
+// Utility function to clear chunked data
+const clearChunkedData = (key: string): void => {
+  if (typeof window === "undefined") return;
+
+  try {
+    const metadataStr = localStorage.getItem(`${key}_metadata`);
+    if (metadataStr) {
+      const metadata = JSON.parse(metadataStr);
+      for (let i = 0; i < metadata.totalChunks; i++) {
+        localStorage.removeItem(`${key}_chunk_${i}`);
+      }
+      localStorage.removeItem(`${key}_metadata`);
+    }
+  } catch (error) {
+    console.warn(`Failed to clear chunked data for ${key}:`, error);
+  }
+};
+
+const saveToStorage = (
+  key: string,
+  value: unknown,
+  onError?: (message: string) => void
+): void => {
   if (typeof window === "undefined") return;
 
   try {
@@ -374,48 +594,103 @@ const saveToStorage = (key: string, value: unknown): void => {
     }
 
     const serializedValue = JSON.stringify(valueToSave);
+    const compressedValue = compressData(serializedValue);
 
-    // Check if the value is too large (localStorage has ~5-10MB limit)
-    if (serializedValue.length > 4 * 1024 * 1024) {
-      // 4MB limit
+    // Check if the value is too large for direct storage
+    if (compressedValue.length > 50 * 1024) {
+      // 50KB limit for direct storage
       console.warn(
-        `Value for ${key} is too large (${serializedValue.length} bytes), skipping save`
+        `Value for ${key} is large (${compressedValue.length} bytes), using chunked storage`
       );
+
+      // Clear existing data first to make space
+      try {
+        localStorage.removeItem(key);
+        clearChunkedData(key);
+      } catch (error) {
+        console.warn(`Failed to clear existing data for ${key}:`, error);
+      }
+
+      // Use chunked storage
+      chunkData(key, compressedValue);
+      console.log(`Saved ${key} using chunked storage`);
       return;
     }
 
-    localStorage.setItem(key, serializedValue);
+    // Try direct storage first
+    localStorage.setItem(key, compressedValue);
     console.log(`Saved ${key}:`, valueToSave);
   } catch (error) {
     console.error(`Failed to save ${key} to localStorage:`, error);
 
-    // If it's a quota error, try to clear some space
+    // If it's a quota error, try more aggressive cleanup
     if (error instanceof Error && error.name === "QuotaExceededError") {
       console.warn(
-        "localStorage quota exceeded, attempting to clear old data..."
+        "localStorage quota exceeded, attempting aggressive cleanup..."
       );
+
       try {
-        // Clear some non-critical storage keys to make space
-        const keysToClear = [
-          "tse-demo-builder-styling-config",
-          "tse-demo-builder-user-config",
-        ];
+        // Clear all non-essential storage
+        clearNonEssentialStorage();
 
-        keysToClear.forEach((keyToClear) => {
-          if (keyToClear !== key) {
-            localStorage.removeItem(keyToClear);
-            console.log(`Cleared ${keyToClear} to make space`);
+        // Check current storage usage
+        const currentUsage = estimateStorageUsage();
+        console.log(`Current localStorage usage: ${currentUsage} bytes`);
+
+        // If still too large, try chunking
+        if (key === STORAGE_KEYS.STYLING_CONFIG) {
+          const serializedValue = JSON.stringify(value);
+          const compressedValue = compressData(serializedValue);
+
+          // Clear any existing chunked data
+          clearChunkedData(key);
+
+          try {
+            // Use chunked storage
+            chunkData(key, compressedValue);
+            console.log(
+              `Successfully saved ${key} using chunked storage after cleanup`
+            );
+            return;
+          } catch (chunkError) {
+            console.error(`Chunking failed for ${key}:`, chunkError);
+
+            // Last resort: clear all localStorage and try again
+            try {
+              clearAllLocalStorage();
+              console.log("Cleared all localStorage as last resort");
+
+              // Try chunking again with clean storage
+              chunkData(key, compressedValue);
+              console.log(
+                `Successfully saved ${key} using chunked storage after full cleanup`
+              );
+              return;
+            } catch (finalError) {
+              console.error(`Final attempt failed for ${key}:`, finalError);
+              throw finalError;
+            }
           }
-        });
+        }
 
-        // Try saving again
-        localStorage.setItem(key, JSON.stringify(value));
-        console.log(`Successfully saved ${key} after clearing space`);
+        // Try saving again with compressed data
+        const serializedValue = JSON.stringify(value);
+        const compressedValue = compressData(serializedValue);
+        localStorage.setItem(key, compressedValue);
+        console.log(`Successfully saved ${key} after aggressive cleanup`);
       } catch (retryError) {
         console.error(
-          `Failed to save ${key} even after clearing space:`,
+          `Failed to save ${key} even after aggressive cleanup:`,
           retryError
         );
+
+        // Last resort: show user-friendly error
+        if (key === STORAGE_KEYS.STYLING_CONFIG) {
+          const errorMessage =
+            "Configuration is too large for browser storage. Please clear browser data or reduce configuration size.";
+          console.error(errorMessage);
+          onError?.(errorMessage);
+        }
       }
     }
   }
@@ -425,10 +700,13 @@ const clearAllStorage = (): void => {
   if (typeof window === "undefined") return;
 
   try {
+    // Clear all regular storage keys
     Object.values(STORAGE_KEYS).forEach((key) => {
       localStorage.removeItem(key);
+      // Also clear any chunked data for this key
+      clearChunkedData(key);
     });
-    console.log("Cleared all localStorage");
+    console.log("Cleared all localStorage and chunked data");
   } catch (error) {
     console.error("Failed to clear localStorage:", error);
   }
@@ -527,6 +805,26 @@ export const loadConfigurationFromSource = async (
       );
       configData = await loadConfigurationFromGitHub(filename);
       console.log("Loaded configuration from GitHub:", configData);
+
+      // Debug: Log the styling configuration specifically
+      // Debug: Log the styling configuration specifically
+      // Debug: Log the styling configuration specifically
+      console.log("=== GITHUB LOAD DEBUG ===");
+      console.log("Raw configData:", configData);
+      const stylingConfig = (configData as Record<string, unknown>)
+        .stylingConfig;
+      console.log("Styling config in raw data:", stylingConfig);
+      const embeddedContent =
+        stylingConfig && typeof stylingConfig === "object"
+          ? (stylingConfig as Record<string, unknown>).embeddedContent
+          : undefined;
+      console.log("Embedded content in raw data:", embeddedContent);
+      const customCSS =
+        embeddedContent && typeof embeddedContent === "object"
+          ? (embeddedContent as Record<string, unknown>).customCSS
+          : undefined;
+      console.log("Custom CSS in raw data:", customCSS);
+      console.log("=== END GITHUB LOAD DEBUG ===");
     }
 
     // Validate basic structure
@@ -680,13 +978,43 @@ export const applyConfiguration = (
   );
   updateFunctions.updateAppConfig(config.appConfig);
 
-  // Apply styling config
-  console.log("Applying styling config:", config.stylingConfig);
+  // Apply styling config with safety checks
+  console.log("=== Applying Styling Configuration ===");
+  console.log("Styling config to apply:", config.stylingConfig);
+
+  // Ensure the styling config has proper structure
+  const safeStylingConfig = {
+    ...config.stylingConfig,
+    embeddedContent: {
+      strings: config.stylingConfig.embeddedContent?.strings || {},
+      stringIDs: config.stylingConfig.embeddedContent?.stringIDs || {},
+      cssUrl: config.stylingConfig.embeddedContent?.cssUrl || "",
+      customCSS: {
+        variables:
+          config.stylingConfig.embeddedContent?.customCSS?.variables || {},
+        rules_UNSTABLE:
+          config.stylingConfig.embeddedContent?.customCSS?.rules_UNSTABLE || {},
+      },
+    },
+  };
+
+  console.log("Safe styling config structure:", {
+    hasApplication: !!safeStylingConfig.application,
+    hasEmbeddedContent: !!safeStylingConfig.embeddedContent,
+    hasEmbedFlags: !!safeStylingConfig.embedFlags,
+    applicationKeys: safeStylingConfig.application
+      ? Object.keys(safeStylingConfig.application)
+      : [],
+    embeddedContentKeys: safeStylingConfig.embeddedContent
+      ? Object.keys(safeStylingConfig.embeddedContent)
+      : [],
+  });
   console.log(
     "updateStylingConfig function type:",
     typeof updateFunctions.updateStylingConfig
   );
-  updateFunctions.updateStylingConfig(config.stylingConfig);
+  updateFunctions.updateStylingConfig(safeStylingConfig);
+  console.log("=== Styling Configuration Applied ===");
 
   // Apply standard menus
   console.log("Applying standard menus:", config.standardMenus.length);
@@ -896,6 +1224,7 @@ export default function Layout({ children }: LayoutProps) {
   const [settingsInitialSubTab, setSettingsInitialSubTab] = useState<
     string | undefined
   >();
+  const [storageError, setStorageError] = useState<string | null>(null);
 
   // Load initial state from localStorage
   const [standardMenus, setStandardMenus] = useState<StandardMenu[]>(() => {
@@ -1160,13 +1489,17 @@ export default function Layout({ children }: LayoutProps) {
     saveToStorage(STORAGE_KEYS.FULL_APP_CONFIG, fullAppConfig);
   }, [fullAppConfig]);
 
-  // Debounced save for styling config to prevent too frequent saves
+  // Save styling config immediately to ensure GitHub imports work properly
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      saveToStorage(STORAGE_KEYS.STYLING_CONFIG, stylingConfig);
-    }, 1000); // Debounce for 1 second
-
-    return () => clearTimeout(timeoutId);
+    saveToStorage(
+      STORAGE_KEYS.STYLING_CONFIG,
+      stylingConfig,
+      (errorMessage) => {
+        setStorageError(errorMessage);
+        // Clear error after 10 seconds
+        setTimeout(() => setStorageError(null), 10000);
+      }
+    );
   }, [stylingConfig]);
 
   useEffect(() => {
@@ -1248,6 +1581,16 @@ export default function Layout({ children }: LayoutProps) {
 
   // ThoughtSpot initialization
   useEffect(() => {
+    console.log(`[Layout] ThoughtSpot initialization triggered by:`, {
+      thoughtspotUrl: appConfig.thoughtspotUrl,
+      earlyAccessFlags: appConfig.earlyAccessFlags,
+      stylingConfig: stylingConfig,
+    });
+    console.log(
+      `[Layout] Current styling config variables:`,
+      stylingConfig.embeddedContent?.customCSS?.variables
+    );
+
     const initializeThoughtSpot = async () => {
       if (!appConfig.thoughtspotUrl) {
         return;
@@ -1326,11 +1669,7 @@ export default function Layout({ children }: LayoutProps) {
     };
 
     initializeThoughtSpot();
-  }, [
-    appConfig.thoughtspotUrl,
-    appConfig.earlyAccessFlags,
-    stylingConfig.embeddedContent,
-  ]); // Use specific fields instead of entire objects
+  }, [appConfig.thoughtspotUrl, appConfig.earlyAccessFlags, stylingConfig]); // Watch entire stylingConfig to ensure GitHub imports trigger re-initialization
 
   const handleUserChange = (userId: string) => {
     // Update the current user in the user configuration
@@ -1427,7 +1766,15 @@ export default function Layout({ children }: LayoutProps) {
 
   const updateStylingConfig = (config: StylingConfig) => {
     console.log(`[Layout] updateStylingConfig called:`, config);
+    console.log(`[Layout] Previous styling config:`, stylingConfig);
+    console.log(
+      `[Layout] New styling config variables:`,
+      config.embeddedContent?.customCSS?.variables
+    );
     setStylingConfig(config);
+    console.log(
+      `[Layout] Styling config updated, ThoughtSpot should re-initialize`
+    );
   };
 
   const updateUserConfig = (config: UserConfig) => {
@@ -1519,8 +1866,8 @@ export default function Layout({ children }: LayoutProps) {
     setStylingConfig(DEFAULT_CONFIG.stylingConfig);
     setUserConfig(DEFAULT_CONFIG.userConfig);
 
-    // Clear localStorage
-    clearAllStorage();
+    // Clear localStorage completely
+    clearAllLocalStorage();
 
     console.log("All configurations cleared and reset to defaults");
   };
@@ -1858,6 +2205,95 @@ export default function Layout({ children }: LayoutProps) {
               }
             }}
           />
+
+          {/* Storage Error Notification */}
+          {storageError && (
+            <div
+              style={{
+                position: "fixed",
+                top: "20px",
+                right: "20px",
+                backgroundColor: "#fef2f2",
+                border: "1px solid #fecaca",
+                borderRadius: "8px",
+                padding: "16px",
+                maxWidth: "400px",
+                zIndex: 10000,
+                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "12px",
+                }}
+              >
+                <div style={{ color: "#dc2626", fontSize: "20px" }}>⚠️</div>
+                <div style={{ flex: 1 }}>
+                  <h4
+                    style={{
+                      margin: "0 0 8px 0",
+                      color: "#991b1b",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    Storage Error
+                  </h4>
+                  <p
+                    style={{
+                      margin: "0 0 12px 0",
+                      color: "#7f1d1d",
+                      fontSize: "12px",
+                      lineHeight: "1.4",
+                    }}
+                  >
+                    {storageError}
+                  </p>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      onClick={() => {
+                        if (typeof window !== "undefined") {
+                          clearAllLocalStorage();
+                          alert(
+                            "Browser storage cleared. Please refresh the page."
+                          );
+                        }
+                      }}
+                      style={{
+                        padding: "4px 8px",
+                        backgroundColor: "#dc2626",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "11px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Clear Storage
+                    </button>
+                    <button
+                      onClick={() => setStorageError(null)}
+                      style={{
+                        padding: "4px 8px",
+                        backgroundColor: "#6b7280",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "11px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Chat Bubble */}
           <ChatBubble />

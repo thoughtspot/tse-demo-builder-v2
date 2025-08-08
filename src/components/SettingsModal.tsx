@@ -4055,6 +4055,31 @@ function ConfigurationContent({
         data: filename,
       });
 
+      // Debug: Log the loaded configuration
+      console.log("=== GITHUB IMPORT DEBUG ===");
+      console.log("Loaded configuration result:", result);
+      if (result.success && result.data) {
+        console.log("Configuration data:", result.data);
+        console.log("Styling config from GitHub:", result.data.stylingConfig);
+        console.log(
+          "Embedded content:",
+          result.data.stylingConfig?.embeddedContent
+        );
+        console.log(
+          "Custom CSS:",
+          result.data.stylingConfig?.embeddedContent?.customCSS
+        );
+        console.log(
+          "Variables:",
+          result.data.stylingConfig?.embeddedContent?.customCSS?.variables
+        );
+        console.log(
+          "Rules:",
+          result.data.stylingConfig?.embeddedContent?.customCSS?.rules_UNSTABLE
+        );
+      }
+      console.log("=== END GITHUB IMPORT DEBUG ===");
+
       if (result.success && result.data) {
         // Temporarily switch to power user to ensure all menus are accessible
         const powerUser = result.data.userConfig?.users?.find(
@@ -4082,9 +4107,9 @@ function ConfigurationContent({
               updateHomePageConfig: updateHomePageConfig || (() => {}),
               updateAppConfig: updateAppConfig || (() => {}),
               updateFullAppConfig: updateFullAppConfig || (() => {}),
-              updateStylingConfig: updateStylingConfig || (() => {}),
+              updateStylingConfig: updateStylingConfig, // Pass the actual updateStylingConfig function from Layout
               updateUserConfig: updateUserConfig || (() => {}),
-              setMenuOrder: setMenuOrder || (() => {}), // Add menu order function
+              setMenuOrder: setMenuOrder, // Pass the actual setMenuOrder function
             }
           );
 
@@ -4104,19 +4129,7 @@ function ConfigurationContent({
             updateAppConfig(result.data.appConfig);
           }
 
-          // Apply styling config immediately using direct function from props
-          if (updateStylingConfig) {
-            console.log(
-              "Applying styling config immediately:",
-              result.data.stylingConfig
-            );
-            console.log("updateStylingConfig function:", updateStylingConfig);
-            console.log(
-              "updateStylingConfig function name:",
-              updateStylingConfig.name
-            );
-            updateStylingConfig(result.data.stylingConfig);
-          }
+          // Note: updateStylingConfig is now handled by applyConfiguration above
 
           // Apply home page config immediately using direct function from props
           if (updateHomePageConfig) {
@@ -4147,9 +4160,9 @@ function ConfigurationContent({
             updateHomePageConfig: updateHomePageConfig || (() => {}),
             updateAppConfig,
             updateFullAppConfig: updateFullAppConfig || (() => {}),
-            updateStylingConfig,
+            updateStylingConfig: updateStylingConfig, // Pass the actual updateStylingConfig function from Layout
             updateUserConfig: updateUserConfig || (() => {}),
-            // Note: setMenuOrder is not available in SettingsModal, menu order will be handled by Layout component
+            setMenuOrder: setMenuOrder, // Pass the actual setMenuOrder function
           });
 
           console.log(
@@ -4927,6 +4940,101 @@ function ConfigurationContent({
                   Load from GitHub
                 </button>
               </div>
+              <div
+                style={{
+                  marginTop: "20px",
+                  padding: "16px",
+                  backgroundColor: "#fef3c7",
+                  border: "1px solid #f59e0b",
+                  borderRadius: "8px",
+                }}
+              >
+                <h5
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: "600",
+                    marginBottom: "12px",
+                    color: "#92400e",
+                  }}
+                >
+                  Storage Management
+                </h5>
+                <p
+                  style={{
+                    fontSize: "14px",
+                    color: "#92400e",
+                    marginBottom: "12px",
+                  }}
+                >
+                  If you encounter storage quota errors, you can clear browser
+                  storage to free up space.
+                </p>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        // Clear all localStorage
+                        localStorage.clear();
+                        // Also clear any chunked data
+                        const keys = Object.keys(localStorage);
+                        keys.forEach((key) => {
+                          if (
+                            key.includes("_metadata") ||
+                            key.includes("_chunk_")
+                          ) {
+                            localStorage.removeItem(key);
+                          }
+                        });
+                        alert(
+                          "Browser storage cleared successfully. Please refresh the page."
+                        );
+                      }
+                    }}
+                    style={{
+                      padding: "6px 12px",
+                      backgroundColor: "#f59e0b",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      fontSize: "12px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Clear Browser Storage
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        const usage = Object.keys(localStorage).reduce(
+                          (total, key) => {
+                            const value = localStorage.getItem(key);
+                            return total + (key.length + (value?.length || 0));
+                          },
+                          0
+                        );
+                        alert(
+                          `Current storage usage: ${(usage / 1024).toFixed(
+                            2
+                          )} KB`
+                        );
+                      }
+                    }}
+                    style={{
+                      padding: "6px 12px",
+                      backgroundColor: "#6b7280",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      fontSize: "12px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Check Storage Usage
+                  </button>
+                </div>
+              </div>
               <button
                 onClick={clearAllConfigurations}
                 style={{
@@ -5188,7 +5296,7 @@ export default function SettingsModal({
           appConfig={pendingAppConfig}
           updateAppConfig={updatePendingAppConfig}
           stylingConfig={pendingStylingConfig}
-          updateStylingConfig={updatePendingStylingConfig}
+          updateStylingConfig={updateStylingConfig}
           clearAllConfigurations={clearAllConfigurations}
           exportConfiguration={exportConfiguration}
           importConfiguration={importConfiguration}

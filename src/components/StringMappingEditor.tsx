@@ -39,13 +39,13 @@ export default function StringMappingEditor({
 
   const handleEditMapping = (key: string) => {
     setEditingKey(key);
-    setEditingValue(mappings[key] || "");
+    setEditingValue((mappings || {})[key] || "");
   };
 
   const handleSaveEdit = () => {
     if (editingKey && editingValue.trim()) {
       const updatedMappings = {
-        ...mappings,
+        ...(mappings || {}),
         [editingKey]: editingValue.trim(),
       };
       onChange(updatedMappings);
@@ -60,12 +60,12 @@ export default function StringMappingEditor({
   };
 
   const handleDeleteMapping = (key: string) => {
-    const updatedMappings = { ...mappings };
+    const updatedMappings = { ...(mappings || {}) };
     delete updatedMappings[key];
     onChange(updatedMappings);
   };
 
-  const mappingsList = Object.entries(mappings);
+  const mappingsList = Object.entries(mappings || {});
 
   return (
     <div style={{ marginBottom: "24px" }}>
