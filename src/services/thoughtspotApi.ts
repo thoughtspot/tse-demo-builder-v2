@@ -162,7 +162,8 @@ async function makeThoughtSpotApiCall(
     return responseData;
   } catch (error) {
     console.error("ThoughtSpot API call failed:", error);
-    throw error;
+    // Return empty array instead of throwing to prevent app crashes
+    return [];
   }
 }
 
@@ -188,7 +189,8 @@ async function makeThoughtSpotGetCall(
     return responseData;
   } catch (error) {
     console.error("ThoughtSpot GET API call failed:", error);
-    throw error;
+    // Return empty object instead of throwing to prevent app crashes
+    return {};
   }
 }
 
@@ -217,7 +219,8 @@ async function makeThoughtSpotTagsCall(
     return responseData;
   } catch (error) {
     console.error("ThoughtSpot tags API call failed:", error);
-    throw error;
+    // Return empty array instead of throwing to prevent app crashes
+    return [];
   }
 }
 

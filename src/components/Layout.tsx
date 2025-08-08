@@ -305,14 +305,117 @@ const validateCustomMenu = (menu: unknown): menu is CustomMenu => {
   return true;
 };
 
+// Function to clean up styling config to reduce size
+const cleanupStylingConfig = (config: unknown): unknown => {
+  if (!config || typeof config !== "object") return config;
+
+  const cleaned = { ...(config as Record<string, unknown>) };
+
+  // Remove empty or undefined values
+  const embeddedContent = cleaned.embeddedContent as
+    | Record<string, unknown>
+    | undefined;
+  if (embeddedContent?.customCSS) {
+    const customCSS = embeddedContent.customCSS as Record<string, unknown>;
+    if (customCSS.rules_UNSTABLE) {
+      const rules = customCSS.rules_UNSTABLE as Record<
+        string,
+        Record<string, string>
+      >;
+      const cleanedRules: Record<string, Record<string, string>> = {};
+
+      Object.keys(rules).forEach((selector) => {
+        const rule = rules[selector];
+        if (rule && typeof rule === "object" && Object.keys(rule).length > 0) {
+          cleanedRules[selector] = rule;
+        }
+      });
+
+      if (Object.keys(cleanedRules).length === 0) {
+        delete customCSS.rules_UNSTABLE;
+      } else {
+        customCSS.rules_UNSTABLE = cleanedRules;
+      }
+    }
+  }
+
+  // Remove empty embed flags
+  const embedFlags = cleaned.embedFlags as Record<string, unknown> | undefined;
+  if (embedFlags) {
+    Object.keys(embedFlags).forEach((key) => {
+      const flag = embedFlags[key];
+      if (
+        !flag ||
+        (typeof flag === "object" &&
+          Object.keys(flag as Record<string, unknown>).length === 0)
+      ) {
+        delete embedFlags[key];
+      }
+    });
+
+    if (Object.keys(embedFlags).length === 0) {
+      delete cleaned.embedFlags;
+    }
+  }
+
+  return cleaned;
+};
+
 const saveToStorage = (key: string, value: unknown): void => {
   if (typeof window === "undefined") return;
 
   try {
-    localStorage.setItem(key, JSON.stringify(value));
-    console.log(`Saved ${key}:`, value);
+    // Clean up styling config if that's what we're saving
+    let valueToSave = value;
+    if (key === STORAGE_KEYS.STYLING_CONFIG) {
+      valueToSave = cleanupStylingConfig(value);
+    }
+
+    const serializedValue = JSON.stringify(valueToSave);
+
+    // Check if the value is too large (localStorage has ~5-10MB limit)
+    if (serializedValue.length > 4 * 1024 * 1024) {
+      // 4MB limit
+      console.warn(
+        `Value for ${key} is too large (${serializedValue.length} bytes), skipping save`
+      );
+      return;
+    }
+
+    localStorage.setItem(key, serializedValue);
+    console.log(`Saved ${key}:`, valueToSave);
   } catch (error) {
     console.error(`Failed to save ${key} to localStorage:`, error);
+
+    // If it's a quota error, try to clear some space
+    if (error instanceof Error && error.name === "QuotaExceededError") {
+      console.warn(
+        "localStorage quota exceeded, attempting to clear old data..."
+      );
+      try {
+        // Clear some non-critical storage keys to make space
+        const keysToClear = [
+          "tse-demo-builder-styling-config",
+          "tse-demo-builder-user-config",
+        ];
+
+        keysToClear.forEach((keyToClear) => {
+          if (keyToClear !== key) {
+            localStorage.removeItem(keyToClear);
+            console.log(`Cleared ${keyToClear} to make space`);
+          }
+        });
+
+        // Try saving again
+        localStorage.setItem(key, JSON.stringify(value));
+        console.log(`Successfully saved ${key} after clearing space`);
+      } catch (retryError) {
+        console.error(
+          `Failed to save ${key} even after clearing space:`,
+          retryError
+        );
+      }
+    }
   }
 };
 
@@ -1053,8 +1156,13 @@ export default function Layout({ children }: LayoutProps) {
     saveToStorage(STORAGE_KEYS.FULL_APP_CONFIG, fullAppConfig);
   }, [fullAppConfig]);
 
+  // Debounced save for styling config to prevent too frequent saves
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.STYLING_CONFIG, stylingConfig);
+    const timeoutId = setTimeout(() => {
+      saveToStorage(STORAGE_KEYS.STYLING_CONFIG, stylingConfig);
+    }, 1000); // Debounce for 1 second
+
+    return () => clearTimeout(timeoutId);
   }, [stylingConfig]);
 
   useEffect(() => {
@@ -1276,11 +1384,24 @@ export default function Layout({ children }: LayoutProps) {
       });
     }
 
-    // Update favicon when home menu icon changes
+    // Update favicon and TopBar logo when home menu icon changes
     if (id === "home" && field === "icon") {
       setAppConfig((prev) => ({
         ...prev,
         favicon: value as string,
+        logo: value as string,
+      }));
+
+      // Also update the TopBar logo in styling config
+      setStylingConfig((prev) => ({
+        ...prev,
+        application: {
+          ...prev.application,
+          topBar: {
+            ...prev.application.topBar,
+            logoUrl: value as string,
+          },
+        },
       }));
     }
   };

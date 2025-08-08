@@ -4465,8 +4465,14 @@ function ConfigurationContent({
                         type="checkbox"
                         checked={
                           appConfig.favicon ===
-                          (standardMenus?.find((m) => m.id === "home")?.icon ||
-                            "")
+                            (standardMenus?.find((m) => m.id === "home")
+                              ?.icon || "") &&
+                          appConfig.logo ===
+                            (standardMenus?.find((m) => m.id === "home")
+                              ?.icon || "") &&
+                          stylingConfig.application.topBar.logoUrl ===
+                            (standardMenus?.find((m) => m.id === "home")
+                              ?.icon || "")
                         }
                         onChange={(e) => {
                           if (e.target.checked) {
@@ -4474,9 +4480,22 @@ function ConfigurationContent({
                               (m) => m.id === "home"
                             );
                             if (homeMenu) {
+                              // Update both favicon and TopBar logo
                               updateAppConfig({
                                 ...appConfig,
                                 favicon: homeMenu.icon,
+                                logo: homeMenu.icon,
+                              });
+                              // Also update the TopBar logo in styling config
+                              updateStylingConfig({
+                                ...stylingConfig,
+                                application: {
+                                  ...stylingConfig.application,
+                                  topBar: {
+                                    ...stylingConfig.application.topBar,
+                                    logoUrl: homeMenu.icon,
+                                  },
+                                },
                               });
                             }
                           }
