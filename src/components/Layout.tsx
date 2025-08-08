@@ -53,6 +53,7 @@ interface AppConfig {
   logo: string;
   earlyAccessFlags: string;
   favicon?: string;
+  showFooter: boolean;
 }
 
 interface FullAppConfig {
@@ -170,6 +171,7 @@ const DEFAULT_CONFIG = {
     logo: "",
     earlyAccessFlags: "",
     favicon: "/ts.png",
+    showFooter: true,
   } as AppConfig,
   fullAppConfig: {
     showPrimaryNavbar: false,
@@ -1062,6 +1064,7 @@ export default function Layout({ children }: LayoutProps) {
         logo: "",
         earlyAccessFlags: "",
         favicon: "/ts.png",
+        showFooter: true,
       }) as AppConfig
   );
 
@@ -1078,6 +1081,7 @@ export default function Layout({ children }: LayoutProps) {
       loadFromStorage(STORAGE_KEYS.FULL_APP_CONFIG, {
         showPrimaryNavbar: false,
         hideHomepageLeftNav: false,
+        showFooter: true,
       }) as FullAppConfig
   );
 
@@ -1808,14 +1812,16 @@ export default function Layout({ children }: LayoutProps) {
               }}
             >
               <div style={{ flex: 1 }}>{children}</div>
-              <Footer
-                backgroundColor={
-                  stylingConfig.application.footer.backgroundColor
-                }
-                foregroundColor={
-                  stylingConfig.application.footer.foregroundColor
-                }
-              />
+              {(appConfig.showFooter ?? true) && (
+                <Footer
+                  backgroundColor={
+                    stylingConfig.application.footer.backgroundColor
+                  }
+                  foregroundColor={
+                    stylingConfig.application.footer.foregroundColor
+                  }
+                />
+              )}
             </div>
           </div>
 

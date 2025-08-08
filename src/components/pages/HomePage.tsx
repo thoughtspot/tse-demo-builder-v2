@@ -260,7 +260,8 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
                 padding: "20px",
                 borderRadius: "8px",
                 border: "1px solid #e2e8f0",
-                minHeight: "200px",
+                height: "100%",
+                overflow: "auto",
               }}
             />
           );
@@ -643,7 +644,14 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+        }}
+      >
         {renderContent()}
       </div>
     </div>

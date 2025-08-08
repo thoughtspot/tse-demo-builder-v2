@@ -42,6 +42,7 @@ interface AppConfig {
   logo: string;
   earlyAccessFlags: string;
   favicon?: string;
+  showFooter: boolean;
 }
 
 interface FullAppConfig {
@@ -4515,6 +4516,43 @@ function ConfigurationContent({
                       Home menu icon
                     </p>
                   </div>
+                </div>
+
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      color: "#4a5568",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={appConfig.showFooter ?? true}
+                      onChange={(e) =>
+                        updateAppConfig({
+                          ...appConfig,
+                          showFooter: e.target.checked,
+                        })
+                      }
+                      style={{ cursor: "pointer" }}
+                    />
+                    <span>Show Footer</span>
+                  </label>
+                  <p
+                    style={{
+                      margin: "4px 0 0 0",
+                      fontSize: "12px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    When unchecked, the footer will be hidden and content will
+                    use the full available space
+                  </p>
                 </div>
               </div>
             </div>
