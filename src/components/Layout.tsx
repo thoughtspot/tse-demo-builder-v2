@@ -1624,9 +1624,16 @@ export default function Layout({ children }: LayoutProps) {
           appConfig.earlyAccessFlags
         );
 
+        // Get current user's locale
+        const currentUser = userConfig.users.find(
+          (u) => u.id === userConfig.currentUserId
+        );
+        const userLocale = currentUser?.locale || "en";
+
         const initConfig: ThoughtSpotInitConfig = {
           thoughtSpotHost: appConfig.thoughtspotUrl,
           authType: AuthType.None,
+          locale: userLocale,
           additionalFlags: {
             isLiveboardStylingEnabled: true,
             ...earlyAccessFlags,
@@ -1687,7 +1694,12 @@ export default function Layout({ children }: LayoutProps) {
     };
 
     initializeThoughtSpot();
-  }, [appConfig.thoughtspotUrl, appConfig.earlyAccessFlags, stylingConfig]); // Watch entire stylingConfig to ensure GitHub imports trigger re-initialization
+  }, [
+    appConfig.thoughtspotUrl,
+    appConfig.earlyAccessFlags,
+    stylingConfig,
+    userConfig,
+  ]); // Watch entire stylingConfig to ensure GitHub imports trigger re-initialization
 
   const handleUserChange = (userId: string) => {
     // Update the current user in the user configuration

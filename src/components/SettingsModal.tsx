@@ -3099,12 +3099,29 @@ function UserConfigContent({
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
+  // Common locale options
+  const commonLocales = [
+    { value: "en", label: "English (en)" },
+    { value: "es", label: "Spanish (es)" },
+    { value: "fr", label: "French (fr)" },
+    { value: "de", label: "German (de)" },
+    { value: "it", label: "Italian (it)" },
+    { value: "pt", label: "Portuguese (pt)" },
+    { value: "ru", label: "Russian (ru)" },
+    { value: "ja", label: "Japanese (ja)" },
+    { value: "ko", label: "Korean (ko)" },
+    { value: "zh", label: "Chinese (zh)" },
+    { value: "ar", label: "Arabic (ar)" },
+    { value: "hi", label: "Hindi (hi)" },
+  ];
+
   // Default users
   const defaultUsers: User[] = [
     {
       id: "power-user",
       name: "Power User",
       description: "Can access all features and content",
+      locale: "en",
       access: {
         standardMenus: {
           home: true,
@@ -3122,6 +3139,7 @@ function UserConfigContent({
       id: "basic-user",
       name: "Basic User",
       description: "Limited access - cannot access Search and Full App",
+      locale: "en",
       access: {
         standardMenus: {
           home: true,
@@ -3145,13 +3163,14 @@ function UserConfigContent({
         currentUserId: defaultUsers[0].id,
       });
     }
-  }, [userConfig.users.length, updateUserConfig]);
+  }, [userConfig.users.length, updateUserConfig, defaultUsers]);
 
   const handleCreateUser = () => {
     const newUser: User = {
       id: `user-${Date.now()}`,
       name: "",
       description: "",
+      locale: "en",
       access: {
         standardMenus: {
           home: true,
@@ -3421,6 +3440,64 @@ function UserConfigContent({
                 }}
               />
             </div>
+          </div>
+
+          <div style={{ marginBottom: "16px" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "4px",
+                fontSize: "14px",
+                fontWeight: "500",
+              }}
+            >
+              Locale
+            </label>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <select
+                value={editingUser.locale || "en"}
+                onChange={(e) =>
+                  setEditingUser({ ...editingUser, locale: e.target.value })
+                }
+                style={{
+                  flex: "1",
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "4px",
+                  fontSize: "14px",
+                }}
+              >
+                {commonLocales.map((locale) => (
+                  <option key={locale.value} value={locale.value}>
+                    {locale.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={editingUser.locale || "en"}
+                onChange={(e) =>
+                  setEditingUser({ ...editingUser, locale: e.target.value })
+                }
+                placeholder="Custom locale (e.g., en-US, fr-CA)"
+                style={{
+                  flex: "1",
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "4px",
+                  fontSize: "14px",
+                }}
+              />
+            </div>
+            <p
+              style={{
+                margin: "4px 0 0 0",
+                fontSize: "12px",
+                color: "#6b7280",
+              }}
+            >
+              Select from common locales or enter a custom locale code
+            </p>
           </div>
 
           <div style={{ marginBottom: "20px" }}>
@@ -3727,6 +3804,7 @@ function UserConfigContent({
                         : ""}
                     </>
                   )}
+                  {user.locale && <> • Locale: {user.locale}</>}
                 </div>
               </div>
             ))}

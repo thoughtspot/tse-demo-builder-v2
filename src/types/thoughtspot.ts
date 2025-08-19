@@ -12,6 +12,7 @@ export interface ThoughtSpotEmbedInstance {
 export interface ThoughtSpotInitConfig {
   thoughtSpotHost: string;
   authType: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  locale?: string; // User locale preference
   additionalFlags?: Record<string, boolean>;
   customizations?: {
     content?: {
@@ -114,6 +115,7 @@ export interface User {
   id: string;
   name: string;
   description?: string;
+  locale?: string; // User locale preference, defaults to "en"
   access: UserAccess;
 }
 
