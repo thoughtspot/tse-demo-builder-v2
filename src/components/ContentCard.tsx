@@ -1,6 +1,7 @@
 "use client";
 
 import { ThoughtSpotContent } from "../types/thoughtspot";
+import MaterialIcon from "./MaterialIcon";
 
 interface ContentCardProps {
   content: ThoughtSpotContent;
@@ -11,13 +12,33 @@ export default function ContentCard({ content, onOpen }: ContentCardProps) {
   const getIcon = (type: string) => {
     switch (type) {
       case "liveboard":
-        return "📊";
+        return (
+          <MaterialIcon
+            icon="dashboard"
+            size={24}
+            style={{ color: "#4f46e5" }}
+          />
+        );
       case "answer":
-        return "📈";
+        return (
+          <MaterialIcon
+            icon="analytics"
+            size={24}
+            style={{ color: "#10b981" }}
+          />
+        );
       case "model":
-        return "🔍";
+        return (
+          <MaterialIcon icon="search" size={24} style={{ color: "#6b7280" }} />
+        );
       default:
-        return "📄";
+        return (
+          <MaterialIcon
+            icon="description"
+            size={24}
+            style={{ color: "#6b7280" }}
+          />
+        );
     }
   };
 
@@ -72,9 +93,11 @@ export default function ContentCard({ content, onOpen }: ContentCardProps) {
           marginBottom: "12px",
         }}
       >
-        <span style={{ fontSize: "24px", marginRight: "12px" }}>
+        <div
+          style={{ marginRight: "12px", display: "flex", alignItems: "center" }}
+        >
           {getIcon(content.type)}
-        </span>
+        </div>
         <h3 style={{ fontSize: "18px", fontWeight: "600", margin: 0 }}>
           {content.name}
         </h3>

@@ -9,6 +9,7 @@ import SearchPage from "./pages/SearchPage";
 import FullAppPage from "./pages/FullAppPage";
 import ReportsPage from "./pages/ReportsPage";
 import IconPicker from "./IconPicker";
+import MaterialIcon from "./MaterialIcon";
 import ColorPicker from "./ColorPicker";
 import ImageUpload from "./ImageUpload";
 import StringMappingEditor from "./StringMappingEditor";
@@ -474,26 +475,7 @@ function StandardMenusContent({
     option.name.toLowerCase().includes(debouncedModelFilter.toLowerCase())
   );
 
-  const [showIconPicker, setShowIconPicker] = useState(false);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-
-  const openIconPicker = (menuId: string) => {
-    setActiveMenuId(menuId);
-    setShowIconPicker(true);
-  };
-
-  const selectIcon = (icon: string) => {
-    if (activeMenuId) {
-      updateStandardMenu(activeMenuId, "icon", icon);
-    }
-    setShowIconPicker(false);
-    setActiveMenuId(null);
-  };
-
-  const closeIconPicker = () => {
-    setShowIconPicker(false);
-    setActiveMenuId(null);
-  };
+  // Icon picker state is no longer needed for the new IconPicker component
 
   const getPageComponent = (menuId: string) => {
     switch (menuId) {
@@ -635,7 +617,14 @@ function StandardMenusContent({
                 }}
               />
             ) : (
-              <span style={{ fontSize: "16px" }}>{tab.icon}</span>
+              <MaterialIcon
+                icon={tab.icon}
+                style={{
+                  fontSize: "16px",
+                  width: "16px",
+                  height: "16px",
+                }}
+              />
             )}
             <span>{tab.name}</span>
           </button>
@@ -811,77 +800,14 @@ function StandardMenusContent({
                       }}
                     >
                       <div style={{ minWidth: "200px" }}>
-                        <label
-                          style={{
-                            display: "block",
-                            marginBottom: "4px",
-                            fontWeight: "500",
-                            fontSize: "14px",
-                          }}
-                        >
-                          Icon
-                        </label>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: "40px",
-                              height: "40px",
-                              border: "1px solid #d1d5db",
-                              borderRadius: "4px",
-                              backgroundColor: "white",
-                              fontSize: "20px",
-                              cursor: "pointer",
-                            }}
-                            onClick={() => openIconPicker(menu.id)}
-                            title="Click to select icon"
-                          >
-                            {menu.icon.startsWith("data:") ? (
-                              <img
-                                src={menu.icon}
-                                alt="Menu icon"
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "contain",
-                                }}
-                              />
-                            ) : menu.icon.startsWith("/") ? (
-                              <img
-                                src={menu.icon}
-                                alt="Menu icon"
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "contain",
-                                }}
-                              />
-                            ) : (
-                              menu.icon
-                            )}
-                          </div>
-                          <input
-                            type="text"
-                            value={menu.icon}
-                            onChange={(e) =>
-                              updateStandardMenu(
-                                menu.id,
-                                "icon",
-                                e.target.value
-                              )
-                            }
-                            placeholder="Unicode icon"
-                            style={{
-                              flex: 1,
-                              padding: "8px 12px",
-                              border: "1px solid #d1d5db",
-                              borderRadius: "4px",
-                              fontSize: "14px",
-                            }}
-                          />
-                        </div>
+                        <IconPicker
+                          value={menu.icon}
+                          onChange={(icon) =>
+                            updateStandardMenu(menu.id, "icon", icon)
+                          }
+                          label="Icon"
+                          placeholder="Search icons..."
+                        />
                       </div>
 
                       <div>
@@ -1912,17 +1838,7 @@ function StandardMenusContent({
         </div>
       )}
 
-      {/* Icon Picker */}
-      <IconPicker
-        isOpen={showIconPicker}
-        onClose={closeIconPicker}
-        onSelect={selectIcon}
-        currentIcon={
-          activeMenuId
-            ? standardMenus.find((m) => m.id === activeMenuId)?.icon
-            : undefined
-        }
-      />
+      {/* Icon Picker is now integrated into each menu item */}
     </div>
   );
 }
@@ -1968,32 +1884,7 @@ function CustomMenusContent({
   >([]);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
 
-  // Icon picker state
-  const [showIconPicker, setShowIconPicker] = useState(false);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-
-  const openIconPicker = (menuId: string) => {
-    setActiveMenuId(menuId);
-    setShowIconPicker(true);
-  };
-
-  const selectIcon = (icon: string) => {
-    if (activeMenuId && editingMenu) {
-      const updatedMenu = { ...editingMenu, icon };
-      setEditingMenu(updatedMenu);
-      // Only update the global state if we're editing an existing menu (not creating)
-      if (!isCreating) {
-        updateCustomMenu(editingMenu.id, updatedMenu);
-      }
-    }
-    setShowIconPicker(false);
-    setActiveMenuId(null);
-  };
-
-  const closeIconPicker = () => {
-    setShowIconPicker(false);
-    setActiveMenuId(null);
-  };
+  // Icon picker state is no longer needed for the new IconPicker component
 
   // Filter states
   const [liveboardFilter, setLiveboardFilter] = useState("");
@@ -2309,73 +2200,12 @@ function CustomMenusContent({
             </div>
 
             <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "4px",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                }}
-              >
-                Icon
-              </label>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: "40px",
-                    height: "40px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
-                    backgroundColor: "white",
-                    fontSize: "20px",
-                    cursor: "pointer",
-                  }}
-                  onClick={() => openIconPicker(editingMenu.id)}
-                  title="Click to select icon"
-                >
-                  {editingMenu.icon.startsWith("data:") ? (
-                    <img
-                      src={editingMenu.icon}
-                      alt="Menu icon"
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                      }}
-                    />
-                  ) : editingMenu.icon.startsWith("/") ? (
-                    <img
-                      src={editingMenu.icon}
-                      alt="Menu icon"
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                      }}
-                    />
-                  ) : (
-                    editingMenu.icon
-                  )}
-                </div>
-                <input
-                  type="text"
-                  value={editingMenu.icon}
-                  onChange={(e) =>
-                    setEditingMenu({ ...editingMenu, icon: e.target.value })
-                  }
-                  placeholder="📋"
-                  style={{
-                    flex: 1,
-                    padding: "8px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
-                    fontSize: "14px",
-                  }}
-                />
-              </div>
+              <IconPicker
+                value={editingMenu.icon}
+                onChange={(icon) => setEditingMenu({ ...editingMenu, icon })}
+                label="Icon"
+                placeholder="Search icons..."
+              />
             </div>
           </div>
 
@@ -2731,29 +2561,7 @@ function CustomMenusContent({
                       gap: "12px",
                     }}
                   >
-                    {menu.icon.startsWith("data:") ? (
-                      <img
-                        src={menu.icon}
-                        alt="Menu icon"
-                        style={{
-                          width: "20px",
-                          height: "20px",
-                          objectFit: "contain",
-                        }}
-                      />
-                    ) : menu.icon.startsWith("/") ? (
-                      <img
-                        src={menu.icon}
-                        alt="Menu icon"
-                        style={{
-                          width: "20px",
-                          height: "20px",
-                          objectFit: "contain",
-                        }}
-                      />
-                    ) : (
-                      <span style={{ fontSize: "20px" }}>{menu.icon}</span>
-                    )}
+                    <MaterialIcon icon={menu.icon} size={20} />
                     <div>
                       <h4
                         style={{
@@ -2844,19 +2652,6 @@ function CustomMenusContent({
           </div>
         )}
       </div>
-
-      {/* Icon Picker */}
-      <IconPicker
-        isOpen={showIconPicker}
-        onClose={closeIconPicker}
-        onSelect={selectIcon}
-        currentIcon={
-          activeMenuId
-            ? editingMenu?.icon ||
-              customMenus.find((m) => m.id === activeMenuId)?.icon
-            : undefined
-        }
-      />
     </div>
   );
 }

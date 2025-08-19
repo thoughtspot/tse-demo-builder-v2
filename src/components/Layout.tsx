@@ -118,7 +118,7 @@ const DEFAULT_CONFIG = {
   standardMenus: [
     {
       id: "home",
-      icon: "/icons/home.png",
+      icon: "home",
       name: "Home",
       enabled: true,
       homePageType: "html" as const,
@@ -127,26 +127,26 @@ const DEFAULT_CONFIG = {
     },
     {
       id: "favorites",
-      icon: "/icons/favorites.png",
+      icon: "favorites",
       name: "Favorites",
       enabled: true,
     },
     {
       id: "my-reports",
-      icon: "/icons/my-reports.png",
+      icon: "my-reports",
       name: "My Reports",
       enabled: true,
     },
     {
       id: "spotter",
-      icon: "/icons/spotter.png",
+      icon: "spotter-custom.svg",
       name: "Spotter",
       enabled: true,
     },
-    { id: "search", icon: "/icons/search.png", name: "Search", enabled: true },
+    { id: "search", icon: "search", name: "Search", enabled: true },
     {
       id: "full-app",
-      icon: "/icons/full-app.png",
+      icon: "full-app",
       name: "Full App",
       enabled: true,
     },
@@ -288,20 +288,38 @@ const loadFromStorage = (key: string, defaultValue: unknown): unknown => {
   }
 };
 
-// Migration function to convert emoji icons to file paths
+// Migration function to convert emoji icons and legacy file paths to Material Icon names
 const migrateStandardMenus = (menus: StandardMenu[]): StandardMenu[] => {
-  const emojiToFileMap: Record<string, string> = {
-    "🏠": "/icons/home.png",
-    "⭐": "/icons/favorites.png",
-    "📊": "/icons/my-reports.png",
-    "🔍": "/icons/spotter.png",
-    "🔎": "/icons/search.png",
-    "🌐": "/icons/full-app.png",
+  const emojiToMaterialMap: Record<string, string> = {
+    "🏠": "home",
+    "⭐": "favorites",
+    "📊": "my-reports",
+    "🔍": "spotter",
+    "🔎": "search",
+    "🌐": "full-app",
+  };
+
+  const legacyPathToMaterialMap: Record<string, string> = {
+    "/icons/home.png": "home",
+    "/icons/favorites.png": "favorites",
+    "/icons/my-reports.png": "my-reports",
+    "/icons/spotter.png": "spotter",
+    "/icons/search.png": "search",
+    "/icons/full-app.png": "full-app",
   };
 
   return menus.map((menu) => {
-    if (emojiToFileMap[menu.icon]) {
-      return { ...menu, icon: emojiToFileMap[menu.icon] };
+    // Handle emoji icons
+    if (emojiToMaterialMap[menu.icon]) {
+      return { ...menu, icon: emojiToMaterialMap[menu.icon] };
+    }
+    // Handle legacy file paths - only convert if they match the standard icons
+    if (legacyPathToMaterialMap[menu.icon]) {
+      return { ...menu, icon: legacyPathToMaterialMap[menu.icon] };
+    }
+    // Keep image paths as-is (don't migrate them to Material icons)
+    if (menu.icon.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i)) {
+      return menu; // Keep the image path unchanged
     }
     return menu;
   });
@@ -1231,7 +1249,7 @@ export default function Layout({ children }: LayoutProps) {
     const loadedMenus = loadFromStorage(STORAGE_KEYS.STANDARD_MENUS, [
       {
         id: "home",
-        icon: "/icons/home.png",
+        icon: "home",
         name: "Home",
         enabled: true,
         homePageType: "html",
@@ -1240,31 +1258,31 @@ export default function Layout({ children }: LayoutProps) {
       },
       {
         id: "favorites",
-        icon: "/icons/favorites.png",
+        icon: "favorites",
         name: "Favorites",
         enabled: true,
       },
       {
         id: "my-reports",
-        icon: "/icons/my-reports.png",
+        icon: "my-reports",
         name: "My Reports",
         enabled: true,
       },
       {
         id: "spotter",
-        icon: "/icons/spotter.png",
+        icon: "smart-toy-two-tone",
         name: "Spotter",
         enabled: true,
       },
       {
         id: "search",
-        icon: "/icons/search.png",
+        icon: "search",
         name: "Search",
         enabled: true,
       },
       {
         id: "full-app",
-        icon: "/icons/full-app.png",
+        icon: "full-app",
         name: "Full App",
         enabled: true,
       },

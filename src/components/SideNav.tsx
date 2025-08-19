@@ -3,6 +3,7 @@
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { CustomMenu, UserConfig } from "../types/thoughtspot";
+import MaterialIcon from "./MaterialIcon";
 
 // Utility function to generate appropriate colors based on background and foreground
 const generateNavColors = (
@@ -105,6 +106,12 @@ export default function SideNav({
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [showDragHandles, setShowDragHandles] = useState(false);
 
+  // Get current user access permissions
+  const currentUser = userConfig?.users.find(
+    (u) => u.id === userConfig?.currentUserId
+  );
+  const userAccess = currentUser?.access;
+
   // Debug logging
   useEffect(() => {
     console.log("=== SideNav Debug ===");
@@ -130,12 +137,6 @@ export default function SideNav({
     selectedColor: selectedColor || generatedColors.selectedColor,
     selectedTextColor: selectedTextColor || generatedColors.selectedTextColor,
   };
-
-  // Get current user access permissions
-  const currentUser = userConfig?.users.find(
-    (u) => u.id === userConfig?.currentUserId
-  );
-  const userAccess = currentUser?.access;
 
   // Filter menus based on user access
   const filterMenusByUserAccess = (
@@ -467,29 +468,7 @@ export default function SideNav({
                 }
               }}
             >
-              {item.icon.startsWith("data:") ? (
-                <img
-                  src={item.icon}
-                  alt="Menu icon"
-                  style={{
-                    width: "26px",
-                    height: "26px",
-                    objectFit: "contain",
-                  }}
-                />
-              ) : item.icon.startsWith("/") ? (
-                <img
-                  src={item.icon}
-                  alt="Menu icon"
-                  style={{
-                    width: "26px",
-                    height: "26px",
-                    objectFit: "contain",
-                  }}
-                />
-              ) : (
-                <span style={{ fontSize: "26px" }}>{item.icon}</span>
-              )}
+              <MaterialIcon icon={item.icon} size={26} color="currentColor" />
               {isHovered && <span>{item.name}</span>}
 
               {/* Drag handle */}
@@ -556,7 +535,7 @@ export default function SideNav({
             e.currentTarget.style.backgroundColor = "transparent";
           }}
         >
-          <span style={{ fontSize: "26px" }}>⚙️</span>
+          <MaterialIcon icon="settings" size={26} color="currentColor" />
           {isHovered && <span>Settings</span>}
         </button>
       </div>
