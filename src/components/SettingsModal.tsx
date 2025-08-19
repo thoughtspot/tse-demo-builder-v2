@@ -24,6 +24,7 @@ import {
 } from "../types/thoughtspot";
 import HiddenActionsEditor from "./HiddenActionsEditor";
 import TagFilterComponent from "./TagFilterComponent";
+import SearchableDropdown from "./SearchableDropdown";
 import {
   fetchSavedConfigurations,
   loadConfigurationFromGitHub,
@@ -326,7 +327,6 @@ function StandardMenusContent({
   >([]);
   const [isLoadingTags, setIsLoadingTags] = useState(false);
   const [tagsError, setTagsError] = useState<string | null>(null);
-  const [debouncedModelFilter, setDebouncedModelFilter] = useState("");
 
   // Fetch models on component mount
   useEffect(() => {
@@ -469,11 +469,6 @@ function StandardMenusContent({
   }, [modelOptions, worksheetOptions]);
 
   // Remove debounce - only use Apply button to prevent preview updates
-
-  // Filter models based on applied search input
-  const filteredModels = combinedOptions.filter((option) =>
-    option.name.toLowerCase().includes(debouncedModelFilter.toLowerCase())
-  );
 
   // Icon picker state is no longer needed for the new IconPicker component
 
@@ -1346,105 +1341,24 @@ function StandardMenusContent({
                               </div>
                             ) : (
                               <div>
-                                <label
-                                  style={{
-                                    display: "block",
-                                    marginBottom: "8px",
-                                    fontWeight: "500",
-                                    fontSize: "14px",
-                                  }}
-                                >
-                                  Spotter Model
-                                </label>
-                                <div style={{ position: "relative" }}>
-                                  <select
-                                    value={menu.spotterModelId || ""}
-                                    onChange={(e) =>
-                                      updateStandardMenu(
-                                        menu.id,
-                                        "spotterModelId",
-                                        e.target.value
-                                      )
-                                    }
-                                    style={{
-                                      width: "100%",
-                                      padding: "8px 12px",
-                                      paddingRight: "32px",
-                                      border: "1px solid #d1d5db",
-                                      borderRadius: "4px",
-                                      fontSize: "14px",
-                                      marginBottom: "8px",
-                                    }}
-                                  >
-                                    <option value="">Select a model</option>
-                                    {filteredModels.map((option) => (
-                                      <option key={option.id} value={option.id}>
-                                        {option.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <button
-                                    onClick={() => {
-                                      const input = prompt(
-                                        "Search models:",
-                                        debouncedModelFilter
-                                      );
-                                      if (input !== null) {
-                                        setDebouncedModelFilter(input);
-                                      }
-                                    }}
-                                    style={{
-                                      position: "absolute",
-                                      right: "4px",
-                                      top: "50%",
-                                      transform: "translateY(-50%)",
-                                      padding: "4px 8px",
-                                      backgroundColor: "transparent",
-                                      color: "#6b7280",
-                                      border: "none",
-                                      cursor: "pointer",
-                                      fontSize: "12px",
-                                      borderRadius: "2px",
-                                      marginTop: "-4px",
-                                    }}
-                                    title="Filter models"
-                                  >
-                                    🔍
-                                  </button>
-                                </div>
-                                {debouncedModelFilter && (
-                                  <div style={{ marginBottom: "8px" }}>
-                                    <p
-                                      style={{
-                                        margin: "0 0 4px 0",
-                                        fontSize: "12px",
-                                        color: "#6b7280",
-                                      }}
-                                    >
-                                      Filter: &quot;{debouncedModelFilter}
-                                      &quot; - Showing {
-                                        filteredModels.length
-                                      }{" "}
-                                      of {combinedOptions.length} models
-                                    </p>
-                                    <button
-                                      onClick={() =>
-                                        setDebouncedModelFilter("")
-                                      }
-                                      style={{
-                                        padding: "2px 6px",
-                                        backgroundColor: "#ef4444",
-                                        color: "white",
-                                        border: "none",
-                                        borderRadius: "3px",
-                                        cursor: "pointer",
-                                        fontSize: "11px",
-                                      }}
-                                    >
-                                      Clear filter
-                                    </button>
-                                  </div>
-                                )}
+                                <SearchableDropdown
+                                  value={menu.spotterModelId || ""}
+                                  onChange={(value) =>
+                                    updateStandardMenu(
+                                      menu.id,
+                                      "spotterModelId",
+                                      value
+                                    )
+                                  }
+                                  options={combinedOptions}
+                                  placeholder="Select a model"
+                                  searchPlaceholder="Search models..."
+                                  label="Spotter Model"
+                                  isLoading={
+                                    isLoadingModels || isLoadingWorksheets
+                                  }
+                                  error={modelsError || worksheetsError}
+                                />
                               </div>
                             )}
                           </div>
@@ -1522,105 +1436,24 @@ function StandardMenusContent({
                               </div>
                             ) : (
                               <div>
-                                <label
-                                  style={{
-                                    display: "block",
-                                    marginBottom: "8px",
-                                    fontWeight: "500",
-                                    fontSize: "14px",
-                                  }}
-                                >
-                                  Search Data Source (Model)
-                                </label>
-                                <div style={{ position: "relative" }}>
-                                  <select
-                                    value={menu.searchDataSource || ""}
-                                    onChange={(e) =>
-                                      updateStandardMenu(
-                                        menu.id,
-                                        "searchDataSource",
-                                        e.target.value
-                                      )
-                                    }
-                                    style={{
-                                      width: "100%",
-                                      padding: "8px 12px",
-                                      paddingRight: "32px",
-                                      border: "1px solid #d1d5db",
-                                      borderRadius: "4px",
-                                      fontSize: "14px",
-                                      marginBottom: "8px",
-                                    }}
-                                  >
-                                    <option value="">Select a model</option>
-                                    {filteredModels.map((option) => (
-                                      <option key={option.id} value={option.id}>
-                                        {option.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <button
-                                    onClick={() => {
-                                      const input = prompt(
-                                        "Search models:",
-                                        debouncedModelFilter
-                                      );
-                                      if (input !== null) {
-                                        setDebouncedModelFilter(input);
-                                      }
-                                    }}
-                                    style={{
-                                      position: "absolute",
-                                      right: "4px",
-                                      top: "50%",
-                                      transform: "translateY(-50%)",
-                                      padding: "4px 8px",
-                                      backgroundColor: "transparent",
-                                      color: "#6b7280",
-                                      border: "none",
-                                      cursor: "pointer",
-                                      fontSize: "12px",
-                                      borderRadius: "2px",
-                                      marginTop: "-4px",
-                                    }}
-                                    title="Filter models"
-                                  >
-                                    🔍
-                                  </button>
-                                </div>
-                                {debouncedModelFilter && (
-                                  <div style={{ marginBottom: "8px" }}>
-                                    <p
-                                      style={{
-                                        margin: "0 0 4px 0",
-                                        fontSize: "12px",
-                                        color: "#6b7280",
-                                      }}
-                                    >
-                                      Filter: &quot;{debouncedModelFilter}
-                                      &quot; - Showing {
-                                        filteredModels.length
-                                      }{" "}
-                                      of {combinedOptions.length} models
-                                    </p>
-                                    <button
-                                      onClick={() =>
-                                        setDebouncedModelFilter("")
-                                      }
-                                      style={{
-                                        padding: "2px 6px",
-                                        backgroundColor: "#ef4444",
-                                        color: "white",
-                                        border: "none",
-                                        borderRadius: "3px",
-                                        cursor: "pointer",
-                                        fontSize: "11px",
-                                      }}
-                                    >
-                                      Clear filter
-                                    </button>
-                                  </div>
-                                )}
+                                <SearchableDropdown
+                                  value={menu.searchDataSource || ""}
+                                  onChange={(value) =>
+                                    updateStandardMenu(
+                                      menu.id,
+                                      "searchDataSource",
+                                      value
+                                    )
+                                  }
+                                  options={combinedOptions}
+                                  placeholder="Select a model"
+                                  searchPlaceholder="Search models..."
+                                  label="Search Data Source (Model)"
+                                  isLoading={
+                                    isLoadingModels || isLoadingWorksheets
+                                  }
+                                  error={modelsError || worksheetsError}
+                                />
                                 <p
                                   style={{
                                     color: "#718096",
@@ -3315,32 +3148,17 @@ function UserConfigContent({
           backgroundColor: "#f9fafb",
         }}
       >
-        <h4
-          style={{
-            fontSize: "16px",
-            fontWeight: "600",
-            marginBottom: "12px",
-          }}
-        >
-          Current User
-        </h4>
-        <select
+        <SearchableDropdown
           value={userConfig.currentUserId || ""}
-          onChange={(e) => handleSetCurrentUser(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "8px 12px",
-            border: "1px solid #d1d5db",
-            borderRadius: "4px",
-            fontSize: "14px",
-          }}
-        >
-          {userConfig.users.map((user) => (
-            <option key={user.id} value={user.id}>
-              {user.name}
-            </option>
-          ))}
-        </select>
+          onChange={handleSetCurrentUser}
+          options={userConfig.users.map((user) => ({
+            id: user.id,
+            name: user.name,
+          }))}
+          placeholder="Select a user"
+          searchPlaceholder="Search users..."
+          label="Current User"
+        />
         {currentUser && (
           <p
             style={{
@@ -4634,37 +4452,17 @@ function ConfigurationContent({
                     </div>
                   ) : (
                     <div style={{ marginBottom: "16px" }}>
-                      <label
-                        style={{
-                          display: "block",
-                          marginBottom: "8px",
-                          fontWeight: "500",
-                          fontSize: "14px",
-                        }}
-                      >
-                        Select Configuration
-                      </label>
-                      <select
+                      <SearchableDropdown
                         value={selectedConfiguration}
-                        onChange={(e) =>
-                          setSelectedConfiguration(e.target.value)
-                        }
-                        style={{
-                          width: "100%",
-                          padding: "8px 12px",
-                          border: "1px solid #d1d5db",
-                          borderRadius: "4px",
-                          fontSize: "14px",
-                          marginBottom: "8px",
-                        }}
-                      >
-                        <option value="">Choose a configuration...</option>
-                        {savedConfigurations.map((config) => (
-                          <option key={config.filename} value={config.filename}>
-                            {config.name} - {config.description}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={setSelectedConfiguration}
+                        options={savedConfigurations.map((config) => ({
+                          id: config.filename,
+                          name: `${config.name} - ${config.description}`,
+                        }))}
+                        placeholder="Choose a configuration..."
+                        searchPlaceholder="Search configurations..."
+                        label="Select Configuration"
+                      />
                     </div>
                   )}
 
