@@ -1470,6 +1470,12 @@ export default function Layout({ children }: LayoutProps) {
           searchEmbed: {},
           appEmbed: {},
         },
+        doubleClickHandling: {
+          enabled: false,
+          showDefaultModal: true,
+          customJavaScript: "",
+          modalTitle: "Double-Click Event Data",
+        },
       }) as StylingConfig
   );
 

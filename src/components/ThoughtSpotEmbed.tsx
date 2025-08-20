@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
-import { ThoughtSpotContent } from "../types/thoughtspot";
+import {
+  ThoughtSpotContent,
+  VizPointDoubleClickEvent,
+} from "../types/thoughtspot";
 import { useAppContext } from "./Layout";
+import DoubleClickModal from "./DoubleClickModal";
+import { VizPointClick } from "../types/data-classes";
 
 interface ThoughtSpotEmbedProps {
   content: ThoughtSpotContent;
@@ -22,9 +27,96 @@ export default function ThoughtSpotEmbed({
 }: ThoughtSpotEmbedProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showDoubleClickModal, setShowDoubleClickModal] = useState(false);
+  const [doubleClickEventData, setDoubleClickEventData] =
+    useState<VizPointDoubleClickEvent | null>(null);
+  const [vizPointClickData, setVizPointClickData] =
+    useState<VizPointClick | null>(null);
   const embedRef = useRef<HTMLDivElement>(null);
   const embedInstanceRef = useRef<{ destroy?: () => void } | null>(null);
   const context = useAppContext();
+
+  const handleDoubleClickEvent = useCallback(
+    (event: unknown) => {
+      const doubleClickConfig = context.stylingConfig.doubleClickHandling;
+
+      if (!doubleClickConfig?.enabled) return;
+
+      // Create VizPointClick instance from the event data
+      const vizPointClick = VizPointClick.createFromJSON(event as any);
+
+      // Store the event data for potential modal display
+      setDoubleClickEventData(event as VizPointDoubleClickEvent);
+      setVizPointClickData(vizPointClick);
+
+      // Create a modal element if showDefaultModal is true or custom JavaScript is provided
+      let modalElement: HTMLElement | null = null;
+      if (
+        doubleClickConfig.showDefaultModal ||
+        doubleClickConfig.customJavaScript?.trim()
+      ) {
+        modalElement = document.createElement("div");
+        modalElement.id = "double-click-modal";
+        modalElement.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      `;
+        document.body.appendChild(modalElement);
+      }
+
+      // Execute custom JavaScript if provided
+      if (
+        doubleClickConfig.customJavaScript &&
+        doubleClickConfig.customJavaScript.trim()
+      ) {
+        try {
+          const customFunction = new Function(
+            "tabularData",
+            "modal",
+            "embedInstance",
+            doubleClickConfig.customJavaScript
+          );
+          customFunction(vizPointClick, modalElement, embedInstanceRef.current);
+        } catch (error) {
+          console.error(
+            "Error executing custom double-click JavaScript:",
+            error
+          );
+          // If custom JavaScript fails and showDefaultModal is true, show the default modal
+          if (doubleClickConfig.showDefaultModal) {
+            setShowDoubleClickModal(true);
+          }
+        }
+      } else if (doubleClickConfig.showDefaultModal) {
+        // If no custom JavaScript but showDefaultModal is true, show the default modal
+        setShowDoubleClickModal(true);
+      }
+
+      // Clean up the modal element if it wasn't used by custom JavaScript
+      if (modalElement && !doubleClickConfig.customJavaScript?.trim()) {
+        setTimeout(() => {
+          if (modalElement && modalElement.parentNode) {
+            modalElement.parentNode.removeChild(modalElement);
+          }
+        }, 100);
+      }
+    },
+    [
+      context.stylingConfig.doubleClickHandling,
+      context.stylingConfig.embedFlags?.liveboardEmbed,
+      context.stylingConfig.embedFlags?.searchEmbed,
+      context.userConfig.currentUserId,
+      context.userConfig.users,
+    ]
+  );
 
   useEffect(() => {
     const initEmbed = async () => {
@@ -34,7 +126,7 @@ export default function ThoughtSpotEmbed({
         setIsLoading(true);
         setError(null);
 
-        const { LiveboardEmbed, SearchEmbed } = await import(
+        const { LiveboardEmbed, SearchEmbed, EmbedEvent } = await import(
           "@thoughtspot/visual-embed-sdk"
         );
 
@@ -89,6 +181,16 @@ export default function ThoughtSpotEmbed({
 
         if (embedInstance) {
           embedInstanceRef.current = embedInstance;
+
+          // Add double-click event listener if enabled
+          const doubleClickConfig = context.stylingConfig.doubleClickHandling;
+          if (doubleClickConfig?.enabled) {
+            embedInstance.on(
+              EmbedEvent.VizPointDoubleClick,
+              handleDoubleClickEvent
+            );
+          }
+
           await embedInstance.render();
           setIsLoading(false);
           onLoad?.();
@@ -114,7 +216,20 @@ export default function ThoughtSpotEmbed({
         embedInstanceRef.current.destroy();
       }
     };
-  }, [content.id, content.type, width, height, onLoad, onError]);
+  }, [
+    content.id,
+    content.type,
+    width,
+    height,
+    onLoad,
+    onError,
+    context.stylingConfig.doubleClickHandling,
+    context.stylingConfig.embedFlags?.liveboardEmbed,
+    context.stylingConfig.embedFlags?.searchEmbed,
+    context.userConfig.currentUserId,
+    context.userConfig.users,
+    handleDoubleClickEvent,
+  ]);
 
   if (error) {
     return (
@@ -162,6 +277,18 @@ export default function ThoughtSpotEmbed({
           borderRadius: "8px",
           overflow: "hidden",
         }}
+      />
+
+      {/* Double-click modal */}
+      <DoubleClickModal
+        isOpen={showDoubleClickModal}
+        onClose={() => setShowDoubleClickModal(false)}
+        eventData={doubleClickEventData}
+        vizPointClickData={vizPointClickData}
+        title={
+          context.stylingConfig.doubleClickHandling?.modalTitle ||
+          "Double-Click Event Data"
+        }
       />
     </div>
   );

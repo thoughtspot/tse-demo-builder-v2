@@ -253,7 +253,7 @@ export default function ContentGrid({
               gap: "8px",
             }}
           >
-            ← Back to {title}
+            ← Back to {title || subtitle || "Content"}
           </button>
         </div>
         <div

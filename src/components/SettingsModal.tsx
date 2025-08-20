@@ -16,6 +16,7 @@ import StringMappingEditor from "./StringMappingEditor";
 import CSSVariablesEditor from "./CSSVariablesEditor";
 import CSSRulesEditor from "./CSSRulesEditor";
 import EmbedFlagsEditor from "./EmbedFlagsEditor";
+import DoubleClickEditor from "./DoubleClickEditor";
 import {
   User,
   UserConfig,
@@ -143,6 +144,12 @@ interface StylingConfig {
     liveboardEmbed?: Record<string, unknown>;
     searchEmbed?: Record<string, unknown>;
     appEmbed?: Record<string, unknown>;
+  };
+  doubleClickHandling?: {
+    enabled: boolean;
+    showDefaultModal: boolean;
+    customJavaScript?: string;
+    modalTitle?: string;
   };
 }
 
@@ -2489,6 +2496,59 @@ function CustomMenusContent({
   );
 }
 
+function EventsContent({
+  stylingConfig,
+  updateStylingConfig,
+}: {
+  stylingConfig: StylingConfig;
+  updateStylingConfig: (config: StylingConfig) => void;
+}) {
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <h3
+        style={{
+          marginBottom: "24px",
+          fontSize: "24px",
+          fontWeight: "600",
+          color: "#1f2937",
+        }}
+      >
+        Event Handling Configuration
+      </h3>
+      <p
+        style={{
+          marginBottom: "24px",
+          color: "#6b7280",
+          fontSize: "14px",
+          lineHeight: "1.5",
+        }}
+      >
+        Configure how to handle various events in your ThoughtSpot embeds, such
+        as double-click events on visualization points.
+      </p>
+
+      <div style={{ flex: 1, overflow: "auto" }}>
+        <DoubleClickEditor
+          config={
+            stylingConfig.doubleClickHandling || {
+              enabled: false,
+              showDefaultModal: true,
+              customJavaScript: "",
+              modalTitle: "Double-Click Event Data",
+            }
+          }
+          onChange={(doubleClickHandling) =>
+            updateStylingConfig({
+              ...stylingConfig,
+              doubleClickHandling,
+            })
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
 function StylingContent({
   stylingConfig,
   updateStylingConfig,
@@ -4757,6 +4817,8 @@ function ConfigurationContent({
             />
           </div>
         )}
+
+
       </div>
     </div>
   );
@@ -5034,6 +5096,16 @@ export default function SettingsModal({
       name: "Styling",
       content: (
         <StylingContent
+          stylingConfig={pendingStylingConfig}
+          updateStylingConfig={updatePendingStylingConfig}
+        />
+      ),
+    },
+    {
+      id: "events",
+      name: "Events",
+      content: (
+        <EventsContent
           stylingConfig={pendingStylingConfig}
           updateStylingConfig={updatePendingStylingConfig}
         />

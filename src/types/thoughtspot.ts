@@ -170,4 +170,52 @@ export interface StylingConfig {
   application: ApplicationStyles;
   embeddedContent: EmbeddedContentCustomization;
   embedFlags?: EmbedFlags;
+  doubleClickHandling?: DoubleClickHandlingConfig;
+}
+
+// Double-click event handling configuration
+export interface DoubleClickHandlingConfig {
+  enabled: boolean;
+  showDefaultModal: boolean;
+  customJavaScript?: string;
+  modalTitle?: string;
+}
+
+// Double-click event data structure
+export interface VizPointDoubleClickEvent {
+  vizId: string;
+  vizName: string;
+  selectedPoints: {
+    selectedAttributes: {
+      column: {
+        dataType: string;
+        name: string;
+      };
+      value: string;
+    }[];
+    selectedMeasures: {
+      column: {
+        dataType: string;
+        name: string;
+      };
+      value: number;
+    }[];
+  }[];
+  clickedPoints?: {
+    selectedAttributes: {
+      column: {
+        dataType: string;
+        name: string;
+      };
+      value: string;
+    }[];
+    selectedMeasures: {
+      column: {
+        dataType: string;
+        name: string;
+      };
+      value: number;
+    }[];
+  }[];
+  [key: string]: unknown; // Allow for additional properties
 }
