@@ -37,7 +37,10 @@ export default function DoubleClickModal({
 
   const renderSummaryView = () => {
     // Extract viz information from embedAnswerData
-    const embedAnswerData = vizPointClick.getEmbedAnswerData() as any;
+    const embedAnswerData = vizPointClick.getEmbedAnswerData() as {
+      id?: string;
+      name?: string;
+    } | null;
     const vizId = embedAnswerData?.id || eventData.vizId || "Unknown";
     const vizName = embedAnswerData?.name || eventData.vizName || "Unknown";
 
@@ -146,7 +149,10 @@ export default function DoubleClickModal({
 
   const renderTabularView = () => {
     // Extract viz information from embedAnswerData
-    const embedAnswerData = vizPointClick.getEmbedAnswerData() as any;
+    const embedAnswerData = vizPointClick.getEmbedAnswerData() as {
+      id?: string;
+      name?: string;
+    } | null;
     const vizId = embedAnswerData?.id || vizPointClick.getVizId() || "Unknown";
     const vizName = embedAnswerData?.name || "Unknown";
 

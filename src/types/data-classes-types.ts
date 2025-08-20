@@ -4,83 +4,101 @@
  * That said, all data is saved in each of the classes, so the object can be queried directly.
  */
 
+// Type definitions for column properties and related structures
+export interface ColumnProperties {
+  [key: string]: unknown;
+}
+
+export interface CurrencyFormat {
+  __typename: string;
+  column: string;
+  isoCode: string;
+  type: string;
+}
+
+export interface CustomCalendarType {
+  [key: string]: unknown;
+}
+
+export interface CustomOrder {
+  [key: string]: unknown;
+}
+
+export interface FormatPattern {
+  [key: string]: unknown;
+}
+
+export interface GeoConfig {
+  [key: string]: unknown;
+}
+
+export interface LegacyColumnFormatProperties {
+  [key: string]: unknown;
+}
+
+export interface LegacySheetProperties {
+  [key: string]: unknown;
+}
+
+export interface DeselectedAttribute {
+  column: {
+    dataType: string;
+    name: string;
+  };
+  value: string | number;
+}
+
+export interface DeselectedMeasure {
+  column: {
+    dataType: string;
+    name: string;
+  };
+  value: number;
+}
+
+export interface EmbedAnswerData {
+  columns: {
+    __typename: string;
+    column: {
+      __typename: string;
+      dataType: string;
+      id: string;
+      name: string;
+      referencedColumns: {
+        __typename: string;
+        displayName: string;
+      }[];
+      type: string;
+    };
+  }[];
+  data:
+    | {
+        columnDataLite: {
+          columnDataType: string;
+          columnId: string;
+          dataValue: (string | number)[];
+        }[];
+        completionRatio: number;
+        samplingRatio: number;
+        totalRowCount: string;
+      }[]
+    | {
+        columnDataLite: {
+          columnDataType: string;
+          columnId: string;
+          dataValue: (string | number)[];
+        }[];
+        completionRatio: number;
+        samplingRatio: number;
+        totalRowCount: string;
+      };
+}
+
 // Sent by menu actions on answers, including individual visualizations in a liveboard.
 export interface ActionDataType {
-  embedAnswerData?: {
-    columns: {
-      __typename: string;
-      column: {
-        __typename: string;
-        dataType: string;
-        id: string;
-        name: string;
-        referencedColumns: {
-          __typename: string;
-          displayName: string;
-        }[];
-        type: string;
-      };
-    }[];
-    data:
-      | {
-          columnDataLite: {
-            columnDataType: string;
-            columnId: string;
-            dataValue: (string | number)[];
-          }[];
-          completionRatio: number;
-          samplingRatio: number;
-          totalRowCount: string;
-        }[]
-      | {
-          columnDataLite: {
-            columnDataType: string;
-            columnId: string;
-            dataValue: (string | number)[];
-          }[];
-          completionRatio: number;
-          samplingRatio: number;
-          totalRowCount: string;
-        };
-  };
+  embedAnswerData?: EmbedAnswerData;
   data?: {
-    embedAnswerData: {
-      columns: {
-        __typename: string;
-        column: {
-          __typename: string;
-          dataType: string;
-          id: string;
-          name: string;
-          referencedColumns: {
-            __typename: string;
-            displayName: string;
-          }[];
-          type: string;
-        };
-      }[];
-      data:
-        | {
-            columnDataLite: {
-              columnDataType: string;
-              columnId: string;
-              dataValue: (string | number)[];
-            }[];
-            completionRatio: number;
-            samplingRatio: number;
-            totalRowCount: string;
-          }[]
-        | {
-            columnDataLite: {
-              columnDataType: string;
-              columnId: string;
-              dataValue: (string | number)[];
-            }[];
-            completionRatio: number;
-            samplingRatio: number;
-            totalRowCount: string;
-          };
-    };
+    embedAnswerData: EmbedAnswerData;
   };
 }
 
@@ -217,22 +235,22 @@ export interface VizPointClickDataType {
           chartSpecificColumnType: string;
           columnProps: {
             __typename: string;
-            columnProperties: any;
+            columnProperties: ColumnProperties;
             version: string;
           };
-          customCalendarType: any;
-          customOrder: any[];
+          customCalendarType: CustomCalendarType;
+          customOrder: CustomOrder[];
           dataType: string;
           dynamicTitle: string;
           format: {
             __typename: string;
-            currencyFormat: any;
+            currencyFormat: CurrencyFormat | null;
             pattern: string;
           } | null;
-          formatPattern: any;
+          formatPattern: FormatPattern;
           formatType: string | null;
           formulaId: string;
-          geoConfig: any;
+          geoConfig: GeoConfig;
           id: string;
           isAdditive: boolean;
           isAggregateApplied: boolean;
@@ -241,8 +259,8 @@ export interface VizPointClickDataType {
           isStrictDateColumn: boolean;
           isTimeBucketRestricted: boolean;
           isUserDefinedTitle: boolean;
-          legacyColumnFormatProperties: any;
-          legacySheetProperties: any;
+          legacyColumnFormatProperties: LegacyColumnFormatProperties;
+          legacySheetProperties: LegacySheetProperties;
           name: string;
           referencedColumns: {
             __typename: string;
@@ -263,7 +281,7 @@ export interface VizPointClickDataType {
         };
         value: string | number;
       }[];
-      deselectedAttributes: any[];
+      deselectedAttributes: DeselectedAttribute[];
       selectedMeasures: {
         column: {
           __typename: string;
@@ -273,11 +291,11 @@ export interface VizPointClickDataType {
           chartSpecificColumnType: string;
           columnProps: {
             __typename: string;
-            columnProperties: any;
+            columnProperties: ColumnProperties;
             version: string;
           };
-          customCalendarType: any;
-          customOrder: any[];
+          customCalendarType: CustomCalendarType;
+          customOrder: CustomOrder[];
           dataType: string;
           dynamicTitle: string;
           format: {
@@ -290,10 +308,10 @@ export interface VizPointClickDataType {
             } | null;
             pattern: string;
           } | null;
-          formatPattern: any;
+          formatPattern: FormatPattern;
           formatType: string | null;
           formulaId: string;
-          geoConfig: any;
+          geoConfig: GeoConfig;
           id: string;
           isAdditive: boolean;
           isAggregateApplied: boolean;
@@ -302,8 +320,8 @@ export interface VizPointClickDataType {
           isStrictDateColumn: boolean;
           isTimeBucketRestricted: boolean;
           isUserDefinedTitle: boolean;
-          legacyColumnFormatProperties: any;
-          legacySheetProperties: any;
+          legacyColumnFormatProperties: LegacyColumnFormatProperties;
+          legacySheetProperties: LegacySheetProperties;
           name: string;
           referencedColumns: {
             __typename: string;
@@ -324,7 +342,7 @@ export interface VizPointClickDataType {
         };
         value: number;
       }[];
-      deselectedMeasures: any[];
+      deselectedMeasures: DeselectedMeasure[];
     };
     selectedPoints: {
       selectedAttributes: {
@@ -336,22 +354,22 @@ export interface VizPointClickDataType {
           chartSpecificColumnType: string;
           columnProps: {
             __typename: string;
-            columnProperties: any;
+            columnProperties: ColumnProperties;
             version: string;
           };
-          customCalendarType: any;
-          customOrder: any[];
+          customCalendarType: CustomCalendarType;
+          customOrder: CustomOrder[];
           dataType: string;
           dynamicTitle: string;
           format: {
             __typename: string;
-            currencyFormat: any;
+            currencyFormat: CurrencyFormat | null;
             pattern: string;
           } | null;
-          formatPattern: any;
+          formatPattern: FormatPattern;
           formatType: string | null;
           formulaId: string;
-          geoConfig: any;
+          geoConfig: GeoConfig;
           id: string;
           isAdditive: boolean;
           isAggregateApplied: boolean;
@@ -360,8 +378,8 @@ export interface VizPointClickDataType {
           isStrictDateColumn: boolean;
           isTimeBucketRestricted: boolean;
           isUserDefinedTitle: boolean;
-          legacyColumnFormatProperties: any;
-          legacySheetProperties: any;
+          legacyColumnFormatProperties: LegacyColumnFormatProperties;
+          legacySheetProperties: LegacySheetProperties;
           name: string;
           referencedColumns: {
             __typename: string;
@@ -382,7 +400,7 @@ export interface VizPointClickDataType {
         };
         value: string | number;
       }[];
-      deselectedAttributes: any[];
+      deselectedAttributes: DeselectedAttribute[];
       selectedMeasures: {
         column: {
           __typename: string;
@@ -392,11 +410,11 @@ export interface VizPointClickDataType {
           chartSpecificColumnType: string;
           columnProps: {
             __typename: string;
-            columnProperties: any;
+            columnProperties: ColumnProperties;
             version: string;
           };
-          customCalendarType: any;
-          customOrder: any[];
+          customCalendarType: CustomCalendarType;
+          customOrder: CustomOrder[];
           dataType: string;
           dynamicTitle: string;
           format: {
@@ -409,10 +427,10 @@ export interface VizPointClickDataType {
             } | null;
             pattern: string;
           } | null;
-          formatPattern: any;
+          formatPattern: FormatPattern;
           formatType: string | null;
           formulaId: string;
-          geoConfig: any;
+          geoConfig: GeoConfig;
           id: string;
           isAdditive: boolean;
           isAggregateApplied: boolean;
@@ -421,8 +439,8 @@ export interface VizPointClickDataType {
           isStrictDateColumn: boolean;
           isTimeBucketRestricted: boolean;
           isUserDefinedTitle: boolean;
-          legacyColumnFormatProperties: any;
-          legacySheetProperties: any;
+          legacyColumnFormatProperties: LegacyColumnFormatProperties;
+          legacySheetProperties: LegacySheetProperties;
           name: string;
           referencedColumns: {
             __typename: string;
@@ -443,9 +461,9 @@ export interface VizPointClickDataType {
         };
         value: number;
       }[];
-      deselectedMeasures: any[];
+      deselectedMeasures: DeselectedMeasure[];
     }[];
-    embedAnswerData: any; // Full embed answer data structure
+    embedAnswerData: EmbedAnswerData; // Full embed answer data structure
     vizId: string;
   };
   status: string;
