@@ -4,6 +4,40 @@ import { useState, useEffect, useRef } from "react";
 import { useAppContext } from "../Layout";
 import { ThoughtSpotEmbedInstance } from "../../types/thoughtspot";
 
+// IndexedDB utilities for image handling
+const openImageDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("ImageStorage", 1);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains("images")) {
+        db.createObjectStore("images", { keyPath: "id" });
+      }
+    };
+  });
+};
+
+const getImageFromIndexedDB = async (id: string): Promise<string | null> => {
+  try {
+    const db = await openImageDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(["images"], "readonly");
+      const store = transaction.objectStore("images");
+      const request = store.get(id);
+
+      request.onsuccess = () => resolve(request.result?.dataUrl || null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.warn("Failed to get image from IndexedDB:", error);
+    return null;
+  }
+};
+
 interface HomePageConfig {
   type: "image" | "html" | "iframe" | "liveboard" | "answer" | "spotter";
   value: string;
@@ -22,6 +56,7 @@ interface ThoughtSpotContent {
 
 export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
   const [iframeError, setIframeError] = useState<string | null>(null);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
   const liveboardRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const spotterRef = useRef<HTMLDivElement>(null);
@@ -127,6 +162,25 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
     );
   };
 
+  // Effect to handle image loading from IndexedDB
+  useEffect(() => {
+    const loadImage = async () => {
+      if (homePageConfig.type === "image" && homePageConfig.value) {
+        if (homePageConfig.value.startsWith("indexeddb://")) {
+          const imageId = homePageConfig.value.replace("indexeddb://", "");
+          const imageData = await getImageFromIndexedDB(imageId);
+          setImageSrc(imageData);
+        } else {
+          setImageSrc(homePageConfig.value);
+        }
+      } else {
+        setImageSrc(null);
+      }
+    };
+
+    loadImage();
+  }, [homePageConfig.value, homePageConfig.type]);
+
   // Effect to handle ThoughtSpot embeds
   useEffect(() => {
     // Only run for ThoughtSpot content types and when there's a value
@@ -220,11 +274,11 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
   const renderContent = () => {
     switch (homePageConfig.type) {
       case "image":
-        if (homePageConfig.value) {
+        if (imageSrc) {
           return (
             <div style={{ textAlign: "center" }}>
               <img
-                src={homePageConfig.value}
+                src={imageSrc}
                 alt="Uploaded content"
                 style={{
                   maxWidth: "100%",

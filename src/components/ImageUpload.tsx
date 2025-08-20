@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 
 interface ImageUploadProps {
   value?: string;
@@ -11,7 +11,73 @@ interface ImageUploadProps {
   maxSizeMB?: number;
   maxWidth?: number;
   maxHeight?: number;
+  useIndexedDB?: boolean; // New prop to enable IndexedDB storage
 }
+
+// IndexedDB utilities
+const openImageDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("ImageStorage", 1);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains("images")) {
+        db.createObjectStore("images", { keyPath: "id" });
+      }
+    };
+  });
+};
+
+const saveImageToIndexedDB = async (
+  id: string,
+  dataUrl: string
+): Promise<void> => {
+  const db = await openImageDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(["images"], "readwrite");
+    const store = transaction.objectStore("images");
+    const request = store.put({ id, dataUrl, timestamp: Date.now() });
+
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const getImageFromIndexedDB = async (id: string): Promise<string | null> => {
+  try {
+    const db = await openImageDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(["images"], "readonly");
+      const store = transaction.objectStore("images");
+      const request = store.get(id);
+
+      request.onsuccess = () => resolve(request.result?.dataUrl || null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.warn("Failed to get image from IndexedDB:", error);
+    return null;
+  }
+};
+
+const removeImageFromIndexedDB = async (id: string): Promise<void> => {
+  try {
+    const db = await openImageDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(["images"], "readwrite");
+      const store = transaction.objectStore("images");
+      const request = store.delete(id);
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.warn("Failed to remove image from IndexedDB:", error);
+  }
+};
 
 export default function ImageUpload({
   value,
@@ -22,10 +88,16 @@ export default function ImageUpload({
   maxSizeMB = 0.5, // Default 500KB limit (much more conservative)
   maxWidth = 1200, // Default max width
   maxHeight = 800, // Default max height
+  useIndexedDB = false, // Default to localStorage for backward compatibility
 }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Generate a unique ID for this image
+  const generateImageId = (): string => {
+    return `image_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
 
   // Function to resize image
   const resizeImage = (file: File): Promise<string> => {
@@ -107,7 +179,16 @@ export default function ImageUpload({
         );
       }
 
-      onChange(resizedDataUrl);
+      if (useIndexedDB) {
+        // Store in IndexedDB and return a reference
+        const imageId = generateImageId();
+        await saveImageToIndexedDB(imageId, resizedDataUrl);
+        onChange(`indexeddb://${imageId}`);
+      } else {
+        // Use localStorage (original behavior)
+        onChange(resizedDataUrl);
+      }
+
       setIsUploading(false);
     } catch (err) {
       const errorMessage =
@@ -128,12 +209,39 @@ export default function ImageUpload({
     onChange(e.target.value);
   };
 
-  const handleRemoveImage = () => {
+  const handleRemoveImage = async () => {
+    // If using IndexedDB, clean up the stored image
+    if (useIndexedDB && value && value.startsWith("indexeddb://")) {
+      const imageId = value.replace("indexeddb://", "");
+      await removeImageFromIndexedDB(imageId);
+    }
+
     onChange("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
+
+  // Function to get the actual image data for display
+  const getImageData = async (imageRef: string): Promise<string | null> => {
+    if (imageRef.startsWith("indexeddb://")) {
+      const imageId = imageRef.replace("indexeddb://", "");
+      return await getImageFromIndexedDB(imageId);
+    }
+    return imageRef;
+  };
+
+  // State for the actual image data to display
+  const [displayImage, setDisplayImage] = useState<string | null>(null);
+
+  // Load image data when value changes
+  React.useEffect(() => {
+    if (value) {
+      getImageData(value).then(setDisplayImage);
+    } else {
+      setDisplayImage(null);
+    }
+  }, [value]);
 
   return (
     <div style={{ marginBottom: "16px" }}>
@@ -149,7 +257,7 @@ export default function ImageUpload({
       </label>
 
       {/* Image Preview */}
-      {value && (
+      {displayImage && (
         <div
           style={{
             marginBottom: "12px",
@@ -171,9 +279,10 @@ export default function ImageUpload({
               backgroundColor: "#f9fafb",
             }}
           >
-            {value.startsWith("data:") || value.startsWith("http") ? (
+            {displayImage.startsWith("data:") ||
+            displayImage.startsWith("http") ? (
               <img
-                src={value}
+                src={displayImage}
                 alt="Preview"
                 width={60}
                 height={60}
@@ -266,6 +375,7 @@ export default function ImageUpload({
       >
         Upload an image file (max {maxSizeMB}MB) or provide a URL. Large images
         will be automatically resized and compressed.
+        {useIndexedDB && " Using IndexedDB for better storage capacity."}
       </p>
     </div>
   );

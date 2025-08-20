@@ -1149,9 +1149,10 @@ function StandardMenusContent({
                               }
                               label="Home Page Image"
                               placeholder="Upload or enter image URL"
-                              maxSizeMB={0.4}
-                              maxWidth={800}
-                              maxHeight={600}
+                              maxSizeMB={2}
+                              maxWidth={1200}
+                              maxHeight={800}
+                              useIndexedDB={true}
                             />
                           </div>
                         )}
