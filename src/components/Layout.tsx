@@ -605,6 +605,40 @@ const saveToStorage = (
   if (typeof window === "undefined") return;
 
   try {
+    // Special handling for image data that might be too large
+    if (key === STORAGE_KEYS.STANDARD_MENUS) {
+      const menus = value as StandardMenu[];
+      const homeMenu = menus.find(
+        (menu) => menu.id === "home" && menu.homePageType === "image"
+      );
+
+      if (
+        homeMenu &&
+        homeMenu.homePageValue &&
+        homeMenu.homePageValue.startsWith("data:")
+      ) {
+        // Check if the image data URL is too large (over 500KB to be safe)
+        const imageSizeInBytes = Math.ceil(
+          (homeMenu.homePageValue.length * 3) / 4
+        );
+        const imageSizeInKB = imageSizeInBytes / 1024;
+
+        if (imageSizeInKB > 500) {
+          console.warn(
+            `Image data is too large (${imageSizeInKB.toFixed(
+              2
+            )}KB). Clearing image to prevent storage issues.`
+          );
+          // Clear the image data to prevent storage quota issues
+          homeMenu.homePageValue = "";
+          onError?.(
+            "Image was too large and has been cleared. Please upload a smaller image (under 500KB)."
+          );
+          return; // Don't proceed with storage
+        }
+      }
+    }
+
     // Clean up styling config if that's what we're saving
     let valueToSave = value;
     if (key === STORAGE_KEYS.STYLING_CONFIG) {
@@ -1490,7 +1524,15 @@ export default function Layout({ children }: LayoutProps) {
 
   // Save to localStorage whenever state changes
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.STANDARD_MENUS, standardMenus);
+    saveToStorage(
+      STORAGE_KEYS.STANDARD_MENUS,
+      standardMenus,
+      (errorMessage) => {
+        setStorageError(errorMessage);
+        // Clear error after 10 seconds
+        setTimeout(() => setStorageError(null), 10000);
+      }
+    );
   }, [standardMenus]);
 
   useEffect(() => {

@@ -276,8 +276,6 @@ export default function ThoughtSpotEmbed({
         style={{
           width: "100%",
           height: "100%",
-          border: "1px solid #e2e8f0",
-          borderRadius: "8px",
           overflow: "hidden",
         }}
       />

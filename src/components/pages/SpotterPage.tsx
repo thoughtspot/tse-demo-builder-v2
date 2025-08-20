@@ -257,8 +257,6 @@ export default function SpotterPage({
               style={{
                 width: "100%",
                 height: "400px",
-                borderRadius: "6px",
-                border: "1px solid #e2e8f0",
               }}
             />
           )}

@@ -1138,34 +1138,20 @@ function StandardMenusContent({
 
                         {menu.homePageType === "image" && (
                           <div style={{ marginBottom: "16px" }}>
-                            <label
-                              style={{
-                                display: "block",
-                                marginBottom: "8px",
-                                fontWeight: "500",
-                                fontSize: "14px",
-                              }}
-                            >
-                              Image URL
-                            </label>
-                            <input
-                              type="url"
+                            <ImageUpload
                               value={menu.homePageValue || ""}
-                              onChange={(e) =>
+                              onChange={(url) =>
                                 updateStandardMenu(
                                   menu.id,
                                   "homePageValue",
-                                  e.target.value
+                                  url
                                 )
                               }
-                              placeholder="https://example.com/image.jpg"
-                              style={{
-                                width: "100%",
-                                padding: "8px 12px",
-                                border: "1px solid #d1d5db",
-                                borderRadius: "4px",
-                                fontSize: "14px",
-                              }}
+                              label="Home Page Image"
+                              placeholder="Upload or enter image URL"
+                              maxSizeMB={0.4}
+                              maxWidth={800}
+                              maxHeight={600}
                             />
                           </div>
                         )}
@@ -4817,8 +4803,6 @@ function ConfigurationContent({
             />
           </div>
         )}
-
-
       </div>
     </div>
   );

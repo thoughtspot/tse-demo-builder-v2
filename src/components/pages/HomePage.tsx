@@ -325,8 +325,6 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
                   style={{
                     width: "100%",
                     height: "100%",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "8px",
                   }}
                   onLoad={handleIframeLoad}
                   onError={handleIframeError}
@@ -398,8 +396,6 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
                   style={{
                     width: "100%",
                     height: "100%",
-                    borderRadius: "8px",
-                    border: "1px solid #e2e8f0",
                   }}
                 />
               )}
@@ -483,8 +479,6 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
                   style={{
                     width: "100%",
                     height: "100%",
-                    borderRadius: "8px",
-                    border: "1px solid #e2e8f0",
                   }}
                 />
               )}
@@ -567,8 +561,6 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
                   style={{
                     width: "100%",
                     height: "100%",
-                    borderRadius: "8px",
-                    border: "1px solid #e2e8f0",
                   }}
                 />
               )}

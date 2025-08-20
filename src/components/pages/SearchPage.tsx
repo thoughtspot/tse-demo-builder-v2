@@ -242,8 +242,6 @@ export default function SearchPage({
               style={{
                 width: "100%",
                 height: "600px",
-                borderRadius: "6px",
-                border: "1px solid #e2e8f0",
               }}
             />
           )}
