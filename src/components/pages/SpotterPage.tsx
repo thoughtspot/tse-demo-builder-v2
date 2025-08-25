@@ -77,7 +77,7 @@ export default function SpotterPage({
             worksheetId: finalSpotterModelId,
             frameParams: {
               width: "100%",
-              height: "400px",
+              height: "100%",
             },
             ...finalEmbedFlags,
             ...(hiddenActionsStrings.length > 0 && {
@@ -138,7 +138,7 @@ export default function SpotterPage({
   ]);
 
   return (
-    <div>
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       {!finalSpotterModelId ? (
         <div
           style={{
@@ -147,6 +147,11 @@ export default function SpotterPage({
             borderRadius: "8px",
             border: "1px solid #e2e8f0",
             textAlign: "center",
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
           }}
         >
           <h3
@@ -204,18 +209,14 @@ export default function SpotterPage({
         </div>
       ) : (
         <div
-          style={{
-            backgroundColor: "white",
-            padding: "12px",
-            borderRadius: "8px",
-            border: "1px solid #e2e8f0",
-          }}
+          style={{ height: "100%", display: "flex", flexDirection: "column" }}
         >
           <h3
             style={{
               fontSize: "16px",
               fontWeight: "600",
               marginBottom: "12px",
+              padding: "0 0 12px 0",
             }}
           >
             AI Analyst
@@ -256,7 +257,9 @@ export default function SpotterPage({
               ref={embedRef}
               style={{
                 width: "100%",
-                height: "400px",
+                flex: 1,
+                minHeight: "400px",
+                overflow: "hidden",
               }}
             />
           )}

@@ -11,7 +11,10 @@ export default function FavoritesPage() {
   const favoritesMenu = standardMenus.find((m) => m.id === "favorites");
   const favoritesConfig = favoritesMenu
     ? {
-        contentType: favoritesMenu.contentType,
+        contentType: favoritesMenu.contentType as
+          | "Answer"
+          | "Liveboard"
+          | undefined,
         namePattern: favoritesMenu.namePattern,
         tagFilter: favoritesMenu.tagFilter,
       }

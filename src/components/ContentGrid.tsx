@@ -236,7 +236,7 @@ export default function ContentGrid({
   // If showing content directly, render the content view
   if (showDirectContent && showContentDirectly && selectedContent) {
     return (
-      <div>
+      <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <div style={{ marginBottom: "24px" }}>
           <button
             onClick={handleBackToGrid}
@@ -262,6 +262,9 @@ export default function ContentGrid({
             padding: "24px",
             borderRadius: "8px",
             border: "1px solid #e2e8f0",
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
           }}
         >
           <h2
@@ -288,15 +291,16 @@ export default function ContentGrid({
             style={{
               border: "1px solid #e2e8f0",
               borderRadius: "8px",
-              padding: "16px",
               backgroundColor: "white",
-              minHeight: "400px",
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
             }}
           >
             <ThoughtSpotEmbed
               content={selectedContent}
               width="100%"
-              height="600px"
+              height="100%"
               onLoad={() => {}}
               onError={(error) =>
                 console.error(

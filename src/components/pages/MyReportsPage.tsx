@@ -11,7 +11,10 @@ export default function MyReportsPage() {
   const myReportsMenu = standardMenus.find((m) => m.id === "my-reports");
   const myReportsConfig = myReportsMenu
     ? {
-        contentType: myReportsMenu.contentType,
+        contentType: myReportsMenu.contentType as
+          | "Answer"
+          | "Liveboard"
+          | undefined,
         namePattern: myReportsMenu.namePattern,
         tagFilter: myReportsMenu.tagFilter,
       }

@@ -70,6 +70,61 @@ export interface SavedConfiguration {
   filename: string;
 }
 
+// Configuration types
+export interface HomePageConfig {
+  type: "html" | "url" | "embed";
+  value: string;
+}
+
+export interface AppConfig {
+  thoughtspotUrl: string;
+  applicationName: string;
+  logo: string;
+  earlyAccessFlags: string;
+  favicon?: string;
+  showFooter: boolean;
+}
+
+export interface FullAppConfig {
+  showPrimaryNavbar: boolean;
+  hideHomepageLeftNav: boolean;
+}
+
+export interface StandardMenu {
+  id: string;
+  name: string;
+  enabled: boolean;
+  icon: string;
+  homePageType?: string;
+  homePageValue?: string;
+  tagFilter?: string;
+  modelId?: string;
+  contentId?: string;
+  contentType?: string;
+  namePattern?: string;
+  spotterModelId?: string;
+  spotterSearchQuery?: string;
+  searchDataSource?: string;
+  searchTokenString?: string;
+  runSearch?: boolean;
+}
+
+export interface ConfigurationData {
+  standardMenus: StandardMenu[];
+  customMenus: CustomMenu[];
+  menuOrder: string[];
+  homePageConfig: HomePageConfig;
+  appConfig: AppConfig;
+  fullAppConfig: FullAppConfig;
+  stylingConfig: StylingConfig;
+  userConfig: UserConfig;
+}
+
+export interface ConfigurationSource {
+  type: "file" | "github";
+  data: File | string;
+}
+
 export interface CustomMenu {
   id: string;
   name: string;

@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, createContext, useContext, useEffect } from "react";
+import React, {
+  useState,
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 import TopBar from "./TopBar";
 import SideNav from "./SideNav";
 import SettingsModal from "./SettingsModal";
@@ -13,52 +20,43 @@ import {
   EmbedFlags,
   UserConfig,
   ThoughtSpotInitConfig,
+  HomePageConfig,
+  AppConfig,
+  FullAppConfig,
+  StandardMenu,
 } from "../types/thoughtspot";
 import { setThoughtSpotBaseUrl } from "../services/thoughtspotApi";
+import {
+  loadAllConfigurations,
+  saveStandardMenus,
+  saveCustomMenus,
+  saveMenuOrder,
+  saveHomePageConfig,
+  saveAppConfig,
+  saveFullAppConfig,
+  saveStylingConfig,
+  saveUserConfig,
+  clearAllConfigurations as clearAllConfigurationsService,
+  exportConfiguration as exportConfigurationService,
+  checkStorageHealth,
+  clearStorageAndReloadDefaults,
+} from "../services/configurationService";
 
-export interface StandardMenu {
-  id: string;
-  icon: string;
-  name: string;
-  enabled: boolean;
-  modelId?: string;
-  contentId?: string;
-  contentType?: "Answer" | "Liveboard";
-  namePattern?: string;
-  tagFilter?: string;
-  spotterModelId?: string;
-  spotterSearchQuery?: string;
-  searchDataSource?: string;
-  searchTokenString?: string;
-  runSearch?: boolean;
-  // Home page configuration fields
-  homePageType?:
-    | "image"
-    | "html"
-    | "iframe"
-    | "liveboard"
-    | "answer"
-    | "spotter";
-  homePageValue?: string;
+// Configuration interfaces for compatibility
+interface ConfigurationData {
+  standardMenus: StandardMenu[];
+  customMenus: CustomMenu[];
+  menuOrder: string[];
+  homePageConfig: HomePageConfig;
+  appConfig: AppConfig;
+  fullAppConfig: FullAppConfig;
+  stylingConfig: StylingConfig;
+  userConfig: UserConfig;
 }
 
-interface HomePageConfig {
-  type: "image" | "html" | "iframe" | "liveboard" | "answer" | "spotter";
-  value: string;
-}
-
-interface AppConfig {
-  thoughtspotUrl: string;
-  applicationName: string;
-  logo: string;
-  earlyAccessFlags: string;
-  favicon?: string;
-  showFooter: boolean;
-}
-
-interface FullAppConfig {
-  showPrimaryNavbar: boolean;
-  hideHomepageLeftNav: boolean;
+interface ConfigurationSource {
+  type: "file" | "github";
+  data: File | string;
 }
 
 interface AppContextType {
@@ -85,10 +83,6 @@ interface AppContextType {
   clearAllConfigurations: () => void;
   openSettingsWithTab: (tab?: string, subTab?: string) => void;
   exportConfiguration: (customName?: string) => void;
-  importConfiguration: (file: File) => Promise<{
-    success: boolean;
-    error?: string;
-  }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -99,18 +93,6 @@ export const useAppContext = () => {
     throw new Error("useAppContext must be used within an AppProvider");
   }
   return context;
-};
-
-// Local storage keys
-const STORAGE_KEYS = {
-  HOME_PAGE_CONFIG: "tse-demo-builder-home-page-config",
-  APP_CONFIG: "tse-demo-builder-app-config",
-  STANDARD_MENUS: "tse-demo-builder-standard-menus",
-  FULL_APP_CONFIG: "tse-demo-builder-full-app-config",
-  CUSTOM_MENUS: "tse-demo-builder-custom-menus",
-  MENU_ORDER: "tse-demo-builder-menu-order",
-  STYLING_CONFIG: "tse-demo-builder-styling-config",
-  USER_CONFIG: "tse-demo-builder-user-config",
 };
 
 // Default configuration values
@@ -142,8 +124,18 @@ const DEFAULT_CONFIG = {
       icon: "spotter-custom.svg",
       name: "Spotter",
       enabled: true,
+      spotterModelId: "",
+      spotterSearchQuery: "",
     },
-    { id: "search", icon: "search", name: "Search", enabled: true },
+    {
+      id: "search",
+      icon: "search",
+      name: "Search",
+      enabled: true,
+      searchDataSource: "",
+      searchTokenString: "",
+      runSearch: false,
+    },
     {
       id: "full-app",
       icon: "full-app",
@@ -252,42 +244,6 @@ const DEFAULT_CONFIG = {
   } as UserConfig,
 };
 
-// Utility functions for localStorage
-const loadFromStorage = (key: string, defaultValue: unknown): unknown => {
-  if (typeof window === "undefined") return defaultValue;
-
-  try {
-    // First try to load chunked data
-    const chunkedData = retrieveChunkedData(key);
-    if (chunkedData) {
-      try {
-        const parsed = JSON.parse(chunkedData);
-        console.log(`Loaded ${key} from chunked storage:`, parsed);
-        return parsed;
-      } catch (parseError) {
-        console.error(`Failed to parse chunked data for ${key}:`, parseError);
-        // Clear corrupted chunked data
-        clearChunkedData(key);
-      }
-    }
-
-    // Try direct storage
-    const stored = localStorage.getItem(key);
-    if (!stored) {
-      console.log(`No stored data found for key: ${key}, using default`);
-      return defaultValue;
-    }
-
-    const parsed = JSON.parse(stored);
-    console.log(`Loaded ${key}:`, parsed);
-    return parsed;
-  } catch (error) {
-    console.error(`Failed to load ${key} from localStorage:`, error);
-    console.log(`Using default value for ${key}:`, defaultValue);
-    return defaultValue;
-  }
-};
-
 // Migration function to convert emoji icons and legacy file paths to Material Icon names
 const migrateStandardMenus = (menus: StandardMenu[]): StandardMenu[] => {
   const emojiToMaterialMap: Record<string, string> = {
@@ -329,14 +285,23 @@ const migrateStandardMenus = (menus: StandardMenu[]): StandardMenu[] => {
 const validateCustomMenu = (menu: unknown): menu is CustomMenu => {
   if (!menu || typeof menu !== "object") return false;
   const menuObj = menu as Record<string, unknown>;
+
+  // Required fields
   if (!menuObj.id || typeof menuObj.id !== "string") return false;
   if (!menuObj.name || typeof menuObj.name !== "string") return false;
-  if (!menuObj.description || typeof menuObj.description !== "string")
-    return false;
-  if (!menuObj.icon || typeof menuObj.icon !== "string") return false;
   if (typeof menuObj.enabled !== "boolean") return false;
   if (!menuObj.contentSelection || typeof menuObj.contentSelection !== "object")
     return false;
+
+  // Optional fields with defaults
+  if (
+    menuObj.description !== undefined &&
+    typeof menuObj.description !== "string"
+  )
+    return false;
+  if (menuObj.icon !== undefined && typeof menuObj.icon !== "string")
+    return false;
+
   return true;
 };
 
@@ -436,384 +401,8 @@ const cleanupStylingConfig = (config: unknown): unknown => {
   return cleaned;
 };
 
-// Utility function to compress data using simple compression
-const compressData = (data: string): string => {
-  try {
-    // Simple compression: remove unnecessary whitespace and use shorter property names
-    const compressed = JSON.stringify(JSON.parse(data));
-    return compressed;
-  } catch {
-    return data;
-  }
-};
-
-// Utility function to estimate localStorage usage
-const estimateStorageUsage = (): number => {
-  if (typeof window === "undefined") return 0;
-
-  let totalSize = 0;
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key) {
-      const value = localStorage.getItem(key);
-      if (value) {
-        totalSize += key.length + value.length;
-      }
-    }
-  }
-  return totalSize;
-};
-
-// Utility function to clear non-essential storage
-const clearNonEssentialStorage = (): void => {
-  if (typeof window === "undefined") return;
-
-  const keysToClear = [
-    "tse-demo-builder-styling-config",
-    "tse-demo-builder-user-config",
-    "tse-demo-builder-custom-menus",
-  ];
-
-  keysToClear.forEach((key) => {
-    try {
-      localStorage.removeItem(key);
-      clearChunkedData(key);
-      console.log(`Cleared ${key} to make space`);
-    } catch (error) {
-      console.warn(`Failed to clear ${key}:`, error);
-    }
-  });
-};
-
-// Utility function to clear ALL localStorage data
-const clearAllLocalStorage = (): void => {
-  if (typeof window === "undefined") return;
-
-  try {
-    localStorage.clear();
-    console.log("Cleared all localStorage data");
-  } catch (error) {
-    console.error("Failed to clear localStorage:", error);
-  }
-};
-
-// Utility function to chunk large data
-const chunkData = (
-  key: string,
-  data: string,
-  maxChunkSize: number = 10 * 1024 // 10KB chunks - much smaller
-): void => {
-  if (typeof window === "undefined") return;
-
-  // First, clear any existing chunked data for this key
-  clearChunkedData(key);
-
-  const chunks = Math.ceil(data.length / maxChunkSize);
-
-  // Store chunk metadata
-  const metadata = {
-    totalChunks: chunks,
-    totalSize: data.length,
-    timestamp: Date.now(),
-  };
-
-  try {
-    localStorage.setItem(`${key}_metadata`, JSON.stringify(metadata));
-  } catch (error) {
-    console.error(`Failed to store metadata for ${key}:`, error);
-    throw error;
-  }
-
-  // Store chunks
-  for (let i = 0; i < chunks; i++) {
-    const start = i * maxChunkSize;
-    const end = Math.min(start + maxChunkSize, data.length);
-    const chunk = data.slice(start, end);
-
-    try {
-      localStorage.setItem(`${key}_chunk_${i}`, chunk);
-    } catch (error) {
-      console.error(`Failed to store chunk ${i} for ${key}:`, error);
-      // Clean up partial chunks and metadata
-      for (let j = 0; j < i; j++) {
-        try {
-          localStorage.removeItem(`${key}_chunk_${j}`);
-        } catch (cleanupError) {
-          console.warn(`Failed to cleanup chunk ${j}:`, cleanupError);
-        }
-      }
-      try {
-        localStorage.removeItem(`${key}_metadata`);
-      } catch (cleanupError) {
-        console.warn(`Failed to cleanup metadata:`, cleanupError);
-      }
-      throw error;
-    }
-  }
-};
-
-// Utility function to retrieve chunked data
-const retrieveChunkedData = (key: string): string | null => {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const metadataStr = localStorage.getItem(`${key}_metadata`);
-    if (!metadataStr) return null;
-
-    const metadata = JSON.parse(metadataStr);
-    let data = "";
-
-    for (let i = 0; i < metadata.totalChunks; i++) {
-      const chunk = localStorage.getItem(`${key}_chunk_${i}`);
-      if (!chunk) {
-        console.warn(`Missing chunk ${i} for ${key}`);
-        return null;
-      }
-      data += chunk;
-    }
-
-    return data;
-  } catch (error) {
-    console.error(`Failed to retrieve chunked data for ${key}:`, error);
-    return null;
-  }
-};
-
-// Utility function to clear chunked data
-const clearChunkedData = (key: string): void => {
-  if (typeof window === "undefined") return;
-
-  try {
-    const metadataStr = localStorage.getItem(`${key}_metadata`);
-    if (metadataStr) {
-      const metadata = JSON.parse(metadataStr);
-      for (let i = 0; i < metadata.totalChunks; i++) {
-        localStorage.removeItem(`${key}_chunk_${i}`);
-      }
-      localStorage.removeItem(`${key}_metadata`);
-    }
-  } catch (error) {
-    console.warn(`Failed to clear chunked data for ${key}:`, error);
-  }
-};
-
-const saveToStorage = (
-  key: string,
-  value: unknown,
-  onError?: (message: string) => void
-): void => {
-  if (typeof window === "undefined") return;
-
-  try {
-    // Special handling for image data that might be too large
-    if (key === STORAGE_KEYS.STANDARD_MENUS) {
-      const menus = value as StandardMenu[];
-      const homeMenu = menus.find(
-        (menu) => menu.id === "home" && menu.homePageType === "image"
-      );
-
-      if (
-        homeMenu &&
-        homeMenu.homePageValue &&
-        homeMenu.homePageValue.startsWith("data:")
-      ) {
-        // Check if the image data URL is too large (over 500KB to be safe)
-        const imageSizeInBytes = Math.ceil(
-          (homeMenu.homePageValue.length * 3) / 4
-        );
-        const imageSizeInKB = imageSizeInBytes / 1024;
-
-        if (imageSizeInKB > 500) {
-          console.warn(
-            `Image data is too large (${imageSizeInKB.toFixed(
-              2
-            )}KB). Clearing image to prevent storage issues.`
-          );
-          // Clear the image data to prevent storage quota issues
-          homeMenu.homePageValue = "";
-          onError?.(
-            "Image was too large and has been cleared. Please upload a smaller image (under 500KB)."
-          );
-          return; // Don't proceed with storage
-        }
-      }
-    }
-
-    // Clean up styling config if that's what we're saving
-    let valueToSave = value;
-    if (key === STORAGE_KEYS.STYLING_CONFIG) {
-      valueToSave = cleanupStylingConfig(value);
-    }
-
-    const serializedValue = JSON.stringify(valueToSave);
-    const compressedValue = compressData(serializedValue);
-
-    // Check if the value is too large for direct storage
-    if (compressedValue.length > 50 * 1024) {
-      // 50KB limit for direct storage
-      console.warn(
-        `Value for ${key} is large (${compressedValue.length} bytes), using chunked storage`
-      );
-
-      // Clear existing data first to make space
-      try {
-        localStorage.removeItem(key);
-        clearChunkedData(key);
-      } catch (error) {
-        console.warn(`Failed to clear existing data for ${key}:`, error);
-      }
-
-      // Use chunked storage
-      chunkData(key, compressedValue);
-      console.log(`Saved ${key} using chunked storage`);
-      return;
-    }
-
-    // Try direct storage first
-    localStorage.setItem(key, compressedValue);
-    console.log(`Saved ${key}:`, valueToSave);
-  } catch (error) {
-    console.error(`Failed to save ${key} to localStorage:`, error);
-
-    // If it's a quota error, try more aggressive cleanup
-    if (error instanceof Error && error.name === "QuotaExceededError") {
-      console.warn(
-        "localStorage quota exceeded, attempting aggressive cleanup..."
-      );
-
-      try {
-        // Clear all non-essential storage
-        clearNonEssentialStorage();
-
-        // Check current storage usage
-        const currentUsage = estimateStorageUsage();
-        console.log(`Current localStorage usage: ${currentUsage} bytes`);
-
-        // If still too large, try chunking
-        if (key === STORAGE_KEYS.STYLING_CONFIG) {
-          const serializedValue = JSON.stringify(value);
-          const compressedValue = compressData(serializedValue);
-
-          // Clear any existing chunked data
-          clearChunkedData(key);
-
-          try {
-            // Use chunked storage
-            chunkData(key, compressedValue);
-            console.log(
-              `Successfully saved ${key} using chunked storage after cleanup`
-            );
-            return;
-          } catch (chunkError) {
-            console.error(`Chunking failed for ${key}:`, chunkError);
-
-            // Last resort: clear all localStorage and try again
-            try {
-              clearAllLocalStorage();
-              console.log("Cleared all localStorage as last resort");
-
-              // Try chunking again with clean storage
-              chunkData(key, compressedValue);
-              console.log(
-                `Successfully saved ${key} using chunked storage after full cleanup`
-              );
-              return;
-            } catch (finalError) {
-              console.error(`Final attempt failed for ${key}:`, finalError);
-              throw finalError;
-            }
-          }
-        }
-
-        // Try saving again with compressed data
-        const serializedValue = JSON.stringify(value);
-        const compressedValue = compressData(serializedValue);
-        localStorage.setItem(key, compressedValue);
-        console.log(`Successfully saved ${key} after aggressive cleanup`);
-      } catch (retryError) {
-        console.error(
-          `Failed to save ${key} even after aggressive cleanup:`,
-          retryError
-        );
-
-        // Last resort: show user-friendly error
-        if (key === STORAGE_KEYS.STYLING_CONFIG) {
-          const errorMessage =
-            "Configuration is too large for browser storage. Please clear browser data or reduce configuration size.";
-          console.error(errorMessage);
-          onError?.(errorMessage);
-        }
-      }
-    }
-  }
-};
-
-const clearAllStorage = (): void => {
-  if (typeof window === "undefined") return;
-
-  try {
-    // Clear all regular storage keys
-    Object.values(STORAGE_KEYS).forEach((key) => {
-      localStorage.removeItem(key);
-      // Also clear any chunked data for this key
-      clearChunkedData(key);
-    });
-    console.log("Cleared all localStorage and chunked data");
-  } catch (error) {
-    console.error("Failed to clear localStorage:", error);
-  }
-};
-
-// Configuration export/import utilities
-const exportConfiguration = (
-  config: {
-    standardMenus: StandardMenu[];
-    customMenus: CustomMenu[];
-    menuOrder: string[];
-    homePageConfig: HomePageConfig;
-    appConfig: AppConfig;
-    fullAppConfig: FullAppConfig;
-    stylingConfig: StylingConfig;
-    userConfig: UserConfig;
-  },
-  customName?: string
-) => {
-  const exportData = {
-    version: "1.0.0",
-    timestamp: new Date().toISOString(),
-    description: "TSE Demo Builder Configuration Export",
-    ...config,
-  };
-
-  const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-    type: "application/json",
-  });
-
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-
-  // Use custom name if provided, otherwise use default naming
-  const fileName = customName
-    ? `${customName}.json`
-    : `tse-demo-builder-config-${new Date().toISOString().split("T")[0]}.json`;
-
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-};
-
-const importConfiguration = async (
-  file: File
-): Promise<{
-  success: boolean;
-  data?: ConfigurationData;
-  error?: string;
-}> => {
-  return loadConfigurationFromSource({ type: "file", data: file });
-};
+// File import functionality moved to SettingsModal
+// This function is no longer needed in Layout
 
 // Unified configuration loading system
 interface ConfigurationData {
@@ -832,443 +421,64 @@ interface ConfigurationSource {
   data: File | string; // File for local, string (filename) for GitHub
 }
 
-// Unified configuration loader
-export const loadConfigurationFromSource = async (
-  source: ConfigurationSource
-): Promise<{
-  success: boolean;
-  data?: ConfigurationData;
-  error?: string;
-}> => {
-  try {
-    let configData: Record<string, unknown>;
-
-    if (source.type === "file") {
-      // Load from local file
-      const file = source.data as File;
-      const text = await file.text();
-      configData = JSON.parse(text);
-      console.log("Loaded configuration from file:", configData);
-    } else {
-      // Load from GitHub
-      const filename = source.data as string;
-      const { loadConfigurationFromGitHub } = await import(
-        "../services/githubApi"
-      );
-      configData = await loadConfigurationFromGitHub(filename);
-      console.log("Loaded configuration from GitHub:", configData);
-
-      // Debug: Log the styling configuration specifically
-      // Debug: Log the styling configuration specifically
-      // Debug: Log the styling configuration specifically
-      console.log("=== GITHUB LOAD DEBUG ===");
-      console.log("Raw configData:", configData);
-      const stylingConfig = (configData as Record<string, unknown>)
-        .stylingConfig;
-      console.log("Styling config in raw data:", stylingConfig);
-      const embeddedContent =
-        stylingConfig && typeof stylingConfig === "object"
-          ? (stylingConfig as Record<string, unknown>).embeddedContent
-          : undefined;
-      console.log("Embedded content in raw data:", embeddedContent);
-      const customCSS =
-        embeddedContent && typeof embeddedContent === "object"
-          ? (embeddedContent as Record<string, unknown>).customCSS
-          : undefined;
-      console.log("Custom CSS in raw data:", customCSS);
-      console.log("=== END GITHUB LOAD DEBUG ===");
-    }
-
-    // Validate basic structure
-    if (!configData.version || !configData.timestamp) {
-      console.warn("Missing version or timestamp in configuration");
-      // Don't fail for missing version/timestamp, just warn
-    }
-
-    // Log all fields in the imported configuration for debugging
-    console.log("Configuration fields:", Object.keys(configData));
-
-    // Check for missing or unknown fields and log them
-    const expectedFields = [
-      "standardMenus",
-      "customMenus",
-      "menuOrder",
-      "homePageConfig",
-      "appConfig",
-      "fullAppConfig",
-      "stylingConfig",
-      "userConfig",
-    ];
-
-    const missingFields = expectedFields.filter((field) => !configData[field]);
-    const unknownFields = Object.keys(configData).filter(
-      (field) =>
-        !expectedFields.includes(field) &&
-        field !== "version" &&
-        field !== "timestamp" &&
-        field !== "description"
-    );
-
-    if (missingFields.length > 0) {
-      console.log("Missing fields in configuration:", missingFields);
-    }
-
-    if (unknownFields.length > 0) {
-      console.log("Unknown fields in configuration:", unknownFields);
-    }
-
-    // Validate required fields exist
-    const requiredFields = [
-      "standardMenus",
-      "homePageConfig",
-      "appConfig",
-      "fullAppConfig",
-      "stylingConfig",
-    ];
-    for (const field of requiredFields) {
-      if (!configData[field]) {
-        console.error(`Missing required field: ${field}`);
-        return { success: false, error: `Missing required field: ${field}` };
-      }
-    }
-
-    // Merge with defaults to handle missing fields gracefully
-    const mergedConfig: ConfigurationData = {
-      standardMenus:
-        (configData.standardMenus as StandardMenu[]) ||
-        DEFAULT_CONFIG.standardMenus,
-      customMenus:
-        (configData.customMenus as CustomMenu[]) || DEFAULT_CONFIG.customMenus,
-      menuOrder: (configData.menuOrder as string[]) || DEFAULT_CONFIG.menuOrder,
-      homePageConfig:
-        (configData.homePageConfig as HomePageConfig) ||
-        DEFAULT_CONFIG.homePageConfig,
-      appConfig:
-        (configData.appConfig as AppConfig) || DEFAULT_CONFIG.appConfig,
-      fullAppConfig:
-        (configData.fullAppConfig as FullAppConfig) ||
-        DEFAULT_CONFIG.fullAppConfig,
-      stylingConfig:
-        (configData.stylingConfig as StylingConfig) ||
-        DEFAULT_CONFIG.stylingConfig,
-      userConfig:
-        (configData.userConfig as UserConfig) || DEFAULT_CONFIG.userConfig,
-    };
-
-    console.log("Merged configuration:", {
-      standardMenus: mergedConfig.standardMenus.length,
-      customMenus: mergedConfig.customMenus.length,
-      menuOrder: mergedConfig.menuOrder.length,
-      hasHomePageConfig: !!mergedConfig.homePageConfig,
-      hasAppConfig: !!mergedConfig.appConfig,
-      hasFullAppConfig: !!mergedConfig.fullAppConfig,
-      hasStylingConfig: !!mergedConfig.stylingConfig,
-      hasUserConfig: !!mergedConfig.userConfig,
-    });
-
-    // Validate that the imported data has the correct structure
-    if (!Array.isArray(mergedConfig.standardMenus)) {
-      return { success: false, error: "Invalid standardMenus format" };
-    }
-
-    if (!Array.isArray(mergedConfig.customMenus)) {
-      return { success: false, error: "Invalid customMenus format" };
-    }
-
-    if (!Array.isArray(mergedConfig.menuOrder)) {
-      return { success: false, error: "Invalid menuOrder format" };
-    }
-
-    return { success: true, data: mergedConfig };
-  } catch (error) {
-    console.error("Error in loadConfigurationFromSource:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Failed to parse configuration file",
-    };
-  }
-};
-
-// Apply configuration to the app state
-export const applyConfiguration = (
-  config: ConfigurationData,
-  updateFunctions: {
-    updateStandardMenu: (
-      id: string,
-      field: string,
-      value: string | boolean
-    ) => void;
-    addCustomMenu: (menu: CustomMenu) => void;
-    updateHomePageConfig: (config: HomePageConfig) => void;
-    updateAppConfig: (config: AppConfig) => void;
-    updateFullAppConfig: (config: FullAppConfig) => void;
-    updateStylingConfig: (config: StylingConfig) => void;
-    updateUserConfig: (config: UserConfig) => void;
-    setMenuOrder?: (order: string[]) => void; // Add menu order update function
-  }
-) => {
-  console.log("=== Applying Configuration ===");
-  console.log("Configuration to apply:", {
-    standardMenus: config.standardMenus.length,
-    customMenus: config.customMenus.length,
-    menuOrder: config.menuOrder.length,
-    hasHomePageConfig: !!config.homePageConfig,
-    hasAppConfig: !!config.appConfig,
-    hasFullAppConfig: !!config.fullAppConfig,
-    hasStylingConfig: !!config.stylingConfig,
-    hasUserConfig: !!config.userConfig,
-  });
-
-  // Apply app config
-  console.log("Applying app config:", config.appConfig);
-  console.log(
-    "updateAppConfig function type:",
-    typeof updateFunctions.updateAppConfig
-  );
-  updateFunctions.updateAppConfig(config.appConfig);
-
-  // Apply styling config with safety checks
-  console.log("=== Applying Styling Configuration ===");
-  console.log("Styling config to apply:", config.stylingConfig);
-
-  // Ensure the styling config has proper structure
-  const safeStylingConfig = {
-    ...config.stylingConfig,
-    embeddedContent: {
-      strings: config.stylingConfig.embeddedContent?.strings || {},
-      stringIDs: config.stylingConfig.embeddedContent?.stringIDs || {},
-      cssUrl: config.stylingConfig.embeddedContent?.cssUrl || "",
-      customCSS: {
-        variables:
-          config.stylingConfig.embeddedContent?.customCSS?.variables || {},
-        rules_UNSTABLE:
-          config.stylingConfig.embeddedContent?.customCSS?.rules_UNSTABLE || {},
-      },
-    },
-  };
-
-  console.log("Safe styling config structure:", {
-    hasApplication: !!safeStylingConfig.application,
-    hasEmbeddedContent: !!safeStylingConfig.embeddedContent,
-    hasEmbedFlags: !!safeStylingConfig.embedFlags,
-    applicationKeys: safeStylingConfig.application
-      ? Object.keys(safeStylingConfig.application)
-      : [],
-    embeddedContentKeys: safeStylingConfig.embeddedContent
-      ? Object.keys(safeStylingConfig.embeddedContent)
-      : [],
-  });
-  console.log(
-    "updateStylingConfig function type:",
-    typeof updateFunctions.updateStylingConfig
-  );
-  updateFunctions.updateStylingConfig(safeStylingConfig);
-  console.log("=== Styling Configuration Applied ===");
-
-  // Apply standard menus
-  console.log("Applying standard menus:", config.standardMenus.length);
-  console.log(
-    "updateStandardMenu function type:",
-    typeof updateFunctions.updateStandardMenu
-  );
-  config.standardMenus.forEach((menu, index) => {
-    if (menu.id && menu.name) {
-      console.log(`Applying standard menu ${index + 1}:`, menu.name, menu.id);
-      console.log(
-        `Calling updateStandardMenu for ${menu.id}.name = ${menu.name}`
-      );
-      updateFunctions.updateStandardMenu(menu.id, "name", menu.name);
-      console.log(
-        `Calling updateStandardMenu for ${menu.id}.enabled = ${menu.enabled}`
-      );
-      updateFunctions.updateStandardMenu(menu.id, "enabled", menu.enabled);
-      console.log(
-        `Calling updateStandardMenu for ${menu.id}.icon = ${menu.icon}`
-      );
-      updateFunctions.updateStandardMenu(menu.id, "icon", menu.icon);
-      if (menu.homePageType) {
-        console.log(
-          `Calling updateStandardMenu for ${menu.id}.homePageType = ${menu.homePageType}`
-        );
-        updateFunctions.updateStandardMenu(
-          menu.id,
-          "homePageType",
-          menu.homePageType
-        );
-      }
-      if (menu.homePageValue) {
-        console.log(
-          `Calling updateStandardMenu for ${menu.id}.homePageValue = ${menu.homePageValue}`
-        );
-        updateFunctions.updateStandardMenu(
-          menu.id,
-          "homePageValue",
-          menu.homePageValue
-        );
-      }
-
-      // Apply advanced menu properties
-      if (menu.modelId) {
-        console.log(
-          `Calling updateStandardMenu for ${menu.id}.modelId = ${menu.modelId}`
-        );
-        updateFunctions.updateStandardMenu(menu.id, "modelId", menu.modelId);
-      }
-
-      if (menu.contentId) {
-        console.log(
-          `Calling updateStandardMenu for ${menu.id}.contentId = ${menu.contentId}`
-        );
-        updateFunctions.updateStandardMenu(
-          menu.id,
-          "contentId",
-          menu.contentId
-        );
-      }
-
-      if (menu.contentType) {
-        console.log(
-          `Calling updateStandardMenu for ${menu.id}.contentType = ${menu.contentType}`
-        );
-        updateFunctions.updateStandardMenu(
-          menu.id,
-          "contentType",
-          menu.contentType
-        );
-      }
-
-      if (menu.namePattern) {
-        console.log(
-          `Calling updateStandardMenu for ${menu.id}.namePattern = ${menu.namePattern}`
-        );
-        updateFunctions.updateStandardMenu(
-          menu.id,
-          "namePattern",
-          menu.namePattern
-        );
-      }
-
-      if (menu.spotterModelId) {
-        console.log(
-          `Calling updateStandardMenu for ${menu.id}.spotterModelId = ${menu.spotterModelId}`
-        );
-        updateFunctions.updateStandardMenu(
-          menu.id,
-          "spotterModelId",
-          menu.spotterModelId
-        );
-      }
-
-      if (menu.spotterSearchQuery) {
-        console.log(
-          `Calling updateStandardMenu for ${menu.id}.spotterSearchQuery = ${menu.spotterSearchQuery}`
-        );
-        updateFunctions.updateStandardMenu(
-          menu.id,
-          "spotterSearchQuery",
-          menu.spotterSearchQuery
-        );
-      }
-
-      if (menu.searchDataSource) {
-        console.log(
-          `Calling updateStandardMenu for ${menu.id}.searchDataSource = ${menu.searchDataSource}`
-        );
-        updateFunctions.updateStandardMenu(
-          menu.id,
-          "searchDataSource",
-          menu.searchDataSource
-        );
-      }
-
-      if (menu.searchTokenString) {
-        console.log(
-          `Calling updateStandardMenu for ${menu.id}.searchTokenString = ${menu.searchTokenString}`
-        );
-        updateFunctions.updateStandardMenu(
-          menu.id,
-          "searchTokenString",
-          menu.searchTokenString
-        );
-      }
-
-      if (menu.runSearch !== undefined) {
-        console.log(
-          `Calling updateStandardMenu for ${menu.id}.runSearch = ${menu.runSearch}`
-        );
-        updateFunctions.updateStandardMenu(
-          menu.id,
-          "runSearch",
-          menu.runSearch
-        );
-      }
-    } else {
-      console.warn(`Skipping invalid standard menu at index ${index}:`, menu);
-    }
-  });
-
-  // Apply custom menus
-  console.log("Applying custom menus:", config.customMenus.length);
-  config.customMenus.forEach((menu, index) => {
-    if (menu.id && menu.name) {
-      console.log(`Applying custom menu ${index + 1}:`, menu.name, menu.id);
-      updateFunctions.addCustomMenu(menu);
-    } else {
-      console.warn(`Skipping invalid custom menu at index ${index}:`, menu);
-    }
-  });
-
-  // Apply menu order if available
-  if (config.menuOrder.length > 0 && updateFunctions.setMenuOrder) {
-    console.log("Applying menu order:", config.menuOrder);
-
-    // Filter out menu IDs that don't exist in standard or custom menus
-    const allMenuIds = [
-      ...config.standardMenus.map((menu) => menu.id),
-      ...config.customMenus.map((menu) => menu.id),
-    ];
-
-    const validMenuOrder = config.menuOrder.filter((menuId) => {
-      const exists = allMenuIds.includes(menuId);
-      if (!exists) {
-        console.warn(
-          `Menu ID "${menuId}" in menu order not found in standard or custom menus`
-        );
-      }
-      return exists;
-    });
-
-    console.log("Valid menu order (filtered):", validMenuOrder);
-    updateFunctions.setMenuOrder(validMenuOrder);
-  } else {
-    console.log(
-      "Menu order not applied (no setMenuOrder function or empty order)"
-    );
-  }
-
-  // Apply home page config
-  console.log("Applying home page config:", config.homePageConfig);
-  updateFunctions.updateHomePageConfig(config.homePageConfig);
-
-  // Apply full app config
-  console.log("Applying full app config:", config.fullAppConfig);
-  updateFunctions.updateFullAppConfig(config.fullAppConfig);
-
-  // Apply user config
-  console.log("Applying user config:", config.userConfig);
-  updateFunctions.updateUserConfig(config.userConfig);
-
-  console.log("=== Configuration Applied Successfully ===");
-};
-
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
+  // Suppress third-party console errors (like Mixpanel)
+  useEffect(() => {
+    const originalError = console.error;
+    const originalWarn = console.warn;
+
+    console.error = (...args) => {
+      const message = args.join(" ");
+
+      // Suppress Mixpanel-related errors
+      if (
+        message.includes("Mixpanel") ||
+        message.includes("mixpanel") ||
+        message.includes("token not found in session info")
+      ) {
+        return; // Don't log these errors
+      }
+
+      // Suppress other common third-party errors that we don't care about
+      if (
+        message.includes("Failed to load resource") ||
+        message.includes("net::ERR_") ||
+        message.includes("favicon.ico")
+      ) {
+        return; // Don't log these errors
+      }
+
+      // Log all other errors normally
+      originalError.apply(console, args);
+    };
+
+    console.warn = (...args) => {
+      const message = args.join(" ");
+
+      // Suppress Mixpanel-related warnings
+      if (
+        message.includes("Mixpanel") ||
+        message.includes("mixpanel") ||
+        message.includes("token not found in session info")
+      ) {
+        return; // Don't log these warnings
+      }
+
+      // Log all other warnings normally
+      originalWarn.apply(console, args);
+    };
+
+    // Cleanup function to restore original console methods
+    return () => {
+      console.error = originalError;
+      console.warn = originalWarn;
+    };
+  }, []);
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<
     string | undefined
@@ -1278,49 +488,74 @@ export default function Layout({ children }: LayoutProps) {
   >();
   const [storageError, setStorageError] = useState<string | null>(null);
 
-  // Load initial state from localStorage
+  // Debounced save mechanism for standard menus
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingMenusRef = useRef<StandardMenu[] | null>(null);
+
+  const debouncedSaveStandardMenus = useCallback((menus: StandardMenu[]) => {
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Store the latest menus to save
+    pendingMenusRef.current = menus;
+
+    // Set a new timeout to save after a short delay
+    saveTimeoutRef.current = setTimeout(() => {
+      if (pendingMenusRef.current) {
+        console.log(
+          "[Layout] Debounced save of standard menus:",
+          pendingMenusRef.current.length
+        );
+        saveStandardMenus(pendingMenusRef.current);
+        pendingMenusRef.current = null;
+      }
+    }, 50); // 50ms delay to batch rapid updates
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Check storage health periodically
+  useEffect(() => {
+    const checkStorage = () => {
+      const health = checkStorageHealth();
+      if (!health.healthy && isSettingsOpen) {
+        // Only show storage warnings when settings modal is open
+        setStorageWarning(health.message);
+      } else {
+        setStorageWarning(null);
+      }
+    };
+
+    // Check immediately
+    checkStorage();
+
+    // Check every 30 seconds
+    const interval = setInterval(checkStorage, 30000);
+
+    return () => clearInterval(interval);
+  }, [isSettingsOpen]);
+
+  const [isBypassMode, setIsBypassMode] = useState(false);
+  const [previousThoughtspotUrl, setPreviousThoughtspotUrl] =
+    useState<string>("");
+  const [showClusterChangeWarning, setShowClusterChangeWarning] =
+    useState(false);
+  const [pendingClusterUrl, setPendingClusterUrl] = useState<string>("");
+  const [storageWarning, setStorageWarning] = useState<string | null>(null);
+
+  // Load initial state from configurationService
   const [standardMenus, setStandardMenus] = useState<StandardMenu[]>(() => {
-    const loadedMenus = loadFromStorage(STORAGE_KEYS.STANDARD_MENUS, [
-      {
-        id: "home",
-        icon: "home",
-        name: "Home",
-        enabled: true,
-        homePageType: "html",
-        homePageValue:
-          "<div style='padding: 20px; text-align: center;'><h1>Welcome to TSE Demo Builder</h1><p>Configure your home page content in the settings.</p></div>",
-      },
-      {
-        id: "favorites",
-        icon: "favorites",
-        name: "Favorites",
-        enabled: true,
-      },
-      {
-        id: "my-reports",
-        icon: "my-reports",
-        name: "My Reports",
-        enabled: true,
-      },
-      {
-        id: "spotter",
-        icon: "smart-toy-two-tone",
-        name: "Spotter",
-        enabled: true,
-      },
-      {
-        id: "search",
-        icon: "search",
-        name: "Search",
-        enabled: true,
-      },
-      {
-        id: "full-app",
-        icon: "full-app",
-        name: "Full App",
-        enabled: true,
-      },
-    ]) as StandardMenu[];
+    const configs = loadAllConfigurations();
+    const loadedMenus = configs.standardMenus;
 
     console.log("Raw loaded standard menus:", loadedMenus);
 
@@ -1339,10 +574,8 @@ export default function Layout({ children }: LayoutProps) {
 
   // Custom menus state
   const [customMenus, setCustomMenus] = useState<CustomMenu[]>(() => {
-    const loadedMenus = loadFromStorage(
-      STORAGE_KEYS.CUSTOM_MENUS,
-      []
-    ) as CustomMenu[];
+    const configs = loadAllConfigurations();
+    const loadedMenus = configs.customMenus;
 
     console.log("Raw loaded custom menus:", loadedMenus);
 
@@ -1363,11 +596,21 @@ export default function Layout({ children }: LayoutProps) {
         return;
       }
 
-      if (!seenIds.has(menu.id)) {
-        seenIds.add(menu.id);
-        uniqueMenus.push(menu);
+      // Ensure all required fields have default values
+      const normalizedMenu: CustomMenu = {
+        id: menu.id,
+        name: menu.name,
+        description: menu.description || "",
+        icon: menu.icon || "📋",
+        enabled: menu.enabled,
+        contentSelection: menu.contentSelection,
+      };
+
+      if (!seenIds.has(normalizedMenu.id)) {
+        seenIds.add(normalizedMenu.id);
+        uniqueMenus.push(normalizedMenu);
       } else {
-        console.log("Removing duplicate custom menu:", menu.id);
+        console.log("Removing duplicate custom menu:", normalizedMenu.id);
       }
     });
 
@@ -1390,10 +633,8 @@ export default function Layout({ children }: LayoutProps) {
 
   // Menu order state - tracks the order of enabled menu IDs
   const [menuOrder, setMenuOrder] = useState<string[]>(() => {
-    const loadedOrder = loadFromStorage(
-      STORAGE_KEYS.MENU_ORDER,
-      []
-    ) as string[];
+    const configs = loadAllConfigurations();
+    const loadedOrder = configs.menuOrder;
 
     console.log("Raw loaded menu order:", loadedOrder);
 
@@ -1427,27 +668,16 @@ export default function Layout({ children }: LayoutProps) {
   });
 
   // Home page configuration state
-  const [homePageConfig, setHomePageConfig] = useState<HomePageConfig>(
-    () =>
-      loadFromStorage(STORAGE_KEYS.HOME_PAGE_CONFIG, {
-        type: "html",
-        value:
-          "<div style='padding: 20px; text-align: center;'><h1>Welcome to TSE Demo Builder</h1><p>Configure your home page content in the settings.</p></div>",
-      }) as HomePageConfig
-  );
+  const [homePageConfig, setHomePageConfig] = useState<HomePageConfig>(() => {
+    const configs = loadAllConfigurations();
+    return configs.homePageConfig;
+  });
 
   // App configuration state
-  const [appConfig, setAppConfig] = useState<AppConfig>(
-    () =>
-      loadFromStorage(STORAGE_KEYS.APP_CONFIG, {
-        thoughtspotUrl: "https://se-thoughtspot-cloud.thoughtspot.cloud/",
-        applicationName: "TSE Demo Builder",
-        logo: "",
-        earlyAccessFlags: "",
-        favicon: "/ts.png",
-        showFooter: true,
-      }) as AppConfig
-  );
+  const [appConfig, setAppConfig] = useState<AppConfig>(() => {
+    const configs = loadAllConfigurations();
+    return configs.appConfig;
+  });
 
   // Set ThoughtSpot base URL when app config changes
   useEffect(() => {
@@ -1457,124 +687,90 @@ export default function Layout({ children }: LayoutProps) {
   }, [appConfig.thoughtspotUrl]);
 
   // Full app configuration state
-  const [fullAppConfig, setFullAppConfig] = useState<FullAppConfig>(
-    () =>
-      loadFromStorage(STORAGE_KEYS.FULL_APP_CONFIG, {
-        showPrimaryNavbar: false,
-        hideHomepageLeftNav: false,
-        showFooter: true,
-      }) as FullAppConfig
-  );
+  const [fullAppConfig, setFullAppConfig] = useState<FullAppConfig>(() => {
+    const configs = loadAllConfigurations();
+    return configs.fullAppConfig;
+  });
+
+  // Configuration version state to force re-initialization when config changes
+  const [configVersion, setConfigVersion] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("tse-demo-builder-config-version");
+      return stored ? parseInt(stored, 10) : 0;
+    }
+    return 0;
+  });
 
   // Styling configuration state
-  const [stylingConfig, setStylingConfig] = useState<StylingConfig>(
-    () =>
-      loadFromStorage(STORAGE_KEYS.STYLING_CONFIG, {
-        application: {
-          topBar: {
-            backgroundColor: "#ffffff",
-            foregroundColor: "#1a202c",
-            logoUrl: "",
-          },
-          sidebar: {
-            backgroundColor: "#f7fafc",
-            foregroundColor: "#4a5568",
-          },
-          footer: {
-            backgroundColor: "#f7fafc",
-            foregroundColor: "#4a5568",
-          },
-          dialogs: {
-            backgroundColor: "#ffffff",
-            foregroundColor: "#1a202c",
-          },
-        },
-        embeddedContent: {
-          strings: {},
-          stringIDs: {},
-          cssUrl: "",
-          customCSS: {
-            variables: {},
-            rules_UNSTABLE: {},
-          },
-        },
-        embedFlags: {
-          spotterEmbed: {},
-          liveboardEmbed: {},
-          searchEmbed: {},
-          appEmbed: {},
-        },
-        doubleClickHandling: {
-          enabled: false,
-          showDefaultModal: true,
-          customJavaScript: "",
-          modalTitle: "Double-Click Event Data",
-        },
-      }) as StylingConfig
-  );
+  const [stylingConfig, setStylingConfig] = useState<StylingConfig>(() => {
+    const configs = loadAllConfigurations();
+    return configs.stylingConfig;
+  });
 
   // User configuration state
-  const [userConfig, setUserConfig] = useState<UserConfig>(
-    () =>
-      loadFromStorage(
-        STORAGE_KEYS.USER_CONFIG,
-        DEFAULT_CONFIG.userConfig
-      ) as UserConfig
-  );
+  const [userConfig, setUserConfig] = useState<UserConfig>(() => {
+    const configs = loadAllConfigurations();
+    return configs.userConfig;
+  });
 
-  // Save to localStorage whenever state changes
+  // Save to localStorage whenever state changes using configurationService
   useEffect(() => {
-    saveToStorage(
-      STORAGE_KEYS.STANDARD_MENUS,
-      standardMenus,
-      (errorMessage) => {
+    saveStandardMenus(standardMenus, (errorMessage) => {
+      // Only show storage errors when settings modal is open
+      if (isSettingsOpen) {
         setStorageError(errorMessage);
         // Clear error after 10 seconds
         setTimeout(() => setStorageError(null), 10000);
       }
-    );
-  }, [standardMenus]);
+    });
+  }, [standardMenus, isSettingsOpen]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.CUSTOM_MENUS, customMenus);
+    console.log(
+      `[Layout] Custom menus changed, saving to localStorage:`,
+      customMenus
+    );
+    console.log(`[Layout] Custom menus count:`, customMenus.length);
+    saveCustomMenus(customMenus);
   }, [customMenus]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.MENU_ORDER, menuOrder);
+    saveMenuOrder(menuOrder);
   }, [menuOrder]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.HOME_PAGE_CONFIG, homePageConfig);
+    saveHomePageConfig(homePageConfig);
   }, [homePageConfig]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.APP_CONFIG, appConfig);
+    console.log(`[Layout] Auto-saving app config to localStorage:`, appConfig);
+    saveAppConfig(appConfig);
   }, [appConfig]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.FULL_APP_CONFIG, fullAppConfig);
+    saveFullAppConfig(fullAppConfig);
   }, [fullAppConfig]);
 
   // Save styling config immediately to ensure GitHub imports work properly
   useEffect(() => {
-    saveToStorage(
-      STORAGE_KEYS.STYLING_CONFIG,
-      stylingConfig,
-      (errorMessage) => {
+    saveStylingConfig(stylingConfig, (errorMessage) => {
+      // Only show storage errors when settings modal is open
+      if (isSettingsOpen) {
         setStorageError(errorMessage);
         // Clear error after 10 seconds
         setTimeout(() => setStorageError(null), 10000);
       }
-    );
-  }, [stylingConfig]);
+    });
+  }, [stylingConfig, isSettingsOpen]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.USER_CONFIG, userConfig);
+    saveUserConfig(userConfig);
   }, [userConfig]);
 
   // Debug effect to log current state
   useEffect(() => {
     console.log("=== Current Configuration State ===");
+    console.log("Timestamp:", new Date().toISOString());
     console.log(
       "Standard menus:",
       standardMenus.length,
@@ -1601,15 +797,48 @@ export default function Layout({ children }: LayoutProps) {
     userConfig,
   ]);
 
+  // Debug effect specifically for appConfig changes
+  useEffect(() => {
+    console.log("=== App Config Changed ===");
+    console.log("New app config:", appConfig);
+    console.log("Timestamp:", new Date().toISOString());
+    console.log("==========================");
+  }, [appConfig]);
+
   // Update document title when application name changes
   useEffect(() => {
     const title = appConfig.applicationName || "TSE Demo Builder";
     document.title = title;
   }, [appConfig.applicationName]);
 
+  // Utility function to convert icon identifiers to image paths
+  const getIconImagePath = (icon: string): string => {
+    // If it's already a valid image path or URL, return as is
+    if (
+      icon.startsWith("http") ||
+      icon.startsWith("data:") ||
+      icon.startsWith("/")
+    ) {
+      return icon;
+    }
+
+    // Map icon identifiers to their corresponding image paths
+    const iconPathMap: Record<string, string> = {
+      home: "/icons/home.png",
+      favorites: "/icons/favorites.png",
+      "my-reports": "/icons/my-reports.png",
+      spotter: "/icons/spotter.png",
+      search: "/icons/search.png",
+      "full-app": "/icons/full-app.png",
+    };
+
+    // Return the mapped path or fallback to default
+    return iconPathMap[icon] || "/ts.png";
+  };
+
   // Update favicon when app config changes
   useEffect(() => {
-    const favicon = appConfig.favicon || "/ts.png";
+    const favicon = getIconImagePath(appConfig.favicon || "/ts.png");
     const faviconElement = document.getElementById(
       "favicon"
     ) as HTMLLinkElement;
@@ -1651,6 +880,7 @@ export default function Layout({ children }: LayoutProps) {
       thoughtspotUrl: appConfig.thoughtspotUrl,
       earlyAccessFlags: appConfig.earlyAccessFlags,
       stylingConfig: stylingConfig,
+      configVersion: configVersion,
     });
     console.log(
       `[Layout] Current styling config variables:`,
@@ -1666,6 +896,46 @@ export default function Layout({ children }: LayoutProps) {
         const { init, AuthType } = await import(
           "@thoughtspot/visual-embed-sdk"
         );
+
+        // Clear any existing ThoughtSpot state when cluster changes
+        if (
+          previousThoughtspotUrl &&
+          previousThoughtspotUrl !== appConfig.thoughtspotUrl
+        ) {
+          console.log(
+            `[Layout] Cluster changed from ${previousThoughtspotUrl} to ${appConfig.thoughtspotUrl}, clearing ThoughtSpot state`
+          );
+
+          // Clear any cached data or state that might be cluster-specific
+          if (typeof window !== "undefined") {
+            // Clear any ThoughtSpot-related localStorage items
+            const keysToRemove = Object.keys(localStorage).filter(
+              (key) =>
+                key.includes("thoughtspot") ||
+                key.includes("ts-") ||
+                key.includes("ts_")
+            );
+            keysToRemove.forEach((key) => {
+              console.log(`[Layout] Clearing localStorage key: ${key}`);
+              localStorage.removeItem(key);
+            });
+
+            // Clear any sessionStorage items
+            const sessionKeysToRemove = Object.keys(sessionStorage).filter(
+              (key) =>
+                key.includes("thoughtspot") ||
+                key.includes("ts-") ||
+                key.includes("ts_")
+            );
+            sessionKeysToRemove.forEach((key) => {
+              console.log(`[Layout] Clearing sessionStorage key: ${key}`);
+              sessionStorage.removeItem(key);
+            });
+          }
+        }
+
+        // Update the previous URL for next comparison
+        setPreviousThoughtspotUrl(appConfig.thoughtspotUrl);
 
         // Parse early access flags from configuration
         const earlyAccessFlags = parseEarlyAccessFlags(
@@ -1693,6 +963,14 @@ export default function Layout({ children }: LayoutProps) {
           ".embed-module__tsEmbedContainer": {
             "min-height": "0px !important",
             "min-width": "0px !important",
+            width: "100% !important",
+            "max-width": "none !important",
+            overflow: "hidden !important",
+          },
+          "[data-testid='tsEmbed']": {
+            width: "100% !important",
+            "max-width": "none !important",
+            overflow: "hidden !important",
           },
         };
 
@@ -1747,7 +1025,9 @@ export default function Layout({ children }: LayoutProps) {
     appConfig.earlyAccessFlags,
     stylingConfig,
     userConfig,
-  ]); // Watch entire stylingConfig to ensure GitHub imports trigger re-initialization
+    previousThoughtspotUrl,
+    configVersion,
+  ]); // Watch configVersion to ensure GitHub imports trigger re-initialization
 
   const handleUserChange = (userId: string) => {
     // Update the current user in the user configuration
@@ -1771,6 +1051,39 @@ export default function Layout({ children }: LayoutProps) {
     // We can use this for future features if needed
   };
 
+  const handleBypassModeChange = (isBypass: boolean) => {
+    setIsBypassMode(isBypass);
+  };
+
+  const handleClusterChangeConfirm = () => {
+    console.log(`[Layout] Confirming cluster change to: ${pendingClusterUrl}`);
+
+    // Clear all configurations to start fresh with new cluster
+    clearAllConfigurations();
+
+    // Update the app config with the new URL
+    setAppConfig((prev) => ({
+      ...prev,
+      thoughtspotUrl: pendingClusterUrl,
+    }));
+
+    // Reset bypass mode if active
+    setIsBypassMode(false);
+
+    // Close the warning dialog
+    setShowClusterChangeWarning(false);
+    setPendingClusterUrl("");
+
+    // Force page reload to clear any cached ThoughtSpot state
+    window.location.reload();
+  };
+
+  const handleClusterChangeCancel = () => {
+    console.log(`[Layout] Cancelling cluster change`);
+    setShowClusterChangeWarning(false);
+    setPendingClusterUrl("");
+  };
+
   const handleConfigureSettings = () => {
     openSettingsWithTab("configuration");
   };
@@ -1778,14 +1091,22 @@ export default function Layout({ children }: LayoutProps) {
   const updateStandardMenu = (
     id: string,
     field: string,
-    value: string | boolean
+    value: string | boolean,
+    skipFaviconUpdate: boolean = false
   ) => {
     console.log(
       `[Layout] updateStandardMenu called: ${id}.${field} = ${value}`
     );
-    setStandardMenus((prev) =>
-      prev.map((menu) => (menu.id === id ? { ...menu, [field]: value } : menu))
-    );
+    setStandardMenus((prev) => {
+      const updated = prev.map((menu) =>
+        menu.id === id ? { ...menu, [field]: value } : menu
+      );
+
+      // Use debounced save to batch rapid updates
+      debouncedSaveStandardMenus(updated);
+
+      return updated;
+    });
 
     // Update menu order if the enabled field is being changed
     if (field === "enabled") {
@@ -1795,10 +1116,14 @@ export default function Layout({ children }: LayoutProps) {
 
         if (isEnabled && !isInOrder) {
           // Add to menu order if enabled and not already there
-          return [...prev, id];
+          const updated = [...prev, id];
+          saveMenuOrder(updated);
+          return updated;
         } else if (!isEnabled && isInOrder) {
           // Remove from menu order if disabled
-          return prev.filter((menuId) => menuId !== id);
+          const updated = prev.filter((menuId) => menuId !== id);
+          saveMenuOrder(updated);
+          return updated;
         }
 
         return prev;
@@ -1806,40 +1131,153 @@ export default function Layout({ children }: LayoutProps) {
     }
 
     // Update favicon and TopBar logo when home menu icon changes
-    if (id === "home" && field === "icon") {
-      setAppConfig((prev) => ({
-        ...prev,
+    // Skip this if we're already handling it in config import
+    if (id === "home" && field === "icon" && !skipFaviconUpdate) {
+      // Get the current app config and update it with the new icon
+      const currentAppConfig = appConfig;
+      const updatedAppConfig = {
+        ...currentAppConfig,
         favicon: value as string,
         logo: value as string,
-      }));
+      };
 
-      // Also update the TopBar logo in styling config
-      setStylingConfig((prev) => ({
-        ...prev,
-        application: {
-          ...prev.application,
-          topBar: {
-            ...prev.application.topBar,
-            logoUrl: value as string,
+      // Call updateAppConfig to ensure proper state management and version incrementing
+      updateAppConfig(updatedAppConfig, true); // bypassClusterWarning = true to avoid cluster change dialog
+
+      // Also update the TopBar logo in styling config - use current state
+      setStylingConfig((prev) => {
+        const updated = {
+          ...prev,
+          application: {
+            ...prev.application,
+            topBar: {
+              ...prev.application.topBar,
+              logoUrl: value as string,
+            },
           },
-        },
-      }));
+        };
+        saveStylingConfig(updated);
+        return updated;
+      });
     }
   };
 
   const updateHomePageConfig = (config: HomePageConfig) => {
     console.log(`[Layout] updateHomePageConfig called:`, config);
     setHomePageConfig(config);
+
+    // Save to localStorage immediately when loading from configuration
+    console.log(
+      `[Layout] Saving home page config to localStorage immediately:`,
+      config
+    );
+    saveHomePageConfig(config);
   };
 
-  const updateAppConfig = (config: AppConfig) => {
+  const updateAppConfig = (config: AppConfig, bypassClusterWarning = false) => {
+    // debugger; // This will pause execution if dev tools are open
     console.log(`[Layout] updateAppConfig called:`, config);
+    console.log(`[Layout] bypassClusterWarning:`, bypassClusterWarning);
+    console.log(`[Layout] Current appConfig before update:`, appConfig);
+    console.trace("[Layout] updateAppConfig call stack:");
+
+    // Check if ThoughtSpot URL is changing
+    console.log(`[Layout] Checking ThoughtSpot URL change:`);
+    console.log(`[Layout] New URL: ${config.thoughtspotUrl}`);
+    console.log(`[Layout] Current URL: ${appConfig.thoughtspotUrl}`);
+    console.log(
+      `[Layout] URLs are different: ${
+        config.thoughtspotUrl !== appConfig.thoughtspotUrl
+      }`
+    );
+    console.log(`[Layout] Current URL exists: ${!!appConfig.thoughtspotUrl}`);
+    console.log(`[Layout] bypassClusterWarning: ${bypassClusterWarning}`);
+
+    if (
+      config.thoughtspotUrl !== appConfig.thoughtspotUrl &&
+      appConfig.thoughtspotUrl &&
+      !bypassClusterWarning
+    ) {
+      console.log(
+        `[Layout] ThoughtSpot URL changing from ${appConfig.thoughtspotUrl} to ${config.thoughtspotUrl}`
+      );
+
+      // Show warning dialog for cluster change
+      setPendingClusterUrl(config.thoughtspotUrl);
+      setShowClusterChangeWarning(true);
+      console.log(`[Layout] Cluster change warning shown, returning early`);
+      return; // Don't update yet, wait for user confirmation
+    }
+
+    console.log(`[Layout] Setting app config to:`, config);
     setAppConfig(config);
+
+    // Increment config version to force ThoughtSpot re-initialization when app config changes
+    const newVersion = configVersion + 1;
+    setConfigVersion(newVersion);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "tse-demo-builder-config-version",
+        newVersion.toString()
+      );
+    }
+    console.log(
+      `[Layout] Config version incremented to ${newVersion} to force ThoughtSpot re-initialization`
+    );
+
+    // Save to localStorage immediately when bypassing cluster warning (loading from config)
+    console.log(
+      `[Layout] Checking if should save to localStorage: bypassClusterWarning = ${bypassClusterWarning}`
+    );
+    if (bypassClusterWarning) {
+      console.log(
+        `[Layout] Saving app config to localStorage immediately:`,
+        config
+      );
+      console.trace("[Layout] About to call saveAppConfig:");
+
+      // Check storage health before saving
+      const storageHealth = checkStorageHealth();
+      if (!storageHealth.healthy) {
+        console.warn(
+          `[Layout] Storage health check failed: ${storageHealth.message}`
+        );
+        // Try to clear storage and retry
+        const clearResult = clearStorageAndReloadDefaults();
+        if (clearResult.success) {
+          console.log(`[Layout] Storage cleared successfully, retrying save`);
+        } else {
+          console.error(
+            `[Layout] Failed to clear storage: ${clearResult.message}`
+          );
+        }
+      }
+
+      saveAppConfig(config, (errorMessage) => {
+        console.error(`[Layout] Failed to save app config: ${errorMessage}`);
+        // Show user-friendly error message
+        alert(
+          `Failed to save configuration: ${errorMessage}. Please try clearing your browser storage or contact support.`
+        );
+      });
+      console.log(`[Layout] saveAppConfig call completed`);
+    } else {
+      console.log(
+        `[Layout] NOT saving to localStorage - bypassClusterWarning is false`
+      );
+    }
   };
 
   const updateFullAppConfig = (config: FullAppConfig) => {
     console.log(`[Layout] updateFullAppConfig called:`, config);
     setFullAppConfig(config);
+
+    // Save to localStorage immediately when loading from configuration
+    console.log(
+      `[Layout] Saving full app config to localStorage immediately:`,
+      config
+    );
+    saveFullAppConfig(config);
   };
 
   const updateStylingConfig = (config: StylingConfig) => {
@@ -1850,14 +1288,42 @@ export default function Layout({ children }: LayoutProps) {
       config.embeddedContent?.customCSS?.variables
     );
     setStylingConfig(config);
+
+    // Increment config version to force ThoughtSpot re-initialization
+    const newVersion = configVersion + 1;
+    setConfigVersion(newVersion);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "tse-demo-builder-config-version",
+        newVersion.toString()
+      );
+    }
+    console.log(
+      `[Layout] Config version incremented to ${newVersion} to force ThoughtSpot re-initialization`
+    );
+
     console.log(
       `[Layout] Styling config updated, ThoughtSpot should re-initialize`
     );
+
+    // Save to localStorage immediately when loading from configuration
+    console.log(
+      `[Layout] Saving styling config to localStorage immediately:`,
+      config
+    );
+    saveStylingConfig(config);
   };
 
   const updateUserConfig = (config: UserConfig) => {
     console.log(`[Layout] updateUserConfig called:`, config);
     setUserConfig(config);
+
+    // Save to localStorage immediately when loading from configuration
+    console.log(
+      `[Layout] Saving user config to localStorage immediately:`,
+      config
+    );
+    saveUserConfig(config);
   };
 
   const addCustomMenu = (menu: CustomMenu) => {
@@ -1865,6 +1331,7 @@ export default function Layout({ children }: LayoutProps) {
       `[Layout] addCustomMenu called with: ${menu.name} id: ${menu.id}`
     );
     console.log(`[Layout] Current custom menus count: ${customMenus.length}`);
+    console.log(`[Layout] Menu object:`, menu);
 
     // Check if menu already exists
     const existingMenu = customMenus.find((m) => m.id === menu.id);
@@ -1880,6 +1347,10 @@ export default function Layout({ children }: LayoutProps) {
     setCustomMenus((prev) => {
       const updated = [...prev, menu];
       console.log(`[Layout] Updated custom menus count: ${updated.length}`);
+      console.log(`[Layout] Updated custom menus:`, updated);
+      console.log(`[Layout] About to save custom menus to localStorage`);
+      saveCustomMenus(updated);
+      console.log(`[Layout] Custom menus saved to localStorage`);
       return updated;
     });
 
@@ -1890,12 +1361,18 @@ export default function Layout({ children }: LayoutProps) {
         return prev;
       }
       console.log(`[Layout] Adding menu ID to order: ${menu.id}`);
-      return [...prev, menu.id];
+      const updated = [...prev, menu.id];
+      saveMenuOrder(updated);
+      return updated;
     });
   };
 
   const updateCustomMenu = (id: string, menu: CustomMenu) => {
-    setCustomMenus((prev) => prev.map((m) => (m.id === id ? menu : m)));
+    setCustomMenus((prev) => {
+      const updated = prev.map((m) => (m.id === id ? menu : m));
+      saveCustomMenus(updated);
+      return updated;
+    });
 
     // Update menu order based on enabled status
     setMenuOrder((prev) => {
@@ -1904,10 +1381,14 @@ export default function Layout({ children }: LayoutProps) {
 
       if (isEnabled && !isInOrder) {
         // Add to menu order if enabled and not already there
-        return [...prev, id];
+        const updated = [...prev, id];
+        saveMenuOrder(updated);
+        return updated;
       } else if (!isEnabled && isInOrder) {
         // Remove from menu order if disabled
-        return prev.filter((menuId) => menuId !== id);
+        const updated = prev.filter((menuId) => menuId !== id);
+        saveMenuOrder(updated);
+        return updated;
       }
 
       return prev;
@@ -1920,6 +1401,7 @@ export default function Layout({ children }: LayoutProps) {
     setCustomMenus((prev) => {
       const filtered = prev.filter((m) => m.id !== id);
       console.log("Custom menus after deletion:", filtered.length, "remaining");
+      saveCustomMenus(filtered);
       return filtered;
     });
 
@@ -1927,8 +1409,36 @@ export default function Layout({ children }: LayoutProps) {
     setMenuOrder((prev) => {
       const filtered = prev.filter((menuId) => menuId !== id);
       console.log("Menu order after deletion:", filtered);
+      saveMenuOrder(filtered);
       return filtered;
     });
+  };
+
+  const clearCustomMenus = () => {
+    console.log("clearCustomMenus called");
+    console.log("Current custom menus before clearing:", customMenus);
+    console.log("Current menu order before clearing:", menuOrder);
+
+    setCustomMenus([]);
+    saveCustomMenus([]);
+
+    // Also remove custom menu IDs from menu order
+    setMenuOrder((prev) => {
+      const filtered = prev.filter((menuId) => {
+        // Keep only standard menu IDs
+        const standardMenuIds = standardMenus.map((menu) => menu.id);
+        const shouldKeep = standardMenuIds.includes(menuId);
+        if (!shouldKeep) {
+          console.log(`Removing custom menu ID from order: ${menuId}`);
+        }
+        return shouldKeep;
+      });
+      console.log("Menu order after clearing custom menus:", filtered);
+      saveMenuOrder(filtered);
+      return filtered;
+    });
+
+    console.log("clearCustomMenus completed");
   };
 
   const clearAllConfigurations = () => {
@@ -1944,8 +1454,8 @@ export default function Layout({ children }: LayoutProps) {
     setStylingConfig(DEFAULT_CONFIG.stylingConfig);
     setUserConfig(DEFAULT_CONFIG.userConfig);
 
-    // Clear localStorage completely
-    clearAllLocalStorage();
+    // Clear localStorage completely using service
+    clearAllConfigurationsService();
 
     console.log("All configurations cleared and reset to defaults");
   };
@@ -1969,89 +1479,23 @@ export default function Layout({ children }: LayoutProps) {
       },
     };
 
-    // Save test data to localStorage
-    saveToStorage(STORAGE_KEYS.CUSTOM_MENUS, [testCustomMenu]);
-    saveToStorage(STORAGE_KEYS.MENU_ORDER, [
-      "home",
-      "test-custom-menu",
-      "favorites",
-    ]);
+    console.log("Adding test custom menu directly to state...");
+    setCustomMenus([testCustomMenu]);
 
-    console.log("Test data saved to localStorage");
+    console.log("Updating menu order...");
+    setMenuOrder(["home", "test-custom-menu", "favorites"]);
 
-    // Reload the page to test loading
-    window.location.reload();
+    console.log("Test data added to state");
   };
 
-  const testGitHubConfig = async () => {
-    console.log("Testing GitHub configuration loading...");
-
-    // Capture console output
-    const originalLog = console.log;
-    const originalError = console.error;
-    const originalWarn = console.warn;
-
-    const capturedLogs: string[] = [];
-
-    console.log = (...args) => {
-      capturedLogs.push(`[LOG] ${args.join(" ")}`);
-      originalLog.apply(console, args);
-    };
-
-    console.error = (...args) => {
-      capturedLogs.push(`[ERROR] ${args.join(" ")}`);
-      originalError.apply(console, args);
-    };
-
-    console.warn = (...args) => {
-      capturedLogs.push(`[WARN] ${args.join(" ")}`);
-      originalWarn.apply(console, args);
-    };
-
-    try {
-      const { loadConfigurationFromSource } = await import("./Layout");
-      const result = await loadConfigurationFromSource({
-        type: "github",
-        data: "sage-test.json", // Use the actual filename from GitHub
-      });
-
-      if (result.success && result.data) {
-        console.log("GitHub config loaded successfully:", result.data);
-
-        // Test applying the configuration
-        console.log("Testing configuration application...");
-        applyConfiguration(result.data, {
-          updateStandardMenu: updateStandardMenu,
-          addCustomMenu: addCustomMenu,
-          updateHomePageConfig: updateHomePageConfig,
-          updateAppConfig: updateAppConfig,
-          updateFullAppConfig: updateFullAppConfig,
-          updateStylingConfig: updateStylingConfig,
-          updateUserConfig: updateUserConfig,
-          setMenuOrder: setMenuOrder,
-        });
-
-        console.log("GitHub configuration test completed successfully!");
-      } else {
-        console.error("Failed to load GitHub config:", result.error);
-      }
-    } catch (error) {
-      console.error("Error testing GitHub config:", error);
-    } finally {
-      // Restore original console methods
-      console.log = originalLog;
-      console.error = originalError;
-      console.warn = originalWarn;
-
-      // Log all captured output
-      console.log("=== FULL CONSOLE CAPTURE ===");
-      capturedLogs.forEach((log) => console.log(log));
-      console.log("=== END CONSOLE CAPTURE ===");
-    }
-  };
+  // Test function commented out due to type conflicts
+  // const testGitHubConfig = async () => {
+  //   console.log("Testing GitHub configuration loading...");
+  //   // Implementation removed due to type conflicts
+  // };
 
   const handleExportConfiguration = (customName?: string) => {
-    exportConfiguration(
+    exportConfigurationService(
       {
         standardMenus,
         customMenus,
@@ -2066,65 +1510,8 @@ export default function Layout({ children }: LayoutProps) {
     );
   };
 
-  const handleImportConfiguration = async (file: File) => {
-    const result = await importConfiguration(file);
-    if (result.success && result.data) {
-      applyConfiguration(result.data, {
-        updateStandardMenu,
-        addCustomMenu,
-        updateHomePageConfig,
-        updateAppConfig,
-        updateFullAppConfig,
-        updateStylingConfig,
-        updateUserConfig,
-        setMenuOrder,
-      });
-      return { success: true };
-    } else {
-      return { success: false, error: result.error };
-    }
-  };
-
-  const testSettingsModalGitHub = async () => {
-    console.log("Testing Settings Modal GitHub loading simulation...");
-    try {
-      // Simulate what the Settings modal does
-      const { loadConfigurationFromSource, applyConfiguration } = await import(
-        "./Layout"
-      );
-      const result = await loadConfigurationFromSource({
-        type: "github",
-        data: "sage-test.json",
-      });
-
-      if (result.success && result.data) {
-        console.log(
-          "GitHub config loaded successfully in Settings modal simulation"
-        );
-
-        // Simulate the Settings modal approach (without setMenuOrder)
-        applyConfiguration(result.data, {
-          updateStandardMenu: updateStandardMenu,
-          addCustomMenu: addCustomMenu,
-          updateHomePageConfig: updateHomePageConfig,
-          updateAppConfig: updateAppConfig,
-          updateFullAppConfig: updateFullAppConfig,
-          updateStylingConfig: updateStylingConfig,
-          updateUserConfig: updateUserConfig,
-          // Note: setMenuOrder is not available in SettingsModal
-        });
-
-        console.log("Settings modal simulation completed successfully!");
-      } else {
-        console.error(
-          "Failed to load GitHub config in Settings modal simulation:",
-          result.error
-        );
-      }
-    } catch (error) {
-      console.error("Error in Settings modal simulation:", error);
-    }
-  };
+  // File import functionality moved to SettingsModal
+  // This function is no longer needed in Layout
 
   // Create unfiltered versions for Settings modal (bypass user access control)
   const allStandardMenus = standardMenus; // These are already all standard menus
@@ -2168,7 +1555,6 @@ export default function Layout({ children }: LayoutProps) {
     clearAllConfigurations,
     openSettingsWithTab,
     exportConfiguration: handleExportConfiguration,
-    importConfiguration: handleImportConfiguration,
   };
 
   return (
@@ -2177,6 +1563,7 @@ export default function Layout({ children }: LayoutProps) {
         thoughtspotUrl={appConfig.thoughtspotUrl}
         onSessionStatusChange={handleSessionStatusChange}
         onConfigureSettings={handleConfigureSettings}
+        onBypassModeChange={handleBypassModeChange}
       >
         <div
           style={{ height: "100vh", display: "flex", flexDirection: "column" }}
@@ -2201,6 +1588,56 @@ export default function Layout({ children }: LayoutProps) {
             backgroundColor={stylingConfig.application.topBar.backgroundColor}
             foregroundColor={stylingConfig.application.topBar.foregroundColor}
           />
+
+          {/* Bypass Mode Warning Banner */}
+          {isBypassMode && (
+            <div
+              style={{
+                backgroundColor: "#fef3c7",
+                borderBottom: "1px solid #f59e0b",
+                padding: "12px 24px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "16px",
+              }}
+            >
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
+                <span style={{ fontSize: "16px" }}>⚠️</span>
+                <span
+                  style={{
+                    color: "#92400e",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                  }}
+                >
+                  Configuration Mode: You are accessing the app without
+                  authentication. ThoughtSpot features will not work until you
+                  log in to your cluster.
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setIsBypassMode(false);
+                  window.location.reload();
+                }}
+                style={{
+                  padding: "6px 12px",
+                  backgroundColor: "#f59e0b",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: "500",
+                }}
+              >
+                Return to Login
+              </button>
+            </div>
+          )}
 
           {/* Main Content Area */}
           <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
@@ -2231,6 +1668,7 @@ export default function Layout({ children }: LayoutProps) {
                 flex: 1,
                 backgroundColor: "#ffffff",
                 overflow: "auto",
+                overflowX: "hidden",
                 padding: "24px",
                 display: "flex",
                 flexDirection: "column",
@@ -2253,7 +1691,11 @@ export default function Layout({ children }: LayoutProps) {
           {/* Settings Modal */}
           <SettingsModal
             isOpen={isSettingsOpen}
-            onClose={() => setIsSettingsOpen(false)}
+            onClose={() => {
+              setIsSettingsOpen(false);
+              // Clear any storage errors when closing the modal
+              setStorageError(null);
+            }}
             standardMenus={allStandardMenus}
             updateStandardMenu={updateStandardMenu}
             homePageConfig={homePageConfig}
@@ -2266,6 +1708,7 @@ export default function Layout({ children }: LayoutProps) {
             addCustomMenu={addCustomMenu}
             updateCustomMenu={updateCustomMenu}
             deleteCustomMenu={deleteCustomMenu}
+            clearCustomMenus={clearCustomMenus}
             stylingConfig={stylingConfig}
             updateStylingConfig={updateStylingConfig}
             userConfig={userConfig}
@@ -2273,7 +1716,10 @@ export default function Layout({ children }: LayoutProps) {
             setMenuOrder={setMenuOrder}
             clearAllConfigurations={clearAllConfigurations}
             exportConfiguration={handleExportConfiguration}
-            importConfiguration={handleImportConfiguration}
+            storageError={storageError}
+            setStorageError={setStorageError}
+            storageWarning={storageWarning}
+            setStorageWarning={setStorageWarning}
             initialTab={settingsInitialTab}
             initialSubTab={settingsInitialSubTab}
             onTabChange={(tab, subTab) => {
@@ -2282,92 +1728,157 @@ export default function Layout({ children }: LayoutProps) {
                 setSettingsInitialSubTab(subTab);
               }
             }}
+            isBypassMode={isBypassMode}
           />
 
-          {/* Storage Error Notification */}
-          {storageError && (
+          {/* Cluster Change Warning Dialog */}
+          {showClusterChangeWarning && (
             <div
               style={{
                 position: "fixed",
-                top: "20px",
-                right: "20px",
-                backgroundColor: "#fef2f2",
-                border: "1px solid #fecaca",
-                borderRadius: "8px",
-                padding: "16px",
-                maxWidth: "400px",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 zIndex: 10000,
-                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
               }}
             >
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "12px",
+                  backgroundColor: "white",
+                  borderRadius: "12px",
+                  padding: "32px",
+                  maxWidth: "500px",
+                  width: "90%",
+                  boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
                 }}
               >
-                <div style={{ color: "#dc2626", fontSize: "20px" }}>⚠️</div>
-                <div style={{ flex: 1 }}>
-                  <h4
+                <div style={{ textAlign: "center", marginBottom: "24px" }}>
+                  <div style={{ fontSize: "48px", marginBottom: "16px" }}>
+                    ⚠️
+                  </div>
+                  <h2
                     style={{
-                      margin: "0 0 8px 0",
-                      color: "#991b1b",
-                      fontSize: "14px",
+                      margin: "0 0 16px 0",
+                      fontSize: "24px",
                       fontWeight: "600",
+                      color: "#1f2937",
                     }}
                   >
-                    Storage Error
-                  </h4>
+                    Change ThoughtSpot Cluster?
+                  </h2>
                   <p
                     style={{
-                      margin: "0 0 12px 0",
-                      color: "#7f1d1d",
-                      fontSize: "12px",
-                      lineHeight: "1.4",
+                      margin: "0 0 8px 0",
+                      fontSize: "16px",
+                      color: "#4b5563",
+                      lineHeight: "1.5",
                     }}
                   >
-                    {storageError}
+                    You&apos;re about to change your ThoughtSpot cluster from:
                   </p>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button
-                      onClick={() => {
-                        if (typeof window !== "undefined") {
-                          clearAllLocalStorage();
-                          alert(
-                            "Browser storage cleared. Please refresh the page."
-                          );
-                        }
-                      }}
+                  <p
+                    style={{
+                      margin: "0 0 16px 0",
+                      fontSize: "14px",
+                      color: "#6b7280",
+                      fontFamily: "monospace",
+                      backgroundColor: "#f3f4f6",
+                      padding: "8px 12px",
+                      borderRadius: "4px",
+                    }}
+                  >
+                    {appConfig.thoughtspotUrl}
+                  </p>
+                  <p
+                    style={{
+                      margin: "0 0 8px 0",
+                      fontSize: "16px",
+                      color: "#4b5563",
+                      lineHeight: "1.5",
+                    }}
+                  >
+                    to:
+                  </p>
+                  <p
+                    style={{
+                      margin: "0 0 24px 0",
+                      fontSize: "14px",
+                      color: "#6b7280",
+                      fontFamily: "monospace",
+                      backgroundColor: "#f3f4f6",
+                      padding: "8px 12px",
+                      borderRadius: "4px",
+                    }}
+                  >
+                    {pendingClusterUrl}
+                  </p>
+                  <div
+                    style={{
+                      backgroundColor: "#fef3c7",
+                      border: "1px solid #f59e0b",
+                      borderRadius: "8px",
+                      padding: "16px",
+                      marginBottom: "24px",
+                    }}
+                  >
+                    <p
                       style={{
-                        padding: "4px 8px",
-                        backgroundColor: "#dc2626",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        fontSize: "11px",
-                        fontWeight: "500",
+                        margin: "0",
+                        fontSize: "14px",
+                        color: "#92400e",
+                        lineHeight: "1.5",
                       }}
                     >
-                      Clear Storage
-                    </button>
-                    <button
-                      onClick={() => setStorageError(null)}
-                      style={{
-                        padding: "4px 8px",
-                        backgroundColor: "#6b7280",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        fontSize: "11px",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Dismiss
-                    </button>
+                      <strong>Important:</strong> Changing clusters will clear
+                      all your current configurations (styling, menus,
+                      customizations) to ensure compatibility with the new
+                      cluster. You can import saved configurations after
+                      connecting to the new cluster.
+                    </p>
                   </div>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "12px",
+                    justifyContent: "center",
+                  }}
+                >
+                  <button
+                    onClick={handleClusterChangeCancel}
+                    style={{
+                      padding: "12px 24px",
+                      backgroundColor: "#6b7280",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleClusterChangeConfirm}
+                    style={{
+                      padding: "12px 24px",
+                      backgroundColor: "#dc2626",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Change Cluster & Clear Config
+                  </button>
                 </div>
               </div>
             </div>

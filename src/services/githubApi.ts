@@ -33,10 +33,13 @@ export async function fetchSavedConfigurations(): Promise<GitHubConfig[]> {
     const response = await fetch(
       `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${configsPath}`,
       {
+        method: "GET",
         headers: {
           Accept: "application/vnd.github.v3+json",
-          // Note: Using public repository, no auth needed
+          "User-Agent": "TSE-Demo-Builder",
+          "Content-Type": "application/json",
         },
+        mode: "cors",
       }
     );
 
@@ -59,7 +62,14 @@ export async function fetchSavedConfigurations(): Promise<GitHubConfig[]> {
     for (const file of jsonFiles) {
       try {
         console.log("Fetching config file:", file.name);
-        const configResponse = await fetch(file.download_url);
+        const configResponse = await fetch(file.download_url, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "TSE-Demo-Builder",
+          },
+          mode: "cors",
+        });
         if (configResponse.ok) {
           const configData = await configResponse.json();
 
@@ -100,32 +110,84 @@ export async function loadConfigurationFromGitHub(
     const response = await fetch(
       `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${configsPath}/${filename}`,
       {
+        method: "GET",
         headers: {
           Accept: "application/vnd.github.v3+json",
+          "User-Agent": "TSE-Demo-Builder",
+          "Content-Type": "application/json",
         },
+        mode: "cors",
       }
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch configuration: ${response.statusText}`);
+      console.error(
+        `GitHub API error: ${response.status} ${response.statusText}`
+      );
+      if (response.status === 403) {
+        throw new Error(
+          `GitHub API rate limit exceeded. Please try again later.`
+        );
+      } else if (response.status === 404) {
+        throw new Error(`Configuration file '${filename}' not found.`);
+      } else {
+        throw new Error(
+          `Failed to fetch configuration: ${response.status} ${response.statusText}`
+        );
+      }
     }
 
     const fileData: GitHubApiResponse = await response.json();
     console.log("GitHub file data:", fileData);
 
     // Fetch the actual file content
-    const contentResponse = await fetch(fileData.download_url);
+    const contentResponse = await fetch(fileData.download_url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "TSE-Demo-Builder",
+      },
+      mode: "cors",
+    });
+
     if (!contentResponse.ok) {
+      console.error(
+        `Content fetch error: ${contentResponse.status} ${contentResponse.statusText}`
+      );
       throw new Error(
-        `Failed to fetch file content: ${contentResponse.statusText}`
+        `Failed to fetch file content: ${contentResponse.status} ${contentResponse.statusText}`
       );
     }
 
-    const configData = await contentResponse.json();
+    const contentText = await contentResponse.text();
+
+    let configData;
+    try {
+      configData = JSON.parse(contentText);
+    } catch (parseError) {
+      console.error("Failed to parse GitHub response as JSON:", parseError);
+      throw new Error("Invalid JSON in GitHub configuration file");
+    }
+
     console.log("Loaded config data from GitHub:", configData);
     return configData;
   } catch (error) {
     console.error("Error loading configuration from GitHub:", error);
-    throw error;
+
+    // Provide more specific error information
+    if (
+      error instanceof TypeError &&
+      error.message.includes("Failed to fetch")
+    ) {
+      throw new Error(
+        "Network error: Unable to connect to GitHub. Please check your internet connection and try again."
+      );
+    } else if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error(
+        "Unknown error occurred while loading configuration from GitHub."
+      );
+    }
   }
 }

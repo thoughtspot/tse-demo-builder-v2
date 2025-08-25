@@ -19,6 +19,7 @@ body {
 body {
   color: rgb(var(--foreground-rgb));
   background: #f7fafc;
+  overflow-x: hidden !important;
 }
 
 a {
@@ -67,6 +68,10 @@ textarea:focus {
 div[data-testid="tsEmbed"] {
   height: 100%;
   width: 100%;
+}
+
+.full-width-content {
+  height: 100%;
 }
 
 /* Spinner animation for chatbot */

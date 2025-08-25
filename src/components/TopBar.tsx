@@ -3,6 +3,31 @@
 import Image from "next/image";
 import { useState, useEffect } from "react";
 
+// Utility function to convert icon identifiers to image paths
+const getIconImagePath = (icon: string): string => {
+  // If it's already a valid image path or URL, return as is
+  if (
+    icon.startsWith("http") ||
+    icon.startsWith("data:") ||
+    icon.startsWith("/")
+  ) {
+    return icon;
+  }
+
+  // Map icon identifiers to their corresponding image paths
+  const iconPathMap: Record<string, string> = {
+    home: "/icons/home.png",
+    favorites: "/icons/favorites.png",
+    "my-reports": "/icons/my-reports.png",
+    spotter: "/icons/spotter.png",
+    search: "/icons/search.png",
+    "full-app": "/icons/full-app.png",
+  };
+
+  // Return the mapped path or fallback to default
+  return iconPathMap[icon] || "/ts.png";
+};
+
 interface TopBarProps {
   title: string;
   logoUrl?: string;
@@ -46,6 +71,9 @@ export default function TopBar({
     fetchVersion();
   }, []);
 
+  // Convert logoUrl to a valid image path
+  const validLogoUrl = getIconImagePath(logoUrl);
+
   return (
     <div
       style={{
@@ -61,7 +89,7 @@ export default function TopBar({
       {/* Logo and Title */}
       <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
         <Image
-          src={logoUrl}
+          src={validLogoUrl}
           alt="Logo"
           height={32}
           width={32}

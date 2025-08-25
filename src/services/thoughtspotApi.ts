@@ -7,6 +7,7 @@ interface ThoughtSpotMetadata {
     name: string;
     description?: string;
     type?: string;
+    subType?: string;
     authorName?: string;
     created?: number;
     modified?: number;
@@ -48,6 +49,22 @@ interface SearchParams {
   isFavorite?: boolean;
   recordOffset?: number;
   recordSize?: number;
+}
+
+// Helper function to get the correct type for LOGICAL_TABLE metadata
+function getLogicalTableType(metadataHeader?: {
+  type?: string;
+  subType?: string;
+}): string | undefined {
+  // Newer API version uses subType
+  if (metadataHeader?.subType) {
+    return metadataHeader.subType;
+  }
+  // Older API version uses type
+  if (metadataHeader?.type) {
+    return metadataHeader.type;
+  }
+  return undefined;
 }
 
 // Consolidated search function
@@ -153,6 +170,14 @@ async function makeThoughtSpotApiCall(
     });
 
     if (!response.ok) {
+      // Handle 401 (Unauthorized) gracefully - this is expected when not logged in
+      if (response.status === 401) {
+        console.log(
+          "User not authenticated (401) - this is expected when not logged in"
+        );
+        return [];
+      }
+
       throw new Error(
         `API call failed: ${response.status} ${response.statusText}`
       );
@@ -180,6 +205,14 @@ async function makeThoughtSpotGetCall(
     });
 
     if (!response.ok) {
+      // Handle 401 (Unauthorized) gracefully - this is expected when not logged in
+      if (response.status === 401) {
+        console.log(
+          "User not authenticated (401) - this is expected when not logged in"
+        );
+        return {};
+      }
+
       throw new Error(
         `API call failed: ${response.status} ${response.statusText}`
       );
@@ -210,6 +243,14 @@ async function makeThoughtSpotTagsCall(
     });
 
     if (!response.ok) {
+      // Handle 401 (Unauthorized) gracefully - this is expected when not logged in
+      if (response.status === 401) {
+        console.log(
+          "User not authenticated (401) - this is expected when not logged in"
+        );
+        return [];
+      }
+
       throw new Error(
         `API call failed: ${response.status} ${response.statusText}`
       );
@@ -378,24 +419,10 @@ export async function fetchAnswersWithStats(): Promise<ThoughtSpotContent[]> {
 
 export async function fetchModels(): Promise<ThoughtSpotContent[]> {
   try {
-    const response: ThoughtSpotSearchResponse = await makeThoughtSpotApiCall(
-      "/metadata/search",
-      {
-        dependent_object_version: "V1",
-        include_details: false,
-        include_headers: true,
-        record_offset: 0,
-        record_size: -1,
-        include_stats: false,
-        include_discoverable_objects: true,
-        show_resolved_parameters: false,
-        metadata: [
-          {
-            type: "LOGICAL_TABLE",
-          },
-        ],
-      }
-    );
+    const response = await searchMetadata({
+      metadataTypes: ["LOGICAL_TABLE"],
+      includeStats: false,
+    });
 
     // Check if response exists and is an array
     if (!response || !Array.isArray(response)) {
@@ -403,13 +430,15 @@ export async function fetchModels(): Promise<ThoughtSpotContent[]> {
       return [];
     }
 
-    // Filter for MODEL and WORKSHEET types (for Spotter)
+    // Filter for LOGICAL_TABLE types where subType/type is WORKSHEET or MODEL (for Spotter)
     return response
-      .filter(
-        (item) =>
-          item.metadata_header?.type === "MODEL" ||
-          item.metadata_header?.type === "WORKSHEET"
-      )
+      .filter((item) => {
+        const isLogicalTable = item.metadata_type === "LOGICAL_TABLE";
+        const logicalTableType = getLogicalTableType(item.metadata_header);
+        const hasValidType =
+          logicalTableType === "WORKSHEET" || logicalTableType === "MODEL";
+        return isLogicalTable && hasValidType;
+      })
       .map((item) => ({
         id: item.metadata_id,
         name: item.metadata_name,
@@ -429,24 +458,10 @@ export async function fetchModels(): Promise<ThoughtSpotContent[]> {
 
 export async function fetchWorksheets(): Promise<ThoughtSpotContent[]> {
   try {
-    const response: ThoughtSpotSearchResponse = await makeThoughtSpotApiCall(
-      "/metadata/search",
-      {
-        dependent_object_version: "V1",
-        include_details: false,
-        include_headers: true,
-        record_offset: 0,
-        record_size: -1,
-        include_stats: false,
-        include_discoverable_objects: true,
-        show_resolved_parameters: false,
-        metadata: [
-          {
-            type: "LOGICAL_TABLE",
-          },
-        ],
-      }
-    );
+    const response = await searchMetadata({
+      metadataTypes: ["LOGICAL_TABLE"],
+      includeStats: false,
+    });
 
     // Check if response exists and is an array
     if (!response || !Array.isArray(response)) {
@@ -454,9 +469,14 @@ export async function fetchWorksheets(): Promise<ThoughtSpotContent[]> {
       return [];
     }
 
-    // Filter for WORKSHEET types only (for Search)
+    // Filter for LOGICAL_TABLE types where subType/type is WORKSHEET (for Search)
     return response
-      .filter((item) => item.metadata_header?.type === "WORKSHEET")
+      .filter((item) => {
+        const isLogicalTable = item.metadata_type === "LOGICAL_TABLE";
+        const logicalTableType = getLogicalTableType(item.metadata_header);
+        const isWorksheet = logicalTableType === "WORKSHEET";
+        return isLogicalTable && isWorksheet;
+      })
       .map((item) => ({
         id: item.metadata_id,
         name: item.metadata_name,
@@ -657,6 +677,11 @@ export async function getCurrentUser(): Promise<ThoughtSpotUser | null> {
         name: response.name,
         display_name: response.display_name,
       };
+    }
+
+    // If response is empty (401 case), don't log a warning - this is expected
+    if (!response || Object.keys(response).length === 0) {
+      return null;
     }
 
     console.warn("Invalid user response format:", response);

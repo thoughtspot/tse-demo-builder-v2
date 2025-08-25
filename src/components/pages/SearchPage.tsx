@@ -123,7 +123,7 @@ export default function SearchPage({
   }, [finalSearchDataSource, finalSearchTokenString, finalRunSearch]);
 
   return (
-    <div>
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       {!finalSearchDataSource ? (
         <div
           style={{
@@ -132,6 +132,11 @@ export default function SearchPage({
             borderRadius: "8px",
             border: "1px solid #e2e8f0",
             textAlign: "center",
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
           }}
         >
           <h3
@@ -189,18 +194,14 @@ export default function SearchPage({
         </div>
       ) : (
         <div
-          style={{
-            backgroundColor: "white",
-            padding: "20px",
-            borderRadius: "8px",
-            border: "1px solid #e2e8f0",
-          }}
+          style={{ height: "100%", display: "flex", flexDirection: "column" }}
         >
           <h3
             style={{
               fontSize: "18px",
               fontWeight: "600",
               marginBottom: "16px",
+              padding: "0 0 16px 0",
             }}
           >
             Search your data
@@ -241,7 +242,9 @@ export default function SearchPage({
               ref={embedRef}
               style={{
                 width: "100%",
-                height: "600px",
+                flex: 1,
+                minHeight: "600px",
+                overflow: "hidden",
               }}
             />
           )}

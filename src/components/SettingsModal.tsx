@@ -7,7 +7,6 @@ import MyReportsPage from "./pages/MyReportsPage";
 import SpotterPage from "./pages/SpotterPage";
 import SearchPage from "./pages/SearchPage";
 import FullAppPage from "./pages/FullAppPage";
-import ReportsPage from "./pages/ReportsPage";
 import IconPicker from "./IconPicker";
 import MaterialIcon from "./MaterialIcon";
 import ColorPicker from "./ColorPicker";
@@ -20,38 +19,24 @@ import DoubleClickEditor from "./DoubleClickEditor";
 import {
   User,
   UserConfig,
-  HiddenActionsConfig,
   SavedConfiguration,
+  CustomMenu,
+  StylingConfig,
+  HomePageConfig,
+  AppConfig,
+  FullAppConfig,
+  StandardMenu,
 } from "../types/thoughtspot";
 import HiddenActionsEditor from "./HiddenActionsEditor";
 import TagFilterComponent from "./TagFilterComponent";
 import SearchableDropdown from "./SearchableDropdown";
+import { fetchSavedConfigurations } from "../services/githubApi";
 import {
-  fetchSavedConfigurations,
-  loadConfigurationFromGitHub,
-} from "../services/githubApi";
-
-// Import StandardMenu from Layout to avoid duplication
-import { StandardMenu } from "./Layout";
-
-interface HomePageConfig {
-  type: "image" | "html" | "iframe" | "liveboard" | "answer" | "spotter";
-  value: string;
-}
-
-interface AppConfig {
-  thoughtspotUrl: string;
-  applicationName: string;
-  logo: string;
-  earlyAccessFlags: string;
-  favicon?: string;
-  showFooter: boolean;
-}
-
-interface FullAppConfig {
-  showPrimaryNavbar: boolean;
-  hideHomepageLeftNav: boolean;
-}
+  loadConfigurationFromSource,
+  checkStorageHealth,
+  clearStorageAndReloadDefaults,
+  ConfigurationUpdateFunctions,
+} from "../services/configurationService";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -60,18 +45,25 @@ interface SettingsModalProps {
   updateStandardMenu: (
     id: string,
     field: string,
-    value: string | boolean
+    value: string | boolean,
+    skipFaviconUpdate?: boolean
   ) => void;
+
   homePageConfig: HomePageConfig;
   updateHomePageConfig: (config: HomePageConfig) => void;
   appConfig: AppConfig;
-  updateAppConfig: (config: AppConfig) => void;
+  updateAppConfig: (config: AppConfig, bypassClusterWarning?: boolean) => void;
+  updatePendingAppConfig?: (
+    config: AppConfig,
+    bypassClusterWarning?: boolean
+  ) => void;
   fullAppConfig: FullAppConfig;
   updateFullAppConfig: (config: FullAppConfig) => void;
   customMenus: CustomMenu[];
   addCustomMenu: (menu: CustomMenu) => void;
   updateCustomMenu: (id: string, menu: CustomMenu) => void;
   deleteCustomMenu: (id: string) => void;
+  clearCustomMenus?: () => void;
   stylingConfig: StylingConfig;
   updateStylingConfig: (config: StylingConfig) => void;
   userConfig: UserConfig;
@@ -79,78 +71,21 @@ interface SettingsModalProps {
   setMenuOrder?: (order: string[]) => void;
   clearAllConfigurations?: () => void;
   exportConfiguration?: (customName?: string) => void;
-  importConfiguration?: (file: File) => Promise<{
-    success: boolean;
-    error?: string;
-  }>;
+  storageError?: string | null;
+  setStorageError?: (error: string | null) => void;
+  storageWarning?: string | null;
+  setStorageWarning?: (warning: string | null) => void;
+
   initialTab?: string;
   initialSubTab?: string;
   onTabChange?: (tab: string, subTab?: string) => void;
+  isBypassMode?: boolean;
 }
 
 interface Tab {
   id: string;
   name: string;
   content: React.ReactNode;
-}
-
-interface CustomMenu {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  enabled: boolean;
-  contentSelection: {
-    type: "specific" | "tag";
-    specificContent?: {
-      liveboards: string[];
-      answers: string[];
-    };
-    tagIdentifiers?: string[];
-  };
-}
-
-interface StylingConfig {
-  application: {
-    topBar: {
-      backgroundColor: string;
-      foregroundColor: string;
-      logoUrl?: string;
-    };
-    sidebar: {
-      backgroundColor: string;
-      foregroundColor: string;
-    };
-    footer: {
-      backgroundColor: string;
-      foregroundColor: string;
-    };
-    dialogs: {
-      backgroundColor: string;
-      foregroundColor: string;
-    };
-  };
-  embeddedContent: {
-    strings: Record<string, string>;
-    stringIDs: Record<string, string>;
-    cssUrl?: string;
-    customCSS: {
-      variables?: Record<string, string>;
-      rules_UNSTABLE?: Record<string, Record<string, string>>;
-    };
-  };
-  embedFlags?: {
-    spotterEmbed?: Record<string, unknown>;
-    liveboardEmbed?: Record<string, unknown>;
-    searchEmbed?: Record<string, unknown>;
-    appEmbed?: Record<string, unknown>;
-  };
-  doubleClickHandling?: {
-    enabled: boolean;
-    showDefaultModal: boolean;
-    customJavaScript?: string;
-    modalTitle?: string;
-  };
 }
 
 // Add this component before the StandardMenusContent function
@@ -301,7 +236,8 @@ function StandardMenusContent({
   updateStandardMenu: (
     id: string,
     field: string,
-    value: string | boolean
+    value: string | boolean,
+    skipFaviconUpdate?: boolean
   ) => void;
   initialSubTab?: string;
   fullAppConfig: FullAppConfig;
@@ -1923,15 +1859,6 @@ function CustomMenusContent({
       };
     }
   }, [ref, handleSaveMenu, handleCancelEdit]);
-
-  // Debug logging for custom menus
-  useEffect(() => {
-    console.log(
-      "CustomMenusContent - customMenus updated:",
-      customMenus.length,
-      customMenus.map((m) => ({ id: m.id, name: m.name }))
-    );
-  }, [customMenus]);
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -3687,7 +3614,6 @@ function ConfigurationContent({
   updateStylingConfig,
   clearAllConfigurations,
   exportConfiguration,
-  importConfiguration,
   updateStandardMenu,
   addCustomMenu,
   updateHomePageConfig,
@@ -3697,15 +3623,11 @@ function ConfigurationContent({
   standardMenus,
 }: {
   appConfig: AppConfig;
-  updateAppConfig: (config: AppConfig) => void;
+  updateAppConfig: (config: AppConfig, bypassClusterWarning?: boolean) => void;
   stylingConfig: StylingConfig;
   updateStylingConfig: (config: StylingConfig) => void;
   clearAllConfigurations?: () => void;
   exportConfiguration?: (customName?: string) => void;
-  importConfiguration?: (file: File) => Promise<{
-    success: boolean;
-    error?: string;
-  }>;
   updateStandardMenu?: (
     id: string,
     field: string,
@@ -3754,181 +3676,6 @@ function ConfigurationContent({
       });
     } finally {
       setIsLoadingConfigurations(false);
-    }
-  };
-
-  // Load a specific configuration from GitHub using unified system
-  const loadConfiguration = async (filename: string) => {
-    // Capture console output for debugging
-    const originalLog = console.log;
-    const originalError = console.error;
-    const originalWarn = console.warn;
-
-    const capturedLogs: string[] = [];
-
-    console.log = (...args) => {
-      capturedLogs.push(`[SETTINGS-LOG] ${args.join(" ")}`);
-      originalLog.apply(console, args);
-    };
-
-    console.error = (...args) => {
-      capturedLogs.push(`[SETTINGS-ERROR] ${args.join(" ")}`);
-      originalError.apply(console, args);
-    };
-
-    console.warn = (...args) => {
-      capturedLogs.push(`[SETTINGS-WARN] ${args.join(" ")}`);
-      originalWarn.apply(console, args);
-    };
-
-    try {
-      console.log("Loading configuration from GitHub:", filename);
-
-      // Use the unified configuration loading system
-      const { loadConfigurationFromSource, applyConfiguration } = await import(
-        "../components/Layout"
-      );
-      const result = await loadConfigurationFromSource({
-        type: "github",
-        data: filename,
-      });
-
-      // Debug: Log the loaded configuration
-      console.log("=== GITHUB IMPORT DEBUG ===");
-      console.log("Loaded configuration result:", result);
-      if (result.success && result.data) {
-        console.log("Configuration data:", result.data);
-        console.log("Styling config from GitHub:", result.data.stylingConfig);
-        console.log(
-          "Embedded content:",
-          result.data.stylingConfig?.embeddedContent
-        );
-        console.log(
-          "Custom CSS:",
-          result.data.stylingConfig?.embeddedContent?.customCSS
-        );
-        console.log(
-          "Variables:",
-          result.data.stylingConfig?.embeddedContent?.customCSS?.variables
-        );
-        console.log(
-          "Rules:",
-          result.data.stylingConfig?.embeddedContent?.customCSS?.rules_UNSTABLE
-        );
-      }
-      console.log("=== END GITHUB IMPORT DEBUG ===");
-
-      if (result.success && result.data) {
-        // Temporarily switch to power user to ensure all menus are accessible
-        const powerUser = result.data.userConfig?.users?.find(
-          (user) => user.id === "power-user"
-        );
-        if (powerUser && updateUserConfig) {
-          console.log(
-            "Temporarily switching to power user for configuration loading"
-          );
-          // Create a modified user config that keeps power-user as current
-          const modifiedUserConfig = {
-            ...result.data.userConfig,
-            currentUserId: "power-user",
-          };
-
-          // Use the unified configuration application system
-          applyConfiguration(
-            {
-              ...result.data,
-              userConfig: modifiedUserConfig, // Use the modified user config
-            },
-            {
-              updateStandardMenu: updateStandardMenu || (() => {}),
-              addCustomMenu: addCustomMenu || (() => {}),
-              updateHomePageConfig: updateHomePageConfig || (() => {}),
-              updateAppConfig: updateAppConfig || (() => {}),
-              updateFullAppConfig: updateFullAppConfig || (() => {}),
-              updateStylingConfig: updateStylingConfig, // Pass the actual updateStylingConfig function from Layout
-              updateUserConfig: updateUserConfig || (() => {}),
-              setMenuOrder: setMenuOrder, // Pass the actual setMenuOrder function
-            }
-          );
-
-          // Also apply changes immediately to bypass pending system
-          console.log(
-            "Applying changes immediately to bypass pending system..."
-          );
-
-          // Apply app config immediately using direct function from props
-          if (updateAppConfig) {
-            console.log(
-              "Applying app config immediately:",
-              result.data.appConfig
-            );
-            console.log("updateAppConfig function:", updateAppConfig);
-            console.log("updateAppConfig function name:", updateAppConfig.name);
-            updateAppConfig(result.data.appConfig);
-          }
-
-          // Note: updateStylingConfig is now handled by applyConfiguration above
-
-          // Apply home page config immediately using direct function from props
-          if (updateHomePageConfig) {
-            console.log(
-              "Applying home page config immediately:",
-              result.data.homePageConfig
-            );
-            updateHomePageConfig(result.data.homePageConfig);
-          }
-
-          // Apply full app config immediately using direct function from props
-          if (updateFullAppConfig) {
-            console.log(
-              "Applying full app config immediately:",
-              result.data.fullAppConfig
-            );
-            updateFullAppConfig(result.data.fullAppConfig);
-          }
-
-          console.log(
-            "Settings modal: Configuration loaded and applied successfully with power-user access"
-          );
-        } else {
-          // Fallback: apply configuration normally
-          applyConfiguration(result.data, {
-            updateStandardMenu: updateStandardMenu || (() => {}),
-            addCustomMenu: addCustomMenu || (() => {}),
-            updateHomePageConfig: updateHomePageConfig || (() => {}),
-            updateAppConfig,
-            updateFullAppConfig: updateFullAppConfig || (() => {}),
-            updateStylingConfig: updateStylingConfig, // Pass the actual updateStylingConfig function from Layout
-            updateUserConfig: updateUserConfig || (() => {}),
-            setMenuOrder: setMenuOrder, // Pass the actual setMenuOrder function
-          });
-
-          console.log(
-            "Settings modal: Configuration loaded and applied successfully"
-          );
-        }
-      } else {
-        console.error(
-          "Settings modal: Failed to load configuration:",
-          result.error
-        );
-      }
-    } catch (error) {
-      console.error("Settings modal: Error loading configuration:", error);
-      setImportStatus({
-        message: "Failed to load configuration from GitHub",
-        type: "error",
-      });
-    } finally {
-      // Restore original console methods
-      console.log = originalLog;
-      console.error = originalError;
-      console.warn = originalWarn;
-
-      // Log all captured output
-      console.log("=== SETTINGS MODAL CONSOLE CAPTURE ===");
-      capturedLogs.forEach((log: string) => console.log(log));
-      console.log("=== END SETTINGS MODAL CONSOLE CAPTURE ===");
     }
   };
 
@@ -4539,9 +4286,59 @@ function ConfigurationContent({
                       Cancel
                     </button>
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         if (selectedConfiguration) {
-                          loadConfiguration(selectedConfiguration);
+                          try {
+                            console.log(
+                              "Calling loadConfigurationFromSource with GitHub:",
+                              selectedConfiguration
+                            );
+
+                            const updateFunctions: ConfigurationUpdateFunctions =
+                              {
+                                updateAppConfig: updateAppConfig!,
+                                updateStylingConfig: updateStylingConfig!,
+                                updateStandardMenu: updateStandardMenu!,
+                                addCustomMenu: addCustomMenu!,
+                                setMenuOrder: setMenuOrder!,
+                                updateUserConfig: updateUserConfig!,
+                                updateHomePageConfig: updateHomePageConfig!,
+                                updateFullAppConfig: updateFullAppConfig!,
+                              };
+
+                            const result = await loadConfigurationFromSource(
+                              {
+                                type: "github",
+                                data: selectedConfiguration,
+                              },
+                              updateFunctions
+                            );
+
+                            if (!result.success || !result.data) {
+                              throw new Error(
+                                result.error || "Failed to load configuration"
+                              );
+                            }
+
+                            console.log(
+                              "Configuration loaded and applied successfully!"
+                            );
+
+                            // Close the dialog
+                            setShowGitHubDialog(false);
+                            setSelectedConfiguration("");
+                          } catch (error) {
+                            console.error(
+                              "Settings modal: Error loading configuration:",
+                              error
+                            );
+                            alert(
+                              "Failed to load configuration: " +
+                                (error instanceof Error
+                                  ? error.message
+                                  : "Unknown error")
+                            );
+                          }
                         }
                       }}
                       disabled={!selectedConfiguration}
@@ -4613,25 +4410,56 @@ function ConfigurationContent({
                     type="file"
                     accept=".json"
                     onChange={async (e) => {
+                      console.log("File input onChange triggered");
                       const file = e.target.files?.[0];
-                      if (file && importConfiguration) {
-                        const result = await importConfiguration(file);
-                        if (!result.success) {
-                          setImportStatus({
-                            message: `Import failed: ${result.error}`,
-                            type: "error",
-                          });
-                        } else {
-                          setImportStatus({
-                            message: "Configuration imported successfully!",
-                            type: "success",
-                          });
-                        }
-                        // Clear status after 3 seconds
-                        setTimeout(
-                          () => setImportStatus({ message: "", type: null }),
-                          3000
+                      console.log("Selected file:", file);
+                      if (file) {
+                        console.log(
+                          "Calling loadConfigurationFromSource with file:",
+                          file.name
                         );
+
+                        try {
+                          const result = await loadConfigurationFromSource(
+                            {
+                              type: "file",
+                              data: file,
+                            },
+                            {
+                              updateAppConfig: updateAppConfig!,
+                              updateStylingConfig: updateStylingConfig!,
+                              updateStandardMenu: updateStandardMenu!,
+                              addCustomMenu: addCustomMenu!,
+                              setMenuOrder: setMenuOrder!,
+                              updateUserConfig: updateUserConfig!,
+                              updateHomePageConfig: updateHomePageConfig!,
+                              updateFullAppConfig: updateFullAppConfig!,
+                            }
+                          );
+
+                          if (!result.success || !result.data) {
+                            throw new Error(
+                              result.error || "Failed to load configuration"
+                            );
+                          }
+
+                          console.log(
+                            "Configuration loaded and applied successfully!"
+                          );
+                        } catch (error) {
+                          console.error(
+                            "Settings modal: Error loading configuration:",
+                            error
+                          );
+                          alert(
+                            "Failed to load configuration: " +
+                              (error instanceof Error
+                                ? error.message
+                                : "Unknown error")
+                          );
+                        }
+                      } else {
+                        console.log("No file selected");
                       }
                       // Reset the input
                       e.target.value = "";
@@ -4824,6 +4652,7 @@ export default function SettingsModal({
   addCustomMenu,
   updateCustomMenu,
   deleteCustomMenu,
+  clearCustomMenus,
   stylingConfig,
   updateStylingConfig,
   userConfig,
@@ -4831,10 +4660,15 @@ export default function SettingsModal({
   setMenuOrder,
   clearAllConfigurations,
   exportConfiguration,
-  importConfiguration,
+  storageError,
+  setStorageError,
+  storageWarning,
+  setStorageWarning,
+
   initialTab,
   initialSubTab,
   onTabChange,
+  isBypassMode,
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState(initialTab || "configuration");
 
@@ -4931,9 +4765,20 @@ export default function SettingsModal({
     handleConfigChange();
   };
 
-  const updatePendingAppConfig = (config: AppConfig) => {
+  const updatePendingAppConfig = (
+    config: AppConfig,
+    bypassClusterWarning = false
+  ) => {
     setPendingAppConfig(config);
     handleConfigChange();
+
+    // If bypassClusterWarning is true, this is a config import, so apply immediately
+    if (bypassClusterWarning) {
+      console.log(
+        "[SettingsModal] Config import detected, applying app config immediately"
+      );
+      updateAppConfig(config, bypassClusterWarning);
+    }
   };
 
   const updatePendingFullAppConfig = (config: FullAppConfig) => {
@@ -4947,9 +4792,19 @@ export default function SettingsModal({
   };
 
   const handleApplyChanges = () => {
+    console.log(
+      "handleApplyChanges called, hasUnsavedChanges:",
+      hasUnsavedChanges
+    );
     // Apply all pending changes
     if (hasUnsavedChanges) {
+      console.log("Applying changes...");
       // Apply standard menus changes
+      console.log(
+        "Applying standard menus changes:",
+        pendingStandardMenus.length,
+        "menus"
+      );
       pendingStandardMenus.forEach((menu) => {
         const currentMenu = standardMenus.find((m) => m.id === menu.id);
         if (currentMenu) {
@@ -4958,6 +4813,12 @@ export default function SettingsModal({
               menu[key as keyof StandardMenu] !==
               currentMenu[key as keyof StandardMenu]
             ) {
+              console.log(
+                `Updating menu ${menu.id}.${key}:`,
+                currentMenu[key as keyof StandardMenu],
+                "->",
+                menu[key as keyof StandardMenu]
+              );
               updateStandardMenu(
                 menu.id,
                 key,
@@ -4969,12 +4830,19 @@ export default function SettingsModal({
       });
 
       // Apply other config changes
+      console.log("Applying homePageConfig:", pendingHomePageConfig);
       updateHomePageConfig(pendingHomePageConfig);
+      console.log("Applying appConfig:", pendingAppConfig);
       updateAppConfig(pendingAppConfig);
+      console.log("Applying fullAppConfig:", pendingFullAppConfig);
       updateFullAppConfig(pendingFullAppConfig);
+      console.log("Applying stylingConfig:", pendingStylingConfig);
       updateStylingConfig(pendingStylingConfig);
 
       setHasUnsavedChanges(false);
+      console.log(
+        "Changes applied successfully, hasUnsavedChanges set to false"
+      );
 
       // Note: The activeTab state is preserved automatically since we don't reset it
       // The activeSubTab state in StandardMenusContent is also preserved since we don't reset it
@@ -5005,6 +4873,165 @@ export default function SettingsModal({
     customMenuRef.current?.cancelEdit();
   };
 
+  // Storage Management Component
+  const StorageManagementContent = () => {
+    const [storageHealth, setStorageHealth] = useState(checkStorageHealth());
+    const [isClearing, setIsClearing] = useState(false);
+    const [clearResult, setClearResult] = useState<{
+      success: boolean;
+      message: string;
+    } | null>(null);
+
+    const refreshStorageHealth = () => {
+      setStorageHealth(checkStorageHealth());
+    };
+
+    const handleClearStorage = async () => {
+      if (
+        window.confirm(
+          "This will clear all stored configuration data and restore defaults. Are you sure?"
+        )
+      ) {
+        setIsClearing(true);
+        setClearResult(null);
+
+        try {
+          const result = clearStorageAndReloadDefaults();
+          setClearResult(result);
+
+          if (result.success) {
+            // Refresh the page to reload defaults
+            window.location.reload();
+          }
+        } catch (error) {
+          setClearResult({
+            success: false,
+            message: `Unexpected error: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
+          });
+        } finally {
+          setIsClearing(false);
+        }
+      }
+    };
+
+    const formatBytes = (bytes: number) => {
+      if (bytes === 0) return "0 Bytes";
+      const k = 1024;
+      const sizes = ["Bytes", "KB", "MB", "GB"];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    };
+
+    return (
+      <div style={{ padding: "20px" }}>
+        <h3 style={{ marginBottom: "20px", color: "#333" }}>
+          Storage Management
+        </h3>
+
+        <div
+          style={{
+            padding: "15px",
+            border: `2px solid ${
+              storageHealth.healthy ? "#4CAF50" : "#f44336"
+            }`,
+            borderRadius: "8px",
+            backgroundColor: storageHealth.healthy ? "#f1f8e9" : "#ffebee",
+            marginBottom: "20px",
+          }}
+        >
+          <h4
+            style={{
+              margin: "0 0 10px 0",
+              color: storageHealth.healthy ? "#2e7d32" : "#c62828",
+            }}
+          >
+            Storage Status: {storageHealth.healthy ? "Healthy" : "Warning"}
+          </h4>
+          <p style={{ margin: "5px 0", fontSize: "14px" }}>
+            {storageHealth.message}
+          </p>
+          <div style={{ marginTop: "10px" }}>
+            <strong>Current Usage:</strong>{" "}
+            {formatBytes(storageHealth.currentSize)} /{" "}
+            {formatBytes(storageHealth.quota)}(
+            {storageHealth.usagePercentage.toFixed(1)}%)
+          </div>
+        </div>
+
+        <div style={{ marginBottom: "20px" }}>
+          <button
+            onClick={refreshStorageHealth}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#2196F3",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              marginRight: "10px",
+            }}
+          >
+            Refresh Status
+          </button>
+
+          <button
+            onClick={handleClearStorage}
+            disabled={isClearing}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#f44336",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: isClearing ? "not-allowed" : "pointer",
+              opacity: isClearing ? 0.6 : 1,
+            }}
+          >
+            {isClearing ? "Clearing..." : "Clear All Storage"}
+          </button>
+        </div>
+
+        {clearResult && (
+          <div
+            style={{
+              padding: "10px",
+              border: `1px solid ${
+                clearResult.success ? "#4CAF50" : "#f44336"
+              }`,
+              borderRadius: "4px",
+              backgroundColor: clearResult.success ? "#f1f8e9" : "#ffebee",
+              color: clearResult.success ? "#2e7d32" : "#c62828",
+            }}
+          >
+            {clearResult.message}
+          </div>
+        )}
+
+        <div
+          style={{
+            padding: "15px",
+            backgroundColor: "#f5f5f5",
+            borderRadius: "8px",
+            fontSize: "14px",
+          }}
+        >
+          <h4 style={{ margin: "0 0 10px 0" }}>Storage Information</h4>
+          <ul style={{ margin: "0", paddingLeft: "20px" }}>
+            <li>Browser localStorage has a limit of approximately 5-10MB</li>
+            <li>
+              When storage is full, the application may fail to save
+              configurations
+            </li>
+            <li>Clearing storage will restore all default configurations</li>
+            <li>You can export your current configuration before clearing</li>
+          </ul>
+        </div>
+      </div>
+    );
+  };
+
   const tabs: Tab[] = [
     {
       id: "configuration",
@@ -5017,7 +5044,6 @@ export default function SettingsModal({
           updateStylingConfig={updateStylingConfig}
           clearAllConfigurations={clearAllConfigurations}
           exportConfiguration={exportConfiguration}
-          importConfiguration={importConfiguration}
           updateStandardMenu={updateStandardMenu}
           addCustomMenu={addCustomMenu}
           updateHomePageConfig={updatePendingHomePageConfig}
@@ -5096,6 +5122,11 @@ export default function SettingsModal({
         />
       ),
     },
+    {
+      id: "storage",
+      name: "Storage",
+      content: <StorageManagementContent />,
+    },
   ];
 
   return (
@@ -5161,6 +5192,187 @@ export default function SettingsModal({
             ×
           </button>
         </div>
+
+        {/* Storage Error Notification */}
+        {storageError && (
+          <div
+            style={{
+              backgroundColor: "#fef2f2",
+              borderBottom: "1px solid #fecaca",
+              padding: "12px 24px",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "12px",
+            }}
+          >
+            <div style={{ color: "#dc2626", fontSize: "16px" }}>⚠️</div>
+            <div style={{ flex: 1 }}>
+              <h4
+                style={{
+                  margin: "0 0 4px 0",
+                  color: "#991b1b",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                }}
+              >
+                Storage Error
+              </h4>
+              <p
+                style={{
+                  margin: "0 0 8px 0",
+                  color: "#7f1d1d",
+                  fontSize: "12px",
+                  lineHeight: "1.4",
+                }}
+              >
+                {storageError}
+              </p>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  onClick={() => {
+                    if (
+                      typeof window !== "undefined" &&
+                      clearAllConfigurations
+                    ) {
+                      clearAllConfigurations();
+                      alert(
+                        "Browser storage cleared. Please refresh the page."
+                      );
+                    }
+                  }}
+                  style={{
+                    padding: "4px 8px",
+                    backgroundColor: "#dc2626",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontSize: "11px",
+                    fontWeight: "500",
+                  }}
+                >
+                  Clear Storage
+                </button>
+                <button
+                  onClick={() => setStorageError?.(null)}
+                  style={{
+                    padding: "4px 8px",
+                    backgroundColor: "#6b7280",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontSize: "11px",
+                    fontWeight: "500",
+                  }}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Storage Warning Notification */}
+        {storageWarning && (
+          <div
+            style={{
+              backgroundColor: "#fff3cd",
+              borderBottom: "1px solid #ffc107",
+              padding: "12px 24px",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "12px",
+            }}
+          >
+            <div style={{ color: "#856404", fontSize: "16px" }}>💾</div>
+            <div style={{ flex: 1 }}>
+              <h4
+                style={{
+                  margin: "0 0 4px 0",
+                  color: "#856404",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                }}
+              >
+                Storage Warning
+              </h4>
+              <p
+                style={{
+                  margin: "0 0 8px 0",
+                  color: "#856404",
+                  fontSize: "12px",
+                  lineHeight: "1.4",
+                }}
+              >
+                {storageWarning}
+              </p>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  onClick={() => {
+                    if (
+                      typeof window !== "undefined" &&
+                      clearAllConfigurations
+                    ) {
+                      clearAllConfigurations();
+                      alert(
+                        "Browser storage cleared. Please refresh the page."
+                      );
+                    }
+                  }}
+                  style={{
+                    padding: "4px 8px",
+                    backgroundColor: "#ffc107",
+                    color: "#856404",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontSize: "11px",
+                    fontWeight: "500",
+                  }}
+                >
+                  Clear Storage
+                </button>
+                <button
+                  onClick={() => setStorageWarning?.(null)}
+                  style={{
+                    padding: "4px 8px",
+                    backgroundColor: "transparent",
+                    color: "#856404",
+                    border: "1px solid #856404",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontSize: "11px",
+                    fontWeight: "500",
+                  }}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bypass Mode Warning */}
+        {isBypassMode && (
+          <div
+            style={{
+              backgroundColor: "#fef3c7",
+              borderBottom: "1px solid #f59e0b",
+              padding: "12px 24px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <span style={{ fontSize: "16px" }}>⚠️</span>
+            <span style={{ color: "#92400e", fontSize: "14px" }}>
+              <strong>Configuration Mode:</strong> You are accessing settings
+              without authentication. Changes to cluster configuration will be
+              saved, but ThoughtSpot features will not work until you log in.
+            </span>
+          </div>
+        )}
 
         {/* Tabs */}
         <div

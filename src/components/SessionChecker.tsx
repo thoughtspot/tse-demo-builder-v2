@@ -8,6 +8,7 @@ interface SessionCheckerProps {
   thoughtspotUrl: string;
   onSessionStatusChange: (hasSession: boolean) => void;
   onConfigureSettings?: () => void;
+  onBypassModeChange?: (isBypass: boolean) => void;
 }
 
 interface SessionStatus {
@@ -21,12 +22,14 @@ export default function SessionChecker({
   thoughtspotUrl,
   onSessionStatusChange,
   onConfigureSettings,
+  onBypassModeChange,
 }: SessionCheckerProps) {
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>({
     hasSession: false,
     isLoading: true,
     error: null,
   });
+  const [bypassAuth, setBypassAuth] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -101,6 +104,17 @@ export default function SessionChecker({
       onConfigureSettings();
     }
   };
+
+  const handleBypassAuth = () => {
+    setBypassAuth(true);
+    onSessionStatusChange(true); // Temporarily allow access
+    onBypassModeChange?.(true); // Notify parent component
+  };
+
+  // If user has bypassed auth, show the app
+  if (bypassAuth) {
+    return <>{children}</>;
+  }
 
   if (sessionStatus.isLoading) {
     return (
@@ -202,10 +216,10 @@ export default function SessionChecker({
             }}
           >
             {sessionStatus.error === "Server connection failed"
-              ? "Unable to connect to your ThoughtSpot server. Please check your configuration."
+              ? "Unable to connect to your ThoughtSpot server. You can still configure settings to change your cluster URL."
               : sessionStatus.error === "No ThoughtSpot URL configured"
               ? "No ThoughtSpot URL is configured. Please set up your connection."
-              : "You need to log into your ThoughtSpot server to continue. Please log in and then refresh this page."}
+              : "You need to log into your ThoughtSpot server to continue. You can also configure settings to change your cluster URL."}
           </p>
 
           <div
@@ -266,6 +280,53 @@ export default function SessionChecker({
             >
               Configure Settings
             </button>
+          </div>
+
+          {/* Add a bypass option for configuration-only access */}
+          <div
+            style={{
+              marginTop: "24px",
+              padding: "16px",
+              backgroundColor: "#f7fafc",
+              borderRadius: "6px",
+              border: "1px solid #e2e8f0",
+            }}
+          >
+            <p
+              style={{
+                margin: "0 0 12px",
+                fontSize: "14px",
+                color: "#4a5568",
+                fontWeight: "500",
+              }}
+            >
+              Need to change cluster configuration?
+            </p>
+            <button
+              onClick={handleBypassAuth}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: "#f59e0b",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "13px",
+                fontWeight: "500",
+              }}
+            >
+              Access App (Configuration Only)
+            </button>
+            <p
+              style={{
+                margin: "8px 0 0",
+                fontSize: "11px",
+                color: "#718096",
+                fontStyle: "italic",
+              }}
+            >
+              This will allow you to access the app to configure settings, but ThoughtSpot features will not work until you authenticate.
+            </p>
           </div>
 
           {thoughtspotUrl && (
