@@ -8,7 +8,6 @@ interface SessionCheckerProps {
   thoughtspotUrl: string;
   onSessionStatusChange: (hasSession: boolean) => void;
   onConfigureSettings?: () => void;
-  onBypassModeChange?: (isBypass: boolean) => void;
 }
 
 interface SessionStatus {
@@ -17,19 +16,121 @@ interface SessionStatus {
   error: string | null;
 }
 
+// Session Warning Banner Component
+function SessionWarningBanner({
+  thoughtspotUrl,
+  error,
+  onRefresh,
+  onConfigure,
+}: {
+  thoughtspotUrl: string;
+  error: string | null;
+  onRefresh: () => void;
+  onConfigure: () => void;
+}) {
+  const getWarningMessage = () => {
+    if (error === "Server connection failed") {
+      return "Unable to connect to your ThoughtSpot server. You can still configure settings to change your cluster URL.";
+    } else if (error === "No ThoughtSpot URL configured") {
+      return "No ThoughtSpot URL is configured. Please set up your connection.";
+    } else {
+      return "You are not logged into your ThoughtSpot server. Some features may not work until you authenticate.";
+    }
+  };
+
+  return (
+    <div
+      style={{
+        backgroundColor: "#fef3c7",
+        borderBottom: "1px solid #f59e0b",
+        padding: "12px 24px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "16px",
+        position: "sticky",
+        top: 0,
+        zIndex: 1000,
+      }}
+    >
+      <div
+        style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}
+      >
+        <span style={{ fontSize: "16px" }}>⚠️</span>
+        <span
+          style={{
+            color: "#92400e",
+            fontSize: "14px",
+            fontWeight: "500",
+          }}
+        >
+          {getWarningMessage()}
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: "8px" }}>
+        {thoughtspotUrl && error !== "No ThoughtSpot URL configured" && (
+          <button
+            onClick={() => window.open(thoughtspotUrl, "_blank")}
+            style={{
+              padding: "6px 12px",
+              backgroundColor: "#3182ce",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "12px",
+              fontWeight: "500",
+            }}
+          >
+            Login
+          </button>
+        )}
+        <button
+          onClick={onRefresh}
+          style={{
+            padding: "6px 12px",
+            backgroundColor: "#38a169",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "12px",
+            fontWeight: "500",
+          }}
+        >
+          Refresh
+        </button>
+        <button
+          onClick={onConfigure}
+          style={{
+            padding: "6px 12px",
+            backgroundColor: "#6b7280",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "12px",
+            fontWeight: "500",
+          }}
+        >
+          Settings
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function SessionChecker({
   children,
   thoughtspotUrl,
   onSessionStatusChange,
   onConfigureSettings,
-  onBypassModeChange,
 }: SessionCheckerProps) {
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>({
     hasSession: false,
     isLoading: true,
     error: null,
   });
-  const [bypassAuth, setBypassAuth] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -89,12 +190,6 @@ export default function SessionChecker({
     checkSession();
   }, [thoughtspotUrl, onSessionStatusChange]);
 
-  const handleLogin = () => {
-    if (thoughtspotUrl) {
-      window.open(thoughtspotUrl, "_blank");
-    }
-  };
-
   const handleRefresh = () => {
     window.location.reload();
   };
@@ -104,17 +199,6 @@ export default function SessionChecker({
       onConfigureSettings();
     }
   };
-
-  const handleBypassAuth = () => {
-    setBypassAuth(true);
-    onSessionStatusChange(true); // Temporarily allow access
-    onBypassModeChange?.(true); // Notify parent component
-  };
-
-  // If user has bypassed auth, show the app
-  if (bypassAuth) {
-    return <>{children}</>;
-  }
 
   if (sessionStatus.isLoading) {
     return (
@@ -168,182 +252,18 @@ export default function SessionChecker({
     );
   }
 
-  if (!sessionStatus.hasSession) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-          backgroundColor: "#f7fafc",
-        }}
-      >
-        <div
-          style={{
-            textAlign: "center",
-            padding: "40px",
-            backgroundColor: "white",
-            borderRadius: "8px",
-            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-            maxWidth: "500px",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "48px",
-              marginBottom: "20px",
-            }}
-          >
-            🔐
-          </div>
-
-          <h2
-            style={{
-              margin: "0 0 16px",
-              color: "#2d3748",
-              fontSize: "24px",
-            }}
-          >
-            Authentication Required
-          </h2>
-
-          <p
-            style={{
-              margin: "0 0 24px",
-              color: "#718096",
-              lineHeight: "1.6",
-            }}
-          >
-            {sessionStatus.error === "Server connection failed"
-              ? "Unable to connect to your ThoughtSpot server. You can still configure settings to change your cluster URL."
-              : sessionStatus.error === "No ThoughtSpot URL configured"
-              ? "No ThoughtSpot URL is configured. Please set up your connection."
-              : "You need to log into your ThoughtSpot server to continue. You can also configure settings to change your cluster URL."}
-          </p>
-
-          <div
-            style={{
-              display: "flex",
-              gap: "12px",
-              justifyContent: "center",
-              flexWrap: "wrap",
-            }}
-          >
-            {thoughtspotUrl &&
-              sessionStatus.error !== "No ThoughtSpot URL configured" && (
-                <button
-                  onClick={handleLogin}
-                  style={{
-                    padding: "12px 24px",
-                    backgroundColor: "#3182ce",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Login to ThoughtSpot
-                </button>
-              )}
-
-            <button
-              onClick={handleRefresh}
-              style={{
-                padding: "12px 24px",
-                backgroundColor: "#38a169",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontSize: "14px",
-                fontWeight: "500",
-              }}
-            >
-              Refresh Page
-            </button>
-
-            <button
-              onClick={handleConfigure}
-              style={{
-                padding: "12px 24px",
-                backgroundColor: "#6b7280",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontSize: "14px",
-                fontWeight: "500",
-              }}
-            >
-              Configure Settings
-            </button>
-          </div>
-
-          {/* Add a bypass option for configuration-only access */}
-          <div
-            style={{
-              marginTop: "24px",
-              padding: "16px",
-              backgroundColor: "#f7fafc",
-              borderRadius: "6px",
-              border: "1px solid #e2e8f0",
-            }}
-          >
-            <p
-              style={{
-                margin: "0 0 12px",
-                fontSize: "14px",
-                color: "#4a5568",
-                fontWeight: "500",
-              }}
-            >
-              Need to change cluster configuration?
-            </p>
-            <button
-              onClick={handleBypassAuth}
-              style={{
-                padding: "8px 16px",
-                backgroundColor: "#f59e0b",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-                fontSize: "13px",
-                fontWeight: "500",
-              }}
-            >
-              Access App (Configuration Only)
-            </button>
-            <p
-              style={{
-                margin: "8px 0 0",
-                fontSize: "11px",
-                color: "#718096",
-                fontStyle: "italic",
-              }}
-            >
-              This will allow you to access the app to configure settings, but ThoughtSpot features will not work until you authenticate.
-            </p>
-          </div>
-
-          {thoughtspotUrl && (
-            <p
-              style={{
-                margin: "20px 0 0",
-                fontSize: "12px",
-                color: "#a0aec0",
-              }}
-            >
-              ThoughtSpot URL: {thoughtspotUrl}
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
+  // Always render children, but show warning banner if no session
+  return (
+    <>
+      {!sessionStatus.hasSession && (
+        <SessionWarningBanner
+          thoughtspotUrl={thoughtspotUrl}
+          error={sessionStatus.error}
+          onRefresh={handleRefresh}
+          onConfigure={handleConfigure}
+        />
+      )}
+      {children}
+    </>
+  );
 }

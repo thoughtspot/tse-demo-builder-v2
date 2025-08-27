@@ -19,7 +19,7 @@ const getIconImagePath = (icon: string): string => {
     home: "/icons/home.png",
     favorites: "/icons/favorites.png",
     "my-reports": "/icons/my-reports.png",
-    spotter: "/icons/spotter.png",
+    spotter: "/icons/spotter-custom.svg",
     search: "/icons/search.png",
     "full-app": "/icons/full-app.png",
   };
@@ -191,6 +191,8 @@ export default function TopBar({
                 <span>{user.name}</span>
               </button>
             ))}
+
+
 
             {/* Version display */}
             {thoughtSpotVersion && (

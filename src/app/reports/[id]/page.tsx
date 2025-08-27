@@ -1,4 +1,4 @@
-import Layout from "../../../components/Layout";
+
 
 interface ReportsPageProps {
   params: Promise<{
@@ -10,8 +10,7 @@ export default async function ReportsPage({ params }: ReportsPageProps) {
   const { id: reportId } = await params;
 
   return (
-    <Layout>
-      <div>
+    <div>
         <div
           style={{
             backgroundColor: "#f7fafc",
@@ -112,6 +111,5 @@ export default async function ReportsPage({ params }: ReportsPageProps) {
           </div>
         </div>
       </div>
-    </Layout>
   );
 }

@@ -85,10 +85,10 @@ export default function ImageUpload({
   label,
   placeholder = "https://example.com/image.png",
   accept = "image/*",
-  maxSizeMB = 0.5, // Default 500KB limit (much more conservative)
+  maxSizeMB = 2, // Increased to 2MB for better image quality
   maxWidth = 1200, // Default max width
   maxHeight = 800, // Default max height
-  useIndexedDB = false, // Default to localStorage for backward compatibility
+  useIndexedDB = true, // Default to IndexedDB for better storage
 }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);

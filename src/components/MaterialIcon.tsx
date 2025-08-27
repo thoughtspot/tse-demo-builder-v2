@@ -197,6 +197,7 @@ import {
   SmartToyRounded,
   SmartToySharp,
   SmartToyTwoTone,
+  Flag,
 } from "@mui/icons-material";
 
 // Icon mapping from string names to Material Icons
@@ -212,6 +213,7 @@ const iconMap: Record<
   search: Search,
   "full-app": Public,
   settings: Settings,
+  flag: Flag,
 
   // Common icons
   star: Star,

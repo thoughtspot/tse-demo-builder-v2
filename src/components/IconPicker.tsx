@@ -1015,11 +1015,11 @@ const IconPicker: React.FC<IconPickerProps> = ({
                         e.currentTarget.style.borderColor = "#e5e7eb";
                       }
                     }}
-                    title="Custom Spotter Icon"
+                    title="Spotter Icon"
                   >
                     <img
                       src="/icons/spotter-custom.svg"
-                      alt="Custom Spotter"
+                      alt="Spotter"
                       style={{
                         width: 24,
                         height: 24,
@@ -1027,7 +1027,7 @@ const IconPicker: React.FC<IconPickerProps> = ({
                       }}
                     />
                     <span style={{ textAlign: "center", lineHeight: "1.2" }}>
-                      Custom Spotter
+                      Spotter
                     </span>
                     {value === "spotter-custom.svg" && (
                       <span

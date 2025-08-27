@@ -4,7 +4,6 @@ import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useAppContext } from "../../../components/Layout";
 import ContentGrid from "../../../components/ContentGrid";
-import Layout from "../../../components/Layout";
 
 function CustomMenuPageContent() {
   const params = useParams();
@@ -100,9 +99,5 @@ function CustomMenuPageContent() {
 }
 
 export default function CustomMenuPage() {
-  return (
-    <Layout>
-      <CustomMenuPageContent />
-    </Layout>
-  );
+  return <CustomMenuPageContent />;
 }

@@ -11,93 +11,12 @@ import {
   ConfigurationSource,
 } from "../types/thoughtspot";
 
-// Storage keys for localStorage
-const STORAGE_KEYS = {
-  HOME_PAGE_CONFIG: "tse-demo-builder-home-page-config",
-  APP_CONFIG: "tse-demo-builder-app-config",
-  STANDARD_MENUS: "tse-demo-builder-standard-menus",
-  FULL_APP_CONFIG: "tse-demo-builder-full-app-config",
-  CUSTOM_MENUS: "tse-demo-builder-custom-menus",
-  MENU_ORDER: "tse-demo-builder-menu-order",
-  STYLING_CONFIG: "tse-demo-builder-styling-config",
-  USER_CONFIG: "tse-demo-builder-user-config",
-};
-
-// Storage management utilities
-const getStorageSize = (): number => {
-  if (typeof window === "undefined") return 0;
-  let total = 0;
-  for (const key in localStorage) {
-    if (localStorage.hasOwnProperty(key)) {
-      total += localStorage[key].length + key.length;
-    }
-  }
-  return total;
-};
-
-const getStorageQuota = (): number => {
-  // Most browsers have a 5-10MB limit for localStorage
-  // We'll use a conservative estimate of 5MB
-  return 5 * 1024 * 1024; // 5MB in bytes
-};
-
-const cleanupOldStorage = (): boolean => {
-  if (typeof window === "undefined") return false;
-
-  try {
-    // Remove all our app's storage keys EXCEPT the one currently being saved
-    // This prevents clearing the data that's currently being written
-    Object.values(STORAGE_KEYS).forEach((key) => {
-      localStorage.removeItem(key);
-    });
-    console.log("[Storage] Cleaned up old storage data");
-    return true;
-  } catch (error) {
-    console.error("[Storage] Failed to cleanup old storage:", error);
-    return false;
-  }
-};
-
-const estimateStorageSize = (key: string, value: unknown): number => {
-  const serializedValue = JSON.stringify(value);
-  return key.length + serializedValue.length;
-};
-
-// Check storage health and return status
-export const checkStorageHealth = (): {
-  healthy: boolean;
-  currentSize: number;
-  quota: number;
-  usagePercentage: number;
-  message: string;
-} => {
-  if (typeof window === "undefined") {
-    return {
-      healthy: false,
-      currentSize: 0,
-      quota: 0,
-      usagePercentage: 0,
-      message: "Storage not available in server environment",
-    };
-  }
-
-  const currentSize = getStorageSize();
-  const quota = getStorageQuota();
-  const usagePercentage = (currentSize / quota) * 100;
-
-  return {
-    healthy: usagePercentage < 90,
-    currentSize,
-    quota,
-    usagePercentage,
-    message:
-      usagePercentage > 90
-        ? `Storage usage is high (${usagePercentage.toFixed(
-            1
-          )}%). Consider clearing some data.`
-        : `Storage usage is normal (${usagePercentage.toFixed(1)}%)`,
-  };
-};
+// Storage configuration
+const STORAGE_KEY = "tse-demo-builder-config";
+const INDEXEDDB_NAME = "TSE_Demo_Builder_DB";
+const INDEXEDDB_VERSION = 1;
+const STORE_NAME = "configurations";
+const LARGE_OBJECT_THRESHOLD = 1024 * 1024; // 1MB threshold for using IndexedDB
 
 // Default configuration
 export const DEFAULT_CONFIG: ConfigurationData = {
@@ -130,7 +49,7 @@ export const DEFAULT_CONFIG: ConfigurationData = {
       id: "spotter",
       name: "Spotter",
       enabled: true,
-      icon: "spotter",
+      icon: "spotter-custom.svg",
       homePageType: "html",
       homePageValue: "<h1>Spotter</h1>",
     },
@@ -213,231 +132,471 @@ export const DEFAULT_CONFIG: ConfigurationData = {
   },
 };
 
-// Utility functions for localStorage
-const loadFromStorage = (key: string, defaultValue: unknown): unknown => {
-  if (typeof window === "undefined") return defaultValue;
+// Old storage keys for migration
+const OLD_STORAGE_KEYS = {
+  HOME_PAGE_CONFIG: "tse-demo-builder-home-page-config",
+  APP_CONFIG: "tse-demo-builder-app-config",
+  STANDARD_MENUS: "tse-demo-builder-standard-menus",
+  FULL_APP_CONFIG: "tse-demo-builder-full-app-config",
+  CUSTOM_MENUS: "tse-demo-builder-custom-menus",
+  MENU_ORDER: "tse-demo-builder-menu-order",
+  STYLING_CONFIG: "tse-demo-builder-styling-config",
+  USER_CONFIG: "tse-demo-builder-user-config",
+};
 
+// IndexedDB utilities
+const openIndexedDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined" || !window.indexedDB) {
+      reject(new Error("IndexedDB not available"));
+      return;
+    }
+
+    const request = indexedDB.open(INDEXEDDB_NAME, INDEXEDDB_VERSION);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: "key" });
+      }
+    };
+  });
+};
+
+const saveToIndexedDB = async (
+  key: string,
+  data: ConfigurationData
+): Promise<void> => {
   try {
-    const stored = localStorage.getItem(key);
-    if (!stored) {
-      console.log(`No stored data found for key: ${key}, using default`);
-      return defaultValue;
-    }
+    const db = await openIndexedDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME], "readwrite");
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.put({ key, data, timestamp: Date.now() });
 
-    const parsed = JSON.parse(stored);
-    console.log(`Loaded ${key} from localStorage:`, parsed);
-
-    // Special logging for custom menus
-    if (key === STORAGE_KEYS.CUSTOM_MENUS) {
-      console.log(`[loadFromStorage] Custom menus loaded:`, parsed);
-      console.log(
-        `[loadFromStorage] Custom menus count:`,
-        Array.isArray(parsed) ? parsed.length : "not an array"
-      );
-    }
-
-    return parsed;
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
   } catch (error) {
-    console.error(`Failed to load ${key} from localStorage:`, error);
-    console.log(`Using default value for ${key}:`, defaultValue);
-    return defaultValue;
+    console.error("Failed to save to IndexedDB:", error);
+    throw error;
   }
 };
 
-const saveToStorage = (
-  key: string,
-  value: unknown,
-  onError?: (message: string) => void
-): void => {
+const loadFromIndexedDB = async (
+  key: string
+): Promise<ConfigurationData | null> => {
+  try {
+    const db = await openIndexedDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME], "readonly");
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get(key);
+
+      request.onsuccess = () => {
+        const result = request.result?.data as ConfigurationData | undefined;
+        resolve(result || null);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.warn("Failed to load from IndexedDB:", error);
+    return null;
+  }
+};
+
+const removeFromIndexedDB = async (key: string): Promise<void> => {
+  try {
+    const db = await openIndexedDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME], "readwrite");
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.delete(key);
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.warn("Failed to remove from IndexedDB:", error);
+  }
+};
+
+// Check if configuration contains large objects (images, etc.)
+const isLargeConfiguration = (config: ConfigurationData): boolean => {
+  const serialized = JSON.stringify(config);
+
+  // Check total size
+  if (serialized.length > LARGE_OBJECT_THRESHOLD) {
+    return true;
+  }
+
+  // Check for large data URLs (images)
+  const dataUrlPattern = /data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/g;
+  const dataUrls = serialized.match(dataUrlPattern);
+
+  if (dataUrls) {
+    const totalDataUrlSize = dataUrls.reduce((total, url) => {
+      // Estimate size: base64 is ~33% larger than binary
+      return total + Math.ceil((url.length * 3) / 4);
+    }, 0);
+
+    if (totalDataUrlSize > LARGE_OBJECT_THRESHOLD) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+// Migration function to handle old multi-key storage
+const migrateFromOldStorage = (): ConfigurationData | null => {
+  if (typeof window === "undefined") return null;
+
+  const oldKeys = OLD_STORAGE_KEYS;
+
+  try {
+    // Check if any old keys exist
+    const hasOldData = Object.values(oldKeys).some(
+      (key) => localStorage.getItem(key) !== null
+    );
+
+    if (!hasOldData) {
+      return null; // No old data to migrate
+    }
+
+    console.log("Found old storage format, migrating to new format...");
+
+    // Load data from old keys
+    const standardMenus =
+      JSON.parse(localStorage.getItem(oldKeys.STANDARD_MENUS) || "null") ||
+      DEFAULT_CONFIG.standardMenus;
+    const customMenus =
+      JSON.parse(localStorage.getItem(oldKeys.CUSTOM_MENUS) || "null") ||
+      DEFAULT_CONFIG.customMenus;
+    const menuOrder =
+      JSON.parse(localStorage.getItem(oldKeys.MENU_ORDER) || "null") ||
+      DEFAULT_CONFIG.menuOrder;
+    const homePageConfig =
+      JSON.parse(localStorage.getItem(oldKeys.HOME_PAGE_CONFIG) || "null") ||
+      DEFAULT_CONFIG.homePageConfig;
+    const appConfig =
+      JSON.parse(localStorage.getItem(oldKeys.APP_CONFIG) || "null") ||
+      DEFAULT_CONFIG.appConfig;
+    const fullAppConfig =
+      JSON.parse(localStorage.getItem(oldKeys.FULL_APP_CONFIG) || "null") ||
+      DEFAULT_CONFIG.fullAppConfig;
+    const stylingConfig =
+      JSON.parse(localStorage.getItem(oldKeys.STYLING_CONFIG) || "null") ||
+      DEFAULT_CONFIG.stylingConfig;
+    const userConfig =
+      JSON.parse(localStorage.getItem(oldKeys.USER_CONFIG) || "null") ||
+      DEFAULT_CONFIG.userConfig;
+
+    const migratedConfig: ConfigurationData = {
+      standardMenus,
+      customMenus,
+      menuOrder,
+      homePageConfig,
+      appConfig,
+      fullAppConfig,
+      stylingConfig,
+      userConfig,
+    };
+
+    // Clean up old keys first to free up space
+    Object.values(oldKeys).forEach((key) => localStorage.removeItem(key));
+
+    // Save migrated config using new storage system
+    saveToStorage(migratedConfig);
+
+    console.log("Migration completed successfully");
+    return migratedConfig;
+  } catch (error) {
+    console.error("Failed to migrate from old storage format:", error);
+    // Clean up old keys on error to prevent future migration attempts
+    try {
+      Object.values(oldKeys).forEach((key) => localStorage.removeItem(key));
+    } catch (cleanupError) {
+      console.error("Failed to clean up old keys:", cleanupError);
+    }
+    return null;
+  }
+};
+
+// Hybrid storage functions
+const loadFromStorage = async (): Promise<ConfigurationData> => {
+  if (typeof window === "undefined") return DEFAULT_CONFIG;
+
+  try {
+    // First, try to load from localStorage (for backward compatibility)
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      console.log("Loaded configuration from localStorage:", parsed);
+      return parsed;
+    }
+
+    // Try to migrate from old format
+    const migrated = migrateFromOldStorage();
+    if (migrated) {
+      console.log("Successfully migrated from old storage format");
+      return migrated;
+    }
+
+    // Try to load from IndexedDB
+    const indexedDBData = await loadFromIndexedDB(STORAGE_KEY);
+    if (indexedDBData) {
+      return indexedDBData;
+    }
+
+    return DEFAULT_CONFIG;
+  } catch (error) {
+    console.error("Failed to load configuration:", error);
+    console.log("Using default configuration");
+    return DEFAULT_CONFIG;
+  }
+};
+
+const saveToStorage = async (config: ConfigurationData): Promise<void> => {
   if (typeof window === "undefined") return;
 
-  console.log(`[saveToStorage] Saving ${key}:`, value);
-  // console.trace(`[saveToStorage] Call stack for ${key}:`);
-
   try {
-    const serializedValue = JSON.stringify(value);
+    const isLarge = isLargeConfiguration(config);
 
-    // Check if we have enough storage space
-    const currentSize = getStorageSize();
-    const estimatedSize = estimateStorageSize(key, serializedValue);
-    const quota = getStorageQuota();
+    if (isLarge) {
+      // Save to IndexedDB for large configurations
+      await saveToIndexedDB(STORAGE_KEY, config);
 
-    console.log(`[saveToStorage] Current storage size: ${currentSize} bytes`);
-    console.log(`[saveToStorage] Estimated new size: ${estimatedSize} bytes`);
-    console.log(`[saveToStorage] Available quota: ${quota} bytes`);
+      // Remove from localStorage if it exists there
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (error) {
+        console.warn("Failed to remove from localStorage:", error);
+      }
+    } else {
+      // Save to localStorage for small configurations
+      const serializedValue = JSON.stringify(config);
+      localStorage.setItem(STORAGE_KEY, serializedValue);
 
-    // If we're approaching the quota, try to clean up old data
-    // But don't clean up if we're already in a cleanup operation
-    if (currentSize + estimatedSize > quota * 0.9) {
-      console.warn(
-        `[saveToStorage] Storage quota nearly exceeded, but skipping cleanup to avoid data loss`
-      );
-      // Don't call cleanupOldStorage() here as it would clear the data being saved
+      // Remove from IndexedDB if it exists there
+      try {
+        await removeFromIndexedDB(STORAGE_KEY);
+      } catch (error) {
+        console.warn("Failed to remove from IndexedDB:", error);
+      }
     }
-
-    localStorage.setItem(key, serializedValue);
-    console.log(
-      `[saveToStorage] Successfully saved ${key} to localStorage:`,
-      value
-    );
   } catch (error) {
-    console.error(`Failed to save ${key} to localStorage:`, error);
+    console.error("Failed to save configuration:", error);
 
-    // If it's a quota exceeded error, log the error but don't attempt cleanup
-    // as it would clear the data being saved
-    if (error instanceof Error && error.name === "QuotaExceededError") {
-      console.warn(
-        `[saveToStorage] Quota exceeded for ${key}, but skipping cleanup to avoid data loss`
-      );
-      console.warn(
-        `[saveToStorage] Consider manually clearing some data or using a smaller configuration`
-      );
+    // Fallback: try localStorage if IndexedDB fails
+    if (error instanceof Error && error.message.includes("IndexedDB")) {
+      console.log("IndexedDB failed, trying localStorage fallback");
+      try {
+        const serializedValue = JSON.stringify(config);
+        localStorage.setItem(STORAGE_KEY, serializedValue);
+        console.log(
+          "Successfully saved configuration to localStorage fallback"
+        );
+      } catch (fallbackError) {
+        console.error("Fallback localStorage save also failed:", fallbackError);
+      }
     }
-
-    onError?.(
-      `Failed to save ${key}: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`
-    );
   }
 };
 
-// Load all configurations from localStorage
-export const loadAllConfigurations = () => {
-  const standardMenus = loadFromStorage(
-    STORAGE_KEYS.STANDARD_MENUS,
-    DEFAULT_CONFIG.standardMenus
-  ) as StandardMenu[];
-  const customMenus = loadFromStorage(
-    STORAGE_KEYS.CUSTOM_MENUS,
-    DEFAULT_CONFIG.customMenus
-  ) as CustomMenu[];
+// Global flag to prevent storage operations during import
+let isImportingConfiguration = false;
 
-  console.log(`[loadAllConfigurations] Loaded custom menus:`, customMenus);
-  console.log(
-    `[loadAllConfigurations] Custom menus count:`,
-    customMenus.length
-  );
-  const menuOrder = loadFromStorage(
-    STORAGE_KEYS.MENU_ORDER,
-    DEFAULT_CONFIG.menuOrder
-  ) as string[];
-  const homePageConfig = loadFromStorage(
-    STORAGE_KEYS.HOME_PAGE_CONFIG,
-    DEFAULT_CONFIG.homePageConfig
-  ) as HomePageConfig;
-  const appConfig = loadFromStorage(
-    STORAGE_KEYS.APP_CONFIG,
-    DEFAULT_CONFIG.appConfig
-  ) as AppConfig;
-  const fullAppConfig = loadFromStorage(
-    STORAGE_KEYS.FULL_APP_CONFIG,
-    DEFAULT_CONFIG.fullAppConfig
-  ) as FullAppConfig;
-  const stylingConfig = loadFromStorage(
-    STORAGE_KEYS.STYLING_CONFIG,
-    DEFAULT_CONFIG.stylingConfig
-  ) as StylingConfig;
-  const userConfig = loadFromStorage(
-    STORAGE_KEYS.USER_CONFIG,
-    DEFAULT_CONFIG.userConfig
-  ) as UserConfig;
-
-  return {
-    standardMenus,
-    customMenus,
-    menuOrder,
-    homePageConfig,
-    appConfig,
-    fullAppConfig,
-    stylingConfig,
-    userConfig,
-  };
+export const setIsImportingConfiguration = (importing: boolean) => {
+  isImportingConfiguration = importing;
 };
 
-// Save individual configuration components
-export const saveStandardMenus = (
+// Load all configurations from storage
+export const loadAllConfigurations = async (): Promise<ConfigurationData> => {
+  return await loadFromStorage();
+};
+
+// Save all configurations to storage
+export const saveAllConfigurations = async (
+  config: ConfigurationData
+): Promise<void> => {
+  await saveToStorage(config);
+};
+
+// Individual save functions for backward compatibility
+export const saveStandardMenus = async (
   standardMenus: StandardMenu[],
   onError?: (message: string) => void
 ) => {
-  saveToStorage(STORAGE_KEYS.STANDARD_MENUS, standardMenus, onError);
+  try {
+    const currentConfig = await loadFromStorage();
+    const updatedConfig = { ...currentConfig, standardMenus };
+    await saveToStorage(updatedConfig);
+  } catch (error) {
+    const message = `Failed to save standard menus: ${
+      error instanceof Error ? error.message : "Unknown error"
+    }`;
+    console.error(message);
+    onError?.(message);
+  }
 };
 
-export const saveCustomMenus = (
+export const saveCustomMenus = async (
   customMenus: CustomMenu[],
   onError?: (message: string) => void
 ) => {
-  console.log(`[saveCustomMenus] Saving custom menus:`, customMenus);
-  console.log(`[saveCustomMenus] Custom menus count:`, customMenus.length);
-  console.log(`[saveCustomMenus] Storage key:`, STORAGE_KEYS.CUSTOM_MENUS);
-  saveToStorage(STORAGE_KEYS.CUSTOM_MENUS, customMenus, onError);
-  console.log(`[saveCustomMenus] Save operation completed`);
+  if (isImportingConfiguration) {
+    return;
+  }
+
+  try {
+    const currentConfig = await loadFromStorage();
+    const updatedConfig = { ...currentConfig, customMenus };
+    await saveToStorage(updatedConfig);
+  } catch (error) {
+    const message = `Failed to save custom menus: ${
+      error instanceof Error ? error.message : "Unknown error"
+    }`;
+    console.error(message);
+    onError?.(message);
+  }
 };
 
-export const saveMenuOrder = (
+export const saveMenuOrder = async (
   menuOrder: string[],
   onError?: (message: string) => void
 ) => {
-  saveToStorage(STORAGE_KEYS.MENU_ORDER, menuOrder, onError);
+  try {
+    const currentConfig = await loadFromStorage();
+    const updatedConfig = { ...currentConfig, menuOrder };
+    await saveToStorage(updatedConfig);
+  } catch (error) {
+    const message = `Failed to save menu order: ${
+      error instanceof Error ? error.message : "Unknown error"
+    }`;
+    console.error(message);
+    onError?.(message);
+  }
 };
 
-export const saveHomePageConfig = (
+export const saveHomePageConfig = async (
   homePageConfig: HomePageConfig,
   onError?: (message: string) => void
 ) => {
-  saveToStorage(STORAGE_KEYS.HOME_PAGE_CONFIG, homePageConfig, onError);
+  try {
+    const currentConfig = await loadFromStorage();
+    const updatedConfig = { ...currentConfig, homePageConfig };
+    await saveToStorage(updatedConfig);
+  } catch (error) {
+    const message = `Failed to save home page config: ${
+      error instanceof Error ? error.message : "Unknown error"
+    }`;
+    console.error(message);
+    onError?.(message);
+  }
 };
 
-export const saveAppConfig = (
+export const saveAppConfig = async (
   appConfig: AppConfig,
   onError?: (message: string) => void
 ) => {
-  console.log(`[saveAppConfig] Saving app config:`, appConfig);
-  console.trace(`[saveAppConfig] Call stack for ${STORAGE_KEYS.APP_CONFIG}:`);
-  saveToStorage(STORAGE_KEYS.APP_CONFIG, appConfig, onError);
+  if (isImportingConfiguration) {
+    return;
+  }
+
+  try {
+    const currentConfig = await loadFromStorage();
+    const updatedConfig = { ...currentConfig, appConfig };
+    await saveToStorage(updatedConfig);
+  } catch (error) {
+    const message = `Failed to save app config: ${
+      error instanceof Error ? error.message : "Unknown error"
+    }`;
+    console.error(message);
+    onError?.(message);
+  }
 };
 
-export const saveFullAppConfig = (
+export const saveFullAppConfig = async (
   fullAppConfig: FullAppConfig,
   onError?: (message: string) => void
 ) => {
-  saveToStorage(STORAGE_KEYS.FULL_APP_CONFIG, fullAppConfig, onError);
+  try {
+    const currentConfig = await loadFromStorage();
+    const updatedConfig = { ...currentConfig, fullAppConfig };
+    await saveToStorage(updatedConfig);
+  } catch (error) {
+    const message = `Failed to save full app config: ${
+      error instanceof Error ? error.message : "Unknown error"
+    }`;
+    console.error(message);
+    onError?.(message);
+  }
 };
 
-export const saveStylingConfig = (
+export const saveStylingConfig = async (
   stylingConfig: StylingConfig,
   onError?: (message: string) => void
 ) => {
-  saveToStorage(STORAGE_KEYS.STYLING_CONFIG, stylingConfig, onError);
+  try {
+    const currentConfig = await loadFromStorage();
+    const updatedConfig = { ...currentConfig, stylingConfig };
+    await saveToStorage(updatedConfig);
+  } catch (error) {
+    const message = `Failed to save styling config: ${
+      error instanceof Error ? error.message : "Unknown error"
+    }`;
+    console.error(message);
+    onError?.(message);
+  }
 };
 
-export const saveUserConfig = (
+export const saveUserConfig = async (
   userConfig: UserConfig,
   onError?: (message: string) => void
 ) => {
-  saveToStorage(STORAGE_KEYS.USER_CONFIG, userConfig, onError);
+  try {
+    const currentConfig = await loadFromStorage();
+    const updatedConfig = { ...currentConfig, userConfig };
+    await saveToStorage(updatedConfig);
+  } catch (error) {
+    const message = `Failed to save user config: ${
+      error instanceof Error ? error.message : "Unknown error"
+    }`;
+    console.error(message);
+    onError?.(message);
+  }
 };
 
 // Clear all configurations
-export const clearAllConfigurations = () => {
+export const clearAllConfigurations = async () => {
   if (typeof window === "undefined") return;
 
   try {
-    Object.values(STORAGE_KEYS).forEach((key) => {
-      localStorage.removeItem(key);
+    // Clear from both storage systems
+    localStorage.removeItem(STORAGE_KEY);
+    await removeFromIndexedDB(STORAGE_KEY);
+
+    // Also clear any old keys that might exist
+    const oldKeys = OLD_STORAGE_KEYS;
+    Object.values(oldKeys).forEach((key) => {
+      try {
+        localStorage.removeItem(key);
+      } catch (keyError) {
+        console.warn(`Failed to remove old key ${key}:`, keyError);
+      }
     });
-    console.log("Cleared all localStorage configurations");
 
-    // Reload default configurations after clearing
-    const defaultConfig = loadAllConfigurations();
-    console.log("Reloaded default configurations after clearing");
-
+    console.log("Cleared all storage configurations");
     return {
       success: true,
       message: "All configurations cleared and defaults restored",
     };
   } catch (error) {
-    console.error("Failed to clear localStorage:", error);
+    console.error("Failed to clear storage:", error);
     return {
       success: false,
       message: `Failed to clear configurations: ${
@@ -447,11 +606,11 @@ export const clearAllConfigurations = () => {
   }
 };
 
-// Clear storage and reload defaults with better error handling
-export const clearStorageAndReloadDefaults = (): {
+// Clear storage and reload defaults
+export const clearStorageAndReloadDefaults = async (): Promise<{
   success: boolean;
   message: string;
-} => {
+}> => {
   if (typeof window === "undefined") {
     return {
       success: false,
@@ -460,11 +619,19 @@ export const clearStorageAndReloadDefaults = (): {
   }
 
   try {
-    // Clear all our app's storage
-    cleanupOldStorage();
+    // Clear from both storage systems
+    localStorage.removeItem(STORAGE_KEY);
+    await removeFromIndexedDB(STORAGE_KEY);
 
-    // Force reload of default configurations
-    const defaultConfig = loadAllConfigurations();
+    // Also clear any old keys that might exist
+    const oldKeys = OLD_STORAGE_KEYS;
+    Object.values(oldKeys).forEach((key) => {
+      try {
+        localStorage.removeItem(key);
+      } catch (keyError) {
+        console.warn(`Failed to remove old key ${key}:`, keyError);
+      }
+    });
 
     return {
       success: true,
@@ -478,6 +645,82 @@ export const clearStorageAndReloadDefaults = (): {
       message: `Failed to clear storage: ${
         error instanceof Error ? error.message : "Unknown error"
       }`,
+    };
+  }
+};
+
+// Storage health check
+export const checkStorageHealth = async (): Promise<{
+  healthy: boolean;
+  currentSize: number;
+  quota: number;
+  usagePercentage: number;
+  message: string;
+  storageType: "localStorage" | "indexedDB" | "none";
+}> => {
+  if (typeof window === "undefined") {
+    return {
+      healthy: false,
+      currentSize: 0,
+      quota: 0,
+      usagePercentage: 0,
+      message: "Storage not available in server environment",
+      storageType: "none",
+    };
+  }
+
+  try {
+    // Check localStorage
+    const localStorageData = localStorage.getItem(STORAGE_KEY);
+    if (localStorageData) {
+      const currentSize = localStorageData.length;
+      const quota = 5 * 1024 * 1024; // 5MB
+      const usagePercentage = (currentSize / quota) * 100;
+
+      return {
+        healthy: usagePercentage < 90,
+        currentSize,
+        quota,
+        usagePercentage,
+        message: `localStorage usage: ${usagePercentage.toFixed(1)}%`,
+        storageType: "localStorage",
+      };
+    }
+
+    // Check IndexedDB
+    const indexedDBData = await loadFromIndexedDB(STORAGE_KEY);
+    if (indexedDBData) {
+      const serialized = JSON.stringify(indexedDBData);
+      const currentSize = serialized.length;
+      const quota = 50 * 1024 * 1024; // 50MB for IndexedDB
+      const usagePercentage = (currentSize / quota) * 100;
+
+      return {
+        healthy: usagePercentage < 90,
+        currentSize,
+        quota,
+        usagePercentage,
+        message: `IndexedDB usage: ${usagePercentage.toFixed(1)}%`,
+        storageType: "indexedDB",
+      };
+    }
+
+    return {
+      healthy: true,
+      currentSize: 0,
+      quota: 0,
+      usagePercentage: 0,
+      message: "No stored configuration found",
+      storageType: "none",
+    };
+  } catch (error) {
+    return {
+      healthy: false,
+      currentSize: 0,
+      quota: 0,
+      usagePercentage: 0,
+      message: "Unable to check storage health",
+      storageType: "none",
     };
   }
 };
@@ -552,6 +795,7 @@ export const loadConfigurationFromSource = async (
       "appConfig",
       "fullAppConfig",
       "stylingConfig",
+      "userConfig",
     ];
     for (const field of requiredFields) {
       if (!configData[field]) {
@@ -593,6 +837,26 @@ export const loadConfigurationFromSource = async (
       hasStylingConfig: !!mergedConfig.stylingConfig,
       hasUserConfig: !!mergedConfig.userConfig,
     });
+
+    // Debug user configuration
+    console.log("User configuration details:", {
+      users: mergedConfig.userConfig.users?.length || 0,
+      currentUserId: mergedConfig.userConfig.currentUserId,
+      userConfig: mergedConfig.userConfig,
+    });
+
+    // Debug standard menus for models
+    console.log(
+      "Standard menus with models:",
+      mergedConfig.standardMenus.map((menu) => ({
+        id: menu.id,
+        name: menu.name,
+        spotterModelId: menu.spotterModelId,
+        searchDataSource: menu.searchDataSource,
+        searchTokenString: menu.searchTokenString,
+        runSearch: menu.runSearch,
+      }))
+    );
 
     // Validate that the imported data has the correct structure
     if (!Array.isArray(mergedConfig.standardMenus)) {
@@ -637,6 +901,7 @@ export interface ConfigurationUpdateFunctions {
   addCustomMenu: (menu: CustomMenu) => void;
   clearCustomMenus?: () => void;
   updateHomePageConfig: (config: HomePageConfig) => void;
+  setIsImportingConfiguration?: (isImporting: boolean) => void;
   updateAppConfig: (config: AppConfig, bypassClusterWarning?: boolean) => void;
   updateFullAppConfig: (config: FullAppConfig) => void;
   updateStylingConfig: (config: StylingConfig) => void;
@@ -644,8 +909,34 @@ export interface ConfigurationUpdateFunctions {
   setMenuOrder?: (order: string[]) => void;
 }
 
-// Apply configuration to the app state
-export const applyConfiguration = (
+// Save configuration directly to storage (synchronous approach)
+export const saveConfigurationToStorage = async (
+  config: ConfigurationData
+): Promise<void> => {
+  console.log("=== Saving Configuration to Storage ===");
+  console.log("Configuration to save:", {
+    standardMenus: config.standardMenus.length,
+    customMenus: config.customMenus.length,
+    menuOrder: config.menuOrder.length,
+    hasHomePageConfig: !!config.homePageConfig,
+    hasAppConfig: !!config.appConfig,
+    hasFullAppConfig: !!config.fullAppConfig,
+    hasStylingConfig: !!config.stylingConfig,
+    hasUserConfig: !!config.userConfig,
+  });
+
+  try {
+    // Save the entire configuration at once
+    await saveToStorage(config);
+    console.log("Configuration saved to storage successfully");
+  } catch (error) {
+    console.error("Failed to save configuration to storage:", error);
+    throw error;
+  }
+};
+
+// Apply configuration to the app state (legacy approach - kept for backward compatibility)
+export const applyConfiguration = async (
   config: ConfigurationData,
   updateFunctions: ConfigurationUpdateFunctions
 ) => {
@@ -661,7 +952,12 @@ export const applyConfiguration = (
     hasUserConfig: !!config.userConfig,
   });
 
-  // Apply app config
+  // Set import flag to prevent auto-save loops
+  if (updateFunctions.setIsImportingConfiguration) {
+    updateFunctions.setIsImportingConfiguration(true);
+  }
+
+  // Apply app config first
   console.log("Applying app config:", config.appConfig);
   console.log("About to call updateAppConfig with bypassClusterWarning=true");
   console.trace("[applyConfiguration] Call stack before updateAppConfig:");
@@ -701,6 +997,10 @@ export const applyConfiguration = (
   });
   updateFunctions.updateStylingConfig(safeStylingConfig);
   console.log("=== Styling Configuration Applied ===");
+
+  // Apply user config early to ensure proper access control
+  console.log("Applying user config:", config.userConfig);
+  updateFunctions.updateUserConfig(config.userConfig);
 
   // Apply standard menus - batch updates to reduce save operations
   console.log("Applying standard menus:", config.standardMenus.length);
@@ -852,7 +1152,10 @@ export const applyConfiguration = (
 
   // Apply all custom menus from the configuration
   console.log("About to apply custom menus:", config.customMenus);
-  config.customMenus.forEach((menu, index) => {
+
+  // Apply custom menus synchronously to ensure they're all processed
+  for (let index = 0; index < config.customMenus.length; index++) {
+    const menu = config.customMenus[index];
     if (menu.id && menu.name) {
       console.log(`Applying custom menu ${index + 1}:`, menu.name, menu.id);
       try {
@@ -864,8 +1167,12 @@ export const applyConfiguration = (
     } else {
       console.warn(`Skipping invalid custom menu at index ${index}:`, menu);
     }
-  });
+  }
   console.log("Finished applying custom menus");
+
+  // Add a longer delay to ensure storage operations complete
+  console.log("Waiting for storage operations to complete...");
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   // Apply menu order if available
   if (config.menuOrder.length > 0 && updateFunctions.setMenuOrder) {
@@ -903,11 +1210,17 @@ export const applyConfiguration = (
   console.log("Applying full app config:", config.fullAppConfig);
   updateFunctions.updateFullAppConfig(config.fullAppConfig);
 
-  // Apply user config
-  console.log("Applying user config:", config.userConfig);
-  updateFunctions.updateUserConfig(config.userConfig);
-
   console.log("=== Configuration Applied Successfully ===");
+
+  // Clear import flag after a delay to allow state updates to complete
+  setTimeout(() => {
+    if (updateFunctions.setIsImportingConfiguration) {
+      updateFunctions.setIsImportingConfiguration(false);
+      console.log(
+        "[Config Service] Configuration import completed, auto-save re-enabled"
+      );
+    }
+  }, 1000);
 };
 
 // Export configuration as JSON file
@@ -947,5 +1260,115 @@ export const exportConfiguration = (
     console.log("Configuration exported successfully");
   } catch (error) {
     console.error("Error exporting configuration:", error);
+  }
+};
+
+// Simplified configuration loading function
+export const loadConfigurationSimplified = async (
+  source: ConfigurationSource,
+  onProgress?: (message: string, progress?: number) => void
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    onProgress?.("Starting configuration load...", 10);
+
+    // Step 1: Clear current configuration from storage
+    onProgress?.("Clearing current configuration...", 20);
+    await clearStorageCompletely();
+
+    // Step 2: Load configuration from source
+    onProgress?.("Loading configuration from source...", 40);
+    let configData: Record<string, unknown>;
+
+    if (source.type === "file") {
+      const file = source.data as File;
+      const text = await file.text();
+      configData = JSON.parse(text);
+      console.log("Loaded configuration from file:", configData);
+    } else {
+      const filename = source.data as string;
+      configData = await loadConfigurationFromGitHub(filename);
+      console.log("Loaded configuration from GitHub:", configData);
+    }
+
+    onProgress?.("Validating configuration...", 60);
+
+    // Step 3: Validate and merge configuration
+    const mergedConfig: ConfigurationData = {
+      standardMenus:
+        (configData.standardMenus as StandardMenu[]) ||
+        DEFAULT_CONFIG.standardMenus,
+      customMenus:
+        (configData.customMenus as CustomMenu[]) || DEFAULT_CONFIG.customMenus,
+      menuOrder: (configData.menuOrder as string[]) || DEFAULT_CONFIG.menuOrder,
+      homePageConfig:
+        (configData.homePageConfig as HomePageConfig) ||
+        DEFAULT_CONFIG.homePageConfig,
+      appConfig:
+        (configData.appConfig as AppConfig) || DEFAULT_CONFIG.appConfig,
+      fullAppConfig:
+        (configData.fullAppConfig as FullAppConfig) ||
+        DEFAULT_CONFIG.fullAppConfig,
+      stylingConfig:
+        (configData.stylingConfig as StylingConfig) ||
+        DEFAULT_CONFIG.stylingConfig,
+      userConfig:
+        (configData.userConfig as UserConfig) || DEFAULT_CONFIG.userConfig,
+    };
+
+    onProgress?.("Saving configuration to storage...", 80);
+
+    // Step 4: Save configuration to storage
+    await saveToStorage(mergedConfig);
+
+    onProgress?.("Configuration loaded successfully!", 100);
+
+    // Step 5: Refresh the page after a short delay
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error in loadConfigurationSimplified:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    };
+  }
+};
+
+// Helper function to completely clear storage
+const clearStorageCompletely = async (): Promise<void> => {
+  try {
+    // Clear localStorage
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(STORAGE_KEY);
+
+      // Clear old storage keys if they exist
+      const oldKeys = [
+        "tse-demo-builder-standard-menus",
+        "tse-demo-builder-custom-menus",
+        "tse-demo-builder-menu-order",
+        "tse-demo-builder-home-page-config",
+        "tse-demo-builder-app-config",
+        "tse-demo-builder-full-app-config",
+        "tse-demo-builder-styling-config",
+        "tse-demo-builder-user-config",
+      ];
+
+      oldKeys.forEach((key) => localStorage.removeItem(key));
+    }
+
+    // Clear IndexedDB
+    try {
+      await removeFromIndexedDB(STORAGE_KEY);
+    } catch (error) {
+      console.warn("Failed to clear IndexedDB:", error);
+    }
+
+    console.log("Storage cleared completely");
+  } catch (error) {
+    console.error("Error clearing storage:", error);
+    throw error;
   }
 };

@@ -30,13 +30,25 @@ import {
 import HiddenActionsEditor from "./HiddenActionsEditor";
 import TagFilterComponent from "./TagFilterComponent";
 import SearchableDropdown from "./SearchableDropdown";
+import LoadingDialog from "./LoadingDialog";
+
 import { fetchSavedConfigurations } from "../services/githubApi";
 import {
-  loadConfigurationFromSource,
   checkStorageHealth,
   clearStorageAndReloadDefaults,
-  ConfigurationUpdateFunctions,
 } from "../services/configurationService";
+
+// Configuration interfaces for compatibility
+interface ConfigurationData {
+  standardMenus: StandardMenu[];
+  customMenus: CustomMenu[];
+  menuOrder: string[];
+  homePageConfig: HomePageConfig;
+  appConfig: AppConfig;
+  fullAppConfig: FullAppConfig;
+  stylingConfig: StylingConfig;
+  userConfig: UserConfig;
+}
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -73,13 +85,15 @@ interface SettingsModalProps {
   exportConfiguration?: (customName?: string) => void;
   storageError?: string | null;
   setStorageError?: (error: string | null) => void;
-  storageWarning?: string | null;
-  setStorageWarning?: (warning: string | null) => void;
+  loadConfigurationSynchronously?: (
+    config: ConfigurationData,
+    onProgress?: (progress: number, message: string) => void
+  ) => Promise<void>;
+  setIsImportingConfiguration?: (isImporting: boolean) => void;
 
   initialTab?: string;
   initialSubTab?: string;
   onTabChange?: (tab: string, subTab?: string) => void;
-  isBypassMode?: boolean;
 }
 
 interface Tab {
@@ -1818,8 +1832,8 @@ function CustomMenusContent({
     setIsCreating(false);
     hasSavedRef.current = false; // Reset the save flag
     onUnsavedChange?.(false);
-    onCancelEdit?.();
-  }, [onUnsavedChange, onCancelEdit]);
+    // Remove the onCancelEdit callback to prevent infinite loop
+  }, [onUnsavedChange]);
 
   const handleEditMenu = (menu: CustomMenu) => {
     setEditingMenu({ ...menu });
@@ -3658,8 +3672,8 @@ function ConfigurationContent({
     useState<string>("");
 
   const subTabs = [
-    { id: "general", name: "General", icon: "⚙️" },
-    { id: "embedFlags", name: "Embed Flags", icon: "🚩" },
+    { id: "general", name: "General", icon: "settings" },
+    { id: "embedFlags", name: "Embed Flags", icon: "flag" },
   ];
 
   // Load saved configurations from GitHub
@@ -3718,7 +3732,7 @@ function ConfigurationContent({
               gap: "8px",
             }}
           >
-            <span style={{ fontSize: "16px" }}>{tab.icon}</span>
+            <MaterialIcon icon={tab.icon} size={16} />
             <span>{tab.name}</span>
           </button>
         ))}
@@ -3737,6 +3751,115 @@ function ConfigurationContent({
             >
               General Configuration
             </h4>
+
+            {/* Configuration Action Buttons */}
+            <div
+              style={{
+                marginBottom: "32px",
+                padding: "20px",
+                backgroundColor: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: "8px",
+                display: "flex",
+                gap: "12px",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                <button
+                  onClick={() => setShowExportDialog(true)}
+                  style={{
+                    padding: "10px 20px",
+                    backgroundColor: "#059669",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                  }}
+                >
+                  Export Configuration
+                </button>
+                <label
+                  style={{
+                    padding: "10px 20px",
+                    backgroundColor: "#3b82f6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    display: "inline-block",
+                  }}
+                >
+                  Import Configuration
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={async (e) => {
+                      console.log("File input onChange triggered");
+                      const file = e.target.files?.[0];
+                      console.log("Selected file:", file);
+                      if (file) {
+                        console.log(
+                          "Calling loadConfigurationSimplified with file:",
+                          file.name
+                        );
+
+                        // Trigger the configuration loading
+                        const event = new CustomEvent("loadConfiguration", {
+                          detail: { type: "file", data: file },
+                        });
+                        window.dispatchEvent(event);
+                      } else {
+                        console.log("No file selected");
+                      }
+                      // Reset the input
+                      e.target.value = "";
+                    }}
+                    style={{ display: "none" }}
+                  />
+                </label>
+                <button
+                  onClick={() => {
+                    setShowGitHubDialog(true);
+                    loadSavedConfigurations();
+                  }}
+                  style={{
+                    padding: "10px 20px",
+                    backgroundColor: "#8b5cf6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                  }}
+                >
+                  Load from GitHub
+                </button>
+              </div>
+
+              <button
+                onClick={clearAllConfigurations}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: "#dc2626",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Clear All Configurations
+              </button>
+            </div>
 
             <div
               style={{
@@ -3867,47 +3990,6 @@ function ConfigurationContent({
                     }}
                   >
                     URL to your application logo (optional)
-                  </p>
-                </div>
-
-                <div style={{ marginBottom: "24px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontWeight: "500",
-                      fontSize: "14px",
-                    }}
-                  >
-                    Early Access Flags
-                  </label>
-                  <textarea
-                    value={appConfig.earlyAccessFlags}
-                    onChange={(e) =>
-                      updateAppConfig({
-                        ...appConfig,
-                        earlyAccessFlags: e.target.value,
-                      })
-                    }
-                    placeholder="Enter early access flags (one per line)"
-                    rows={4}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "4px",
-                      fontSize: "14px",
-                      resize: "vertical",
-                    }}
-                  />
-                  <p
-                    style={{
-                      margin: "4px 0 0 0",
-                      fontSize: "12px",
-                      color: "#6b7280",
-                    }}
-                  >
-                    Feature flags for early access features (optional)
                   </p>
                 </div>
 
@@ -4294,49 +4376,22 @@ function ConfigurationContent({
                               selectedConfiguration
                             );
 
-                            const updateFunctions: ConfigurationUpdateFunctions =
-                              {
-                                updateAppConfig: updateAppConfig!,
-                                updateStylingConfig: updateStylingConfig!,
-                                updateStandardMenu: updateStandardMenu!,
-                                addCustomMenu: addCustomMenu!,
-                                setMenuOrder: setMenuOrder!,
-                                updateUserConfig: updateUserConfig!,
-                                updateHomePageConfig: updateHomePageConfig!,
-                                updateFullAppConfig: updateFullAppConfig!,
-                              };
-
-                            const result = await loadConfigurationFromSource(
-                              {
+                            // Trigger the configuration loading
+                            const event = new CustomEvent("loadConfiguration", {
+                              detail: {
                                 type: "github",
                                 data: selectedConfiguration,
                               },
-                              updateFunctions
-                            );
-
-                            if (!result.success || !result.data) {
-                              throw new Error(
-                                result.error || "Failed to load configuration"
-                              );
-                            }
-
-                            console.log(
-                              "Configuration loaded and applied successfully!"
-                            );
+                            });
+                            window.dispatchEvent(event);
 
                             // Close the dialog
                             setShowGitHubDialog(false);
                             setSelectedConfiguration("");
                           } catch (error) {
                             console.error(
-                              "Settings modal: Error loading configuration:",
+                              "Error loading configuration:",
                               error
-                            );
-                            alert(
-                              "Failed to load configuration: " +
-                                (error instanceof Error
-                                  ? error.message
-                                  : "Unknown error")
                             );
                           }
                         }
@@ -4363,240 +4418,6 @@ function ConfigurationContent({
                 </div>
               </div>
             )}
-
-            {/* Action Buttons */}
-            <div
-              style={{
-                marginTop: "32px",
-                paddingTop: "24px",
-                borderTop: "1px solid #e5e7eb",
-                display: "flex",
-                gap: "12px",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div style={{ display: "flex", gap: "12px" }}>
-                <button
-                  onClick={() => setShowExportDialog(true)}
-                  style={{
-                    padding: "8px 16px",
-                    backgroundColor: "#059669",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Export Configuration
-                </button>
-                <label
-                  style={{
-                    padding: "8px 16px",
-                    backgroundColor: "#3b82f6",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    display: "inline-block",
-                  }}
-                >
-                  Import Configuration
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={async (e) => {
-                      console.log("File input onChange triggered");
-                      const file = e.target.files?.[0];
-                      console.log("Selected file:", file);
-                      if (file) {
-                        console.log(
-                          "Calling loadConfigurationFromSource with file:",
-                          file.name
-                        );
-
-                        try {
-                          const result = await loadConfigurationFromSource(
-                            {
-                              type: "file",
-                              data: file,
-                            },
-                            {
-                              updateAppConfig: updateAppConfig!,
-                              updateStylingConfig: updateStylingConfig!,
-                              updateStandardMenu: updateStandardMenu!,
-                              addCustomMenu: addCustomMenu!,
-                              setMenuOrder: setMenuOrder!,
-                              updateUserConfig: updateUserConfig!,
-                              updateHomePageConfig: updateHomePageConfig!,
-                              updateFullAppConfig: updateFullAppConfig!,
-                            }
-                          );
-
-                          if (!result.success || !result.data) {
-                            throw new Error(
-                              result.error || "Failed to load configuration"
-                            );
-                          }
-
-                          console.log(
-                            "Configuration loaded and applied successfully!"
-                          );
-                        } catch (error) {
-                          console.error(
-                            "Settings modal: Error loading configuration:",
-                            error
-                          );
-                          alert(
-                            "Failed to load configuration: " +
-                              (error instanceof Error
-                                ? error.message
-                                : "Unknown error")
-                          );
-                        }
-                      } else {
-                        console.log("No file selected");
-                      }
-                      // Reset the input
-                      e.target.value = "";
-                    }}
-                    style={{ display: "none" }}
-                  />
-                </label>
-                <button
-                  onClick={() => {
-                    setShowGitHubDialog(true);
-                    loadSavedConfigurations();
-                  }}
-                  style={{
-                    padding: "8px 16px",
-                    backgroundColor: "#8b5cf6",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Load from GitHub
-                </button>
-              </div>
-              <div
-                style={{
-                  marginTop: "20px",
-                  padding: "16px",
-                  backgroundColor: "#fef3c7",
-                  border: "1px solid #f59e0b",
-                  borderRadius: "8px",
-                }}
-              >
-                <h5
-                  style={{
-                    fontSize: "16px",
-                    fontWeight: "600",
-                    marginBottom: "12px",
-                    color: "#92400e",
-                  }}
-                >
-                  Storage Management
-                </h5>
-                <p
-                  style={{
-                    fontSize: "14px",
-                    color: "#92400e",
-                    marginBottom: "12px",
-                  }}
-                >
-                  If you encounter storage quota errors, you can clear browser
-                  storage to free up space.
-                </p>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <button
-                    onClick={() => {
-                      if (typeof window !== "undefined") {
-                        // Clear all localStorage
-                        localStorage.clear();
-                        // Also clear any chunked data
-                        const keys = Object.keys(localStorage);
-                        keys.forEach((key) => {
-                          if (
-                            key.includes("_metadata") ||
-                            key.includes("_chunk_")
-                          ) {
-                            localStorage.removeItem(key);
-                          }
-                        });
-                        alert(
-                          "Browser storage cleared successfully. Please refresh the page."
-                        );
-                      }
-                    }}
-                    style={{
-                      padding: "6px 12px",
-                      backgroundColor: "#f59e0b",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontSize: "12px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Clear Browser Storage
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (typeof window !== "undefined") {
-                        const usage = Object.keys(localStorage).reduce(
-                          (total, key) => {
-                            const value = localStorage.getItem(key);
-                            return total + (key.length + (value?.length || 0));
-                          },
-                          0
-                        );
-                        alert(
-                          `Current storage usage: ${(usage / 1024).toFixed(
-                            2
-                          )} KB`
-                        );
-                      }
-                    }}
-                    style={{
-                      padding: "6px 12px",
-                      backgroundColor: "#6b7280",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontSize: "12px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Check Storage Usage
-                  </button>
-                </div>
-              </div>
-              <button
-                onClick={clearAllConfigurations}
-                style={{
-                  padding: "8px 16px",
-                  backgroundColor: "#dc2626",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                }}
-              >
-                Clear All Configurations
-              </button>
-            </div>
           </div>
         )}
 
@@ -4630,6 +4451,46 @@ function ConfigurationContent({
                 })
               }
             />
+
+            <div style={{ marginTop: "40px" }}>
+              <h5
+                style={{
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  marginBottom: "16px",
+                }}
+              >
+                URL Flags
+              </h5>
+              <p
+                style={{
+                  marginBottom: "16px",
+                  color: "#6b7280",
+                  fontSize: "14px",
+                }}
+              >
+                Feature flags for early access features (optional)
+              </p>
+              <textarea
+                value={appConfig.earlyAccessFlags}
+                onChange={(e) =>
+                  updateAppConfig({
+                    ...appConfig,
+                    earlyAccessFlags: e.target.value,
+                  })
+                }
+                placeholder="Enter URL flags (one per line)"
+                rows={4}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "4px",
+                  fontSize: "14px",
+                  resize: "vertical",
+                }}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -4662,13 +4523,12 @@ export default function SettingsModal({
   exportConfiguration,
   storageError,
   setStorageError,
-  storageWarning,
-  setStorageWarning,
+  loadConfigurationSynchronously,
+  setIsImportingConfiguration,
 
   initialTab,
   initialSubTab,
   onTabChange,
-  isBypassMode,
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState(initialTab || "configuration");
 
@@ -4701,6 +4561,9 @@ export default function SettingsModal({
   }>({ message: "", type: null });
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportFileName, setExportFileName] = useState("");
+  const [isLoadingConfiguration, setIsLoadingConfiguration] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
+  const [loadingProgress, setLoadingProgress] = useState(0);
 
   // Update pending state when props change (e.g., after import)
   useEffect(() => {
@@ -4870,21 +4733,54 @@ export default function SettingsModal({
   };
 
   const handleCustomMenuCancel = () => {
+    // Simply call the cancel function directly
     customMenuRef.current?.cancelEdit();
   };
 
   // Storage Management Component
   const StorageManagementContent = () => {
-    const [storageHealth, setStorageHealth] = useState(checkStorageHealth());
+    const [storageHealth, setStorageHealth] = useState<{
+      healthy: boolean;
+      currentSize: number;
+      quota: number;
+      usagePercentage: number;
+      message: string;
+      storageType: "localStorage" | "indexedDB" | "none";
+    }>({
+      healthy: true,
+      currentSize: 0,
+      quota: 0,
+      usagePercentage: 0,
+      message: "Loading...",
+      storageType: "none",
+    });
     const [isClearing, setIsClearing] = useState(false);
     const [clearResult, setClearResult] = useState<{
       success: boolean;
       message: string;
     } | null>(null);
 
-    const refreshStorageHealth = () => {
-      setStorageHealth(checkStorageHealth());
+    const refreshStorageHealth = async () => {
+      try {
+        const health = await checkStorageHealth();
+        setStorageHealth(health);
+      } catch (error) {
+        console.error("Failed to check storage health:", error);
+        setStorageHealth({
+          healthy: false,
+          currentSize: 0,
+          quota: 0,
+          usagePercentage: 0,
+          message: "Failed to check storage health",
+          storageType: "none",
+        });
+      }
     };
+
+    // Load storage health on mount
+    useEffect(() => {
+      refreshStorageHealth();
+    }, []);
 
     const handleClearStorage = async () => {
       if (
@@ -4896,7 +4792,7 @@ export default function SettingsModal({
         setClearResult(null);
 
         try {
-          const result = clearStorageAndReloadDefaults();
+          const result = await clearStorageAndReloadDefaults();
           setClearResult(result);
 
           if (result.success) {
@@ -5273,107 +5169,6 @@ export default function SettingsModal({
           </div>
         )}
 
-        {/* Storage Warning Notification */}
-        {storageWarning && (
-          <div
-            style={{
-              backgroundColor: "#fff3cd",
-              borderBottom: "1px solid #ffc107",
-              padding: "12px 24px",
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "12px",
-            }}
-          >
-            <div style={{ color: "#856404", fontSize: "16px" }}>💾</div>
-            <div style={{ flex: 1 }}>
-              <h4
-                style={{
-                  margin: "0 0 4px 0",
-                  color: "#856404",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                }}
-              >
-                Storage Warning
-              </h4>
-              <p
-                style={{
-                  margin: "0 0 8px 0",
-                  color: "#856404",
-                  fontSize: "12px",
-                  lineHeight: "1.4",
-                }}
-              >
-                {storageWarning}
-              </p>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button
-                  onClick={() => {
-                    if (
-                      typeof window !== "undefined" &&
-                      clearAllConfigurations
-                    ) {
-                      clearAllConfigurations();
-                      alert(
-                        "Browser storage cleared. Please refresh the page."
-                      );
-                    }
-                  }}
-                  style={{
-                    padding: "4px 8px",
-                    backgroundColor: "#ffc107",
-                    color: "#856404",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    fontSize: "11px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Clear Storage
-                </button>
-                <button
-                  onClick={() => setStorageWarning?.(null)}
-                  style={{
-                    padding: "4px 8px",
-                    backgroundColor: "transparent",
-                    color: "#856404",
-                    border: "1px solid #856404",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    fontSize: "11px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Bypass Mode Warning */}
-        {isBypassMode && (
-          <div
-            style={{
-              backgroundColor: "#fef3c7",
-              borderBottom: "1px solid #f59e0b",
-              padding: "12px 24px",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <span style={{ fontSize: "16px" }}>⚠️</span>
-            <span style={{ color: "#92400e", fontSize: "14px" }}>
-              <strong>Configuration Mode:</strong> You are accessing settings
-              without authentication. Changes to cluster configuration will be
-              saved, but ThoughtSpot features will not work until you log in.
-            </span>
-          </div>
-        )}
-
         {/* Tabs */}
         <div
           style={{
@@ -5590,6 +5385,13 @@ export default function SettingsModal({
           </div>
         </div>
       )}
+
+      {/* Configuration Loading Dialog */}
+      <LoadingDialog
+        isOpen={isLoadingConfiguration}
+        message={loadingMessage}
+        progress={loadingProgress}
+      />
     </div>
   );
 }
