@@ -114,6 +114,35 @@ export const DEFAULT_CONFIG: ConfigurationData = {
         backgroundColor: "#ffffff",
         foregroundColor: "#333333",
       },
+      buttons: {
+        primary: {
+          backgroundColor: "#3182ce",
+          foregroundColor: "#ffffff",
+          borderColor: "#3182ce",
+          hoverBackgroundColor: "#2c5aa0",
+          hoverForegroundColor: "#ffffff",
+        },
+        secondary: {
+          backgroundColor: "#ffffff",
+          foregroundColor: "#374151",
+          borderColor: "#d1d5db",
+          hoverBackgroundColor: "#f9fafb",
+          hoverForegroundColor: "#374151",
+        },
+      },
+      backgrounds: {
+        mainBackground: "#f7fafc",
+        contentBackground: "#ffffff",
+        cardBackground: "#ffffff",
+        borderColor: "#e2e8f0",
+      },
+      typography: {
+        primaryColor: "#1f2937",
+        secondaryColor: "#6b7280",
+        linkColor: "#3182ce",
+        linkHoverColor: "#2c5aa0",
+      },
+      selectedTheme: "default",
     },
     embeddedContent: {
       strings: {},
@@ -125,6 +154,10 @@ export const DEFAULT_CONFIG: ConfigurationData = {
       },
     },
     embedFlags: {},
+    embedDisplay: {
+      hideTitle: false,
+      hideDescription: false,
+    },
   },
   userConfig: {
     users: [],
@@ -1322,10 +1355,21 @@ export const loadConfigurationSimplified = async (
 
     onProgress?.("Configuration loaded successfully!", 100);
 
-    // Step 5: Refresh the page after a short delay
-    setTimeout(() => {
-      window.location.reload();
-    }, 500);
+    // Step 5: Check if we're on a custom menu page and redirect if needed
+    const currentPath = window.location.pathname;
+    const isOnCustomMenu = currentPath.startsWith("/custom/");
+
+    if (isOnCustomMenu) {
+      // Redirect to first available standard menu
+      setTimeout(() => {
+        redirectFromCustomMenu(mergedConfig.standardMenus);
+      }, 500);
+    } else {
+      // Not on a custom menu, just reload the page
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    }
 
     return { success: true };
   } catch (error) {
@@ -1334,6 +1378,36 @@ export const loadConfigurationSimplified = async (
       success: false,
       error: error instanceof Error ? error.message : "Unknown error occurred",
     };
+  }
+};
+
+// Helper function to redirect from custom menu to first available standard menu
+export const redirectFromCustomMenu = (standardMenus: StandardMenu[]): void => {
+  const currentPath = window.location.pathname;
+  const isOnCustomMenu = currentPath.startsWith("/custom/");
+
+  if (isOnCustomMenu) {
+    // Find the first available standard menu to redirect to
+    const firstStandardMenu = standardMenus.find((menu) => menu.enabled);
+    if (firstStandardMenu) {
+      const routeMap: { [key: string]: string } = {
+        home: "/",
+        favorites: "/favorites",
+        "my-reports": "/my-reports",
+        spotter: "/spotter",
+        search: "/search",
+        "full-app": "/full-app",
+      };
+
+      const redirectRoute = routeMap[firstStandardMenu.id] || "/";
+      console.log(`Redirecting from custom menu to: ${redirectRoute}`);
+
+      // Redirect to the first available standard menu
+      window.location.href = redirectRoute;
+    } else {
+      // Fallback to home if no standard menus are available
+      window.location.href = "/";
+    }
   }
 };
 

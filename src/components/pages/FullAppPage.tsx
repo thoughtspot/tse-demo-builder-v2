@@ -30,6 +30,12 @@ export default function FullAppPage() {
           ? (currentUser.access.hiddenActions.actions as any[]) // eslint-disable-line @typescript-eslint/no-explicit-any
           : [];
 
+        // Get custom CSS configuration from styling config
+        const customCSS = stylingConfig.embeddedContent.customCSS;
+        const cssUrl = stylingConfig.embeddedContent.cssUrl;
+        const strings = stylingConfig.embeddedContent.strings;
+        const stringIDs = stylingConfig.embeddedContent.stringIDs;
+
         const embedInstance = new AppEmbed(embedRef.current, {
           showPrimaryNavbar: fullAppConfig.showPrimaryNavbar,
           modularHomeExperience: true,
@@ -48,6 +54,19 @@ export default function FullAppPage() {
           pageId: Page.Home,
           ...(stylingConfig.embedFlags?.appEmbed || {}),
           ...(hiddenActions.length > 0 && { hiddenActions }),
+          customizations: {
+            content: {
+              strings: strings || {},
+              stringIDs: stringIDs || {},
+            },
+            style: {
+              customCSSUrl: cssUrl || undefined,
+              customCSS: {
+                variables: customCSS.variables || {},
+                rules_UNSTABLE: customCSS.rules_UNSTABLE || {},
+              },
+            },
+          } as any,
         });
 
         embedInstanceRef.current = embedInstance;
@@ -75,7 +94,14 @@ export default function FullAppPage() {
         embedInstanceRef.current.destroy();
       }
     };
-  }, [fullAppConfig.showPrimaryNavbar, fullAppConfig.hideHomepageLeftNav]);
+  }, [
+    fullAppConfig.showPrimaryNavbar,
+    fullAppConfig.hideHomepageLeftNav,
+    stylingConfig.embeddedContent.customCSS,
+    stylingConfig.embeddedContent.cssUrl,
+    stylingConfig.embeddedContent.strings,
+    stylingConfig.embeddedContent.stringIDs,
+  ]);
 
   if (error) {
     return (

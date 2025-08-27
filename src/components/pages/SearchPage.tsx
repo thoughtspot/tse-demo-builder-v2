@@ -80,6 +80,12 @@ export default function SearchPage({
             ? (currentUser.access.hiddenActions.actions as any[]) // eslint-disable-line @typescript-eslint/no-explicit-any
             : [];
 
+          // Get custom CSS configuration from styling config
+          const customCSS = context.stylingConfig.embeddedContent.customCSS;
+          const cssUrl = context.stylingConfig.embeddedContent.cssUrl;
+          const strings = context.stylingConfig.embeddedContent.strings;
+          const stringIDs = context.stylingConfig.embeddedContent.stringIDs;
+
           const embedConfig: ThoughtSpotSearchEmbedConfig = {
             frameParams: {},
             dataSource: finalSearchDataSource,
@@ -89,7 +95,20 @@ export default function SearchPage({
             ),
             ...finalEmbedFlags,
             ...(hiddenActions.length > 0 && { hiddenActions }),
-          };
+            customizations: {
+              content: {
+                strings: strings || {},
+                stringIDs: stringIDs || {},
+              },
+              style: {
+                customCSSUrl: cssUrl || undefined,
+                customCSS: {
+                  variables: customCSS.variables || {},
+                  rules_UNSTABLE: customCSS.rules_UNSTABLE || {},
+                },
+              },
+            },
+          } as any;
 
           // Only add searchOptions if searchTokenString is provided
           if (finalSearchTokenString && finalSearchTokenString.trim()) {
@@ -120,7 +139,15 @@ export default function SearchPage({
         embedInstanceRef.current.destroy();
       }
     };
-  }, [finalSearchDataSource, finalSearchTokenString, finalRunSearch]);
+  }, [
+    finalSearchDataSource,
+    finalSearchTokenString,
+    finalRunSearch,
+    context.stylingConfig.embeddedContent.customCSS,
+    context.stylingConfig.embeddedContent.cssUrl,
+    context.stylingConfig.embeddedContent.strings,
+    context.stylingConfig.embeddedContent.stringIDs,
+  ]);
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>

@@ -5,6 +5,7 @@ import ContentCard from "./ContentCard";
 import EmbedModal from "./EmbedModal";
 import ThoughtSpotEmbed from "./ThoughtSpotEmbed";
 import { ThoughtSpotContent } from "../types/thoughtspot";
+import { useAppContext } from "./Layout";
 
 interface ContentGridProps {
   title: string;
@@ -52,6 +53,7 @@ export default function ContentGrid({
   onBackClick,
   customContent,
 }: ContentGridProps) {
+  const context = useAppContext();
   const [content, setContent] = useState<ThoughtSpotContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -242,9 +244,16 @@ export default function ContentGrid({
             onClick={handleBackToGrid}
             style={{
               padding: "8px 16px",
-              backgroundColor: "#6b7280",
-              color: "white",
-              border: "none",
+              backgroundColor:
+                context.stylingConfig.application.buttons?.secondary
+                  ?.backgroundColor || "#6b7280",
+              color:
+                context.stylingConfig.application.buttons?.secondary
+                  ?.foregroundColor || "white",
+              border: `1px solid ${
+                context.stylingConfig.application.buttons?.secondary
+                  ?.borderColor || "#6b7280"
+              }`,
               borderRadius: "6px",
               cursor: "pointer",
               fontSize: "14px",
@@ -256,42 +265,79 @@ export default function ContentGrid({
             ← Back to {title || subtitle || "Content"}
           </button>
         </div>
-        <div
-          style={{
-            backgroundColor: "#f7fafc",
-            padding: "24px",
-            borderRadius: "8px",
-            border: "1px solid #e2e8f0",
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <h2
-            style={{
-              fontSize: "24px",
-              fontWeight: "600",
-              marginBottom: "16px",
-            }}
-          >
-            {selectedContent.name}
-          </h2>
-          {selectedContent.description && (
-            <p
-              style={{
-                color: "#4a5568",
-                lineHeight: "1.6",
-                marginBottom: "24px",
-              }}
-            >
-              {selectedContent.description}
-            </p>
-          )}
+        {!context.stylingConfig.embedDisplay?.hideTitle ||
+        (selectedContent.description &&
+          !context.stylingConfig.embedDisplay?.hideDescription) ? (
           <div
             style={{
-              border: "1px solid #e2e8f0",
+              backgroundColor:
+                context.stylingConfig.application.backgrounds?.cardBackground ||
+                "#f7fafc",
+              padding: "24px",
               borderRadius: "8px",
-              backgroundColor: "white",
+              border: `1px solid ${
+                context.stylingConfig.application.backgrounds?.borderColor ||
+                "#e2e8f0"
+              }`,
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {!context.stylingConfig.embedDisplay?.hideTitle && (
+              <h2
+                style={{
+                  fontSize: "24px",
+                  fontWeight: "600",
+                  marginBottom: "16px",
+                }}
+              >
+                {selectedContent.name}
+              </h2>
+            )}
+            {selectedContent.description &&
+              !context.stylingConfig.embedDisplay?.hideDescription && (
+                <p
+                  style={{
+                    color: "#4a5568",
+                    lineHeight: "1.6",
+                    marginBottom: context.stylingConfig.embedDisplay?.hideTitle
+                      ? "0"
+                      : "24px",
+                  }}
+                >
+                  {selectedContent.description}
+                </p>
+              )}
+            <div
+              style={{
+                border: "1px solid #e2e8f0",
+                borderRadius: "8px",
+                backgroundColor: "white",
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <ThoughtSpotEmbed
+                content={selectedContent}
+                width="100%"
+                height="100%"
+                onLoad={() => {}}
+                onError={(error) =>
+                  console.error(
+                    "Content load error for",
+                    selectedContent.name,
+                    ":",
+                    error
+                  )
+                }
+              />
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
               flex: 1,
               display: "flex",
               flexDirection: "column",
@@ -312,7 +358,7 @@ export default function ContentGrid({
               }
             />
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -326,6 +372,9 @@ export default function ContentGrid({
               fontSize: "32px",
               fontWeight: "bold",
               marginBottom: "24px",
+              color:
+                context.stylingConfig.application.typography?.primaryColor ||
+                "#1f2937",
             }}
           >
             {title}
@@ -334,10 +383,15 @@ export default function ContentGrid({
 
         <div
           style={{
-            backgroundColor: "#f7fafc",
+            backgroundColor:
+              context.stylingConfig.application.backgrounds?.cardBackground ||
+              "#f7fafc",
             padding: "24px",
             borderRadius: "8px",
-            border: "1px solid #e2e8f0",
+            border: `1px solid ${
+              context.stylingConfig.application.backgrounds?.borderColor ||
+              "#e2e8f0"
+            }`,
           }}
         >
           <h2
@@ -345,6 +399,9 @@ export default function ContentGrid({
               fontSize: "24px",
               fontWeight: "600",
               marginBottom: "16px",
+              color:
+                context.stylingConfig.application.typography?.primaryColor ||
+                "#1f2937",
             }}
           >
             {subtitle}
@@ -352,7 +409,9 @@ export default function ContentGrid({
 
           <p
             style={{
-              color: "#4a5568",
+              color:
+                context.stylingConfig.application.typography?.secondaryColor ||
+                "#4a5568",
               lineHeight: "1.6",
               marginBottom: "24px",
             }}
@@ -361,7 +420,15 @@ export default function ContentGrid({
           </p>
 
           <div style={{ textAlign: "center", padding: "40px" }}>
-            <div style={{ color: "#4a5568" }}>Loading content...</div>
+            <div
+              style={{
+                color:
+                  context.stylingConfig.application.typography
+                    ?.secondaryColor || "#4a5568",
+              }}
+            >
+              Loading content...
+            </div>
           </div>
         </div>
       </div>
@@ -377,6 +444,9 @@ export default function ContentGrid({
               fontSize: "32px",
               fontWeight: "bold",
               marginBottom: "24px",
+              color:
+                context.stylingConfig.application.typography?.primaryColor ||
+                "#1f2937",
             }}
           >
             {title}
@@ -385,10 +455,15 @@ export default function ContentGrid({
 
         <div
           style={{
-            backgroundColor: "#f7fafc",
+            backgroundColor:
+              context.stylingConfig.application.backgrounds?.cardBackground ||
+              "#f7fafc",
             padding: "24px",
             borderRadius: "8px",
-            border: "1px solid #e2e8f0",
+            border: `1px solid ${
+              context.stylingConfig.application.backgrounds?.borderColor ||
+              "#e2e8f0"
+            }`,
           }}
         >
           <h2
@@ -396,6 +471,9 @@ export default function ContentGrid({
               fontSize: "24px",
               fontWeight: "600",
               marginBottom: "16px",
+              color:
+                context.stylingConfig.application.typography?.primaryColor ||
+                "#1f2937",
             }}
           >
             {subtitle}
@@ -403,7 +481,9 @@ export default function ContentGrid({
 
           <p
             style={{
-              color: "#4a5568",
+              color:
+                context.stylingConfig.application.typography?.secondaryColor ||
+                "#4a5568",
               lineHeight: "1.6",
               marginBottom: "24px",
             }}
@@ -432,7 +512,14 @@ export default function ContentGrid({
     <div>
       {title && (
         <h1
-          style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "24px" }}
+          style={{
+            fontSize: "32px",
+            fontWeight: "bold",
+            marginBottom: "24px",
+            color:
+              context.stylingConfig.application.typography?.primaryColor ||
+              "#1f2937",
+          }}
         >
           {title}
         </h1>
@@ -440,10 +527,15 @@ export default function ContentGrid({
 
       <div
         style={{
-          backgroundColor: "#f7fafc",
+          backgroundColor:
+            context.stylingConfig.application.backgrounds?.cardBackground ||
+            "#f7fafc",
           padding: "24px",
           borderRadius: "8px",
-          border: "1px solid #e2e8f0",
+          border: `1px solid ${
+            context.stylingConfig.application.backgrounds?.borderColor ||
+            "#e2e8f0"
+          }`,
         }}
       >
         <h2
@@ -451,6 +543,9 @@ export default function ContentGrid({
             fontSize: "24px",
             fontWeight: "600",
             marginBottom: "16px",
+            color:
+              context.stylingConfig.application.typography?.primaryColor ||
+              "#1f2937",
           }}
         >
           {subtitle}
@@ -458,7 +553,9 @@ export default function ContentGrid({
 
         <p
           style={{
-            color: "#4a5568",
+            color:
+              context.stylingConfig.application.typography?.secondaryColor ||
+              "#4a5568",
             lineHeight: "1.6",
             marginBottom: "24px",
           }}
@@ -478,12 +575,19 @@ export default function ContentGrid({
           <div
             style={{
               padding: "12px 16px",
-              backgroundColor: "#f0f9ff",
-              border: "1px solid #0ea5e9",
+              backgroundColor:
+                context.stylingConfig.application.backgrounds?.cardBackground ||
+                "#f0f9ff",
+              border: `1px solid ${
+                context.stylingConfig.application.backgrounds?.borderColor ||
+                "#0ea5e9"
+              }`,
               borderRadius: "6px",
               marginBottom: "24px",
               fontSize: "14px",
-              color: "#0369a1",
+              color:
+                context.stylingConfig.application.typography?.primaryColor ||
+                "#0369a1",
             }}
           >
             <strong>Active Filters:</strong>
@@ -522,7 +626,14 @@ export default function ContentGrid({
 
         {content.length === 0 ? (
           <div style={{ textAlign: "center", padding: "40px" }}>
-            <p style={{ color: "#4a5568", marginBottom: "16px" }}>
+            <p
+              style={{
+                color:
+                  context.stylingConfig.application.typography
+                    ?.secondaryColor || "#4a5568",
+                marginBottom: "16px",
+              }}
+            >
               {(fetchFavorites &&
                 favoritesConfig &&
                 (favoritesConfig.contentType ||
@@ -539,9 +650,16 @@ export default function ContentGrid({
             <button
               style={{
                 padding: "12px 24px",
-                backgroundColor: "#38a169",
-                color: "white",
-                border: "none",
+                backgroundColor:
+                  context.stylingConfig.application.buttons?.primary
+                    ?.backgroundColor || "#38a169",
+                color:
+                  context.stylingConfig.application.buttons?.primary
+                    ?.foregroundColor || "white",
+                border: `1px solid ${
+                  context.stylingConfig.application.buttons?.primary
+                    ?.borderColor || "#38a169"
+                }`,
                 borderRadius: "6px",
                 cursor: "pointer",
               }}

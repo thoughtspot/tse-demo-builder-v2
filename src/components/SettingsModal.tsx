@@ -37,6 +37,8 @@ import {
   checkStorageHealth,
   clearStorageAndReloadDefaults,
 } from "../services/configurationService";
+import ThemeSelector from "./ThemeSelector";
+import { applyTheme } from "../types/themes";
 
 // Configuration interfaces for compatibility
 interface ConfigurationData {
@@ -2553,6 +2555,52 @@ function StylingContent({
     });
   };
 
+  const updateButtonStyles = (
+    buttonType: "primary" | "secondary",
+    field: string,
+    value: string
+  ) => {
+    updateStylingConfig({
+      ...stylingConfig,
+      application: {
+        ...stylingConfig.application,
+        buttons: {
+          ...stylingConfig.application.buttons,
+          [buttonType]: {
+            ...stylingConfig.application.buttons?.[buttonType],
+            [field]: value,
+          },
+        },
+      },
+    });
+  };
+
+  const updateBackgroundStyles = (field: string, value: string) => {
+    updateStylingConfig({
+      ...stylingConfig,
+      application: {
+        ...stylingConfig.application,
+        backgrounds: {
+          ...stylingConfig.application.backgrounds,
+          [field]: value,
+        },
+      },
+    });
+  };
+
+  const updateTypographyStyles = (field: string, value: string) => {
+    updateStylingConfig({
+      ...stylingConfig,
+      application: {
+        ...stylingConfig.application,
+        typography: {
+          ...stylingConfig.application.typography,
+          [field]: value,
+        },
+      },
+    });
+  };
+
   const updateEmbeddedContent = (field: string, value: unknown) => {
     updateStylingConfig({
       ...stylingConfig,
@@ -2621,6 +2669,23 @@ function StylingContent({
             >
               Application Styling
             </h4>
+
+            {/* Theme Selector */}
+            <ThemeSelector
+              selectedTheme={
+                stylingConfig.application.selectedTheme || "default"
+              }
+              onThemeChange={(themeId) => {
+                const newStyles = applyTheme(
+                  themeId,
+                  stylingConfig.application
+                );
+                updateStylingConfig({
+                  ...stylingConfig,
+                  application: newStyles,
+                });
+              }}
+            />
 
             {/* Top Bar Styling */}
             <div
@@ -2801,6 +2866,261 @@ function StylingContent({
                     updateDialogStyles("foregroundColor", value)
                   }
                   label="Foreground Color"
+                />
+              </div>
+            </div>
+
+            {/* Button Styling */}
+            <div
+              style={{
+                marginBottom: "32px",
+                padding: "20px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                backgroundColor: "#f9fafb",
+              }}
+            >
+              <h5
+                style={{
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  marginBottom: "16px",
+                }}
+              >
+                Primary Buttons
+              </h5>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                  marginBottom: "16px",
+                }}
+              >
+                <ColorPicker
+                  value={stylingConfig.application.buttons?.primary?.backgroundColor || "#3182ce"}
+                  onChange={(value) => updateButtonStyles("primary", "backgroundColor", value)}
+                  label="Background Color"
+                />
+                <ColorPicker
+                  value={stylingConfig.application.buttons?.primary?.foregroundColor || "#ffffff"}
+                  onChange={(value) => updateButtonStyles("primary", "foregroundColor", value)}
+                  label="Text Color"
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                  marginBottom: "16px",
+                }}
+              >
+                <ColorPicker
+                  value={stylingConfig.application.buttons?.primary?.borderColor || "#3182ce"}
+                  onChange={(value) => updateButtonStyles("primary", "borderColor", value)}
+                  label="Border Color"
+                />
+                <ColorPicker
+                  value={stylingConfig.application.buttons?.primary?.hoverBackgroundColor || "#2c5aa0"}
+                  onChange={(value) => updateButtonStyles("primary", "hoverBackgroundColor", value)}
+                  label="Hover Background"
+                />
+              </div>
+
+              <ColorPicker
+                value={stylingConfig.application.buttons?.primary?.hoverForegroundColor || "#ffffff"}
+                onChange={(value) => updateButtonStyles("primary", "hoverForegroundColor", value)}
+                label="Hover Text Color"
+              />
+            </div>
+
+            {/* Secondary Button Styling */}
+            <div
+              style={{
+                marginBottom: "32px",
+                padding: "20px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                backgroundColor: "#f9fafb",
+              }}
+            >
+              <h5
+                style={{
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  marginBottom: "16px",
+                }}
+              >
+                Secondary Buttons
+              </h5>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                  marginBottom: "16px",
+                }}
+              >
+                <ColorPicker
+                  value={stylingConfig.application.buttons?.secondary?.backgroundColor || "#ffffff"}
+                  onChange={(value) => updateButtonStyles("secondary", "backgroundColor", value)}
+                  label="Background Color"
+                />
+                <ColorPicker
+                  value={stylingConfig.application.buttons?.secondary?.foregroundColor || "#374151"}
+                  onChange={(value) => updateButtonStyles("secondary", "foregroundColor", value)}
+                  label="Text Color"
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                  marginBottom: "16px",
+                }}
+              >
+                <ColorPicker
+                  value={stylingConfig.application.buttons?.secondary?.borderColor || "#d1d5db"}
+                  onChange={(value) => updateButtonStyles("secondary", "borderColor", value)}
+                  label="Border Color"
+                />
+                <ColorPicker
+                  value={stylingConfig.application.buttons?.secondary?.hoverBackgroundColor || "#f9fafb"}
+                  onChange={(value) => updateButtonStyles("secondary", "hoverBackgroundColor", value)}
+                  label="Hover Background"
+                />
+              </div>
+
+              <ColorPicker
+                value={stylingConfig.application.buttons?.secondary?.hoverForegroundColor || "#374151"}
+                onChange={(value) => updateButtonStyles("secondary", "hoverForegroundColor", value)}
+                label="Hover Text Color"
+              />
+            </div>
+
+            {/* Background Styling */}
+            <div
+              style={{
+                marginBottom: "32px",
+                padding: "20px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                backgroundColor: "#f9fafb",
+              }}
+            >
+              <h5
+                style={{
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  marginBottom: "16px",
+                }}
+              >
+                Backgrounds
+              </h5>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                  marginBottom: "16px",
+                }}
+              >
+                <ColorPicker
+                  value={stylingConfig.application.backgrounds?.mainBackground || "#f7fafc"}
+                  onChange={(value) => updateBackgroundStyles("mainBackground", value)}
+                  label="Main Background"
+                />
+                <ColorPicker
+                  value={stylingConfig.application.backgrounds?.contentBackground || "#ffffff"}
+                  onChange={(value) => updateBackgroundStyles("contentBackground", value)}
+                  label="Content Background"
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                  marginBottom: "16px",
+                }}
+              >
+                <ColorPicker
+                  value={stylingConfig.application.backgrounds?.cardBackground || "#ffffff"}
+                  onChange={(value) => updateBackgroundStyles("cardBackground", value)}
+                  label="Card Background"
+                />
+                <ColorPicker
+                  value={stylingConfig.application.backgrounds?.borderColor || "#e2e8f0"}
+                  onChange={(value) => updateBackgroundStyles("borderColor", value)}
+                  label="Border Color"
+                />
+              </div>
+            </div>
+
+            {/* Typography Styling */}
+            <div
+              style={{
+                marginBottom: "32px",
+                padding: "20px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                backgroundColor: "#f9fafb",
+              }}
+            >
+              <h5
+                style={{
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  marginBottom: "16px",
+                }}
+              >
+                Typography
+              </h5>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                  marginBottom: "16px",
+                }}
+              >
+                <ColorPicker
+                  value={stylingConfig.application.typography?.primaryColor || "#1f2937"}
+                  onChange={(value) => updateTypographyStyles("primaryColor", value)}
+                  label="Primary Text Color"
+                />
+                <ColorPicker
+                  value={stylingConfig.application.typography?.secondaryColor || "#6b7280"}
+                  onChange={(value) => updateTypographyStyles("secondaryColor", value)}
+                  label="Secondary Text Color"
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                }}
+              >
+                <ColorPicker
+                  value={stylingConfig.application.typography?.linkColor || "#3182ce"}
+                  onChange={(value) => updateTypographyStyles("linkColor", value)}
+                  label="Link Color"
+                />
+                <ColorPicker
+                  value={stylingConfig.application.typography?.linkHoverColor || "#2c5aa0"}
+                  onChange={(value) => updateTypographyStyles("linkHoverColor", value)}
+                  label="Link Hover Color"
                 />
               </div>
             </div>
@@ -4444,10 +4764,17 @@ function ConfigurationContent({
             </p>
             <EmbedFlagsEditor
               embedFlags={stylingConfig.embedFlags || {}}
+              embedDisplay={stylingConfig.embedDisplay || {}}
               onChange={(embedFlags) =>
                 updateStylingConfig({
                   ...stylingConfig,
                   embedFlags,
+                })
+              }
+              onEmbedDisplayChange={(embedDisplay) =>
+                updateStylingConfig({
+                  ...stylingConfig,
+                  embedDisplay,
                 })
               }
             />

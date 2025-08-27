@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { ThoughtSpotContent } from "../types/thoughtspot";
 import ThoughtSpotEmbed from "./ThoughtSpotEmbed";
+import { useAppContext } from "./Layout";
 
 interface EmbedModalProps {
   content: ThoughtSpotContent | null;
@@ -15,6 +16,8 @@ export default function EmbedModal({
   isOpen,
   onClose,
 }: EmbedModalProps) {
+  const context = useAppContext();
+
   // Close modal on escape key
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -69,56 +72,103 @@ export default function EmbedModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div
-          style={{
-            padding: "16px 24px",
-            borderBottom: "1px solid #e2e8f0",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexShrink: 0,
-          }}
-        >
-          <div>
-            <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "600" }}>
-              {content.name}
-            </h2>
-            {content.description && (
-              <p
-                style={{
-                  margin: "4px 0 0 0",
-                  color: "#4a5568",
-                  fontSize: "14px",
-                }}
-              >
-                {content.description}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={onClose}
+        {(!context.stylingConfig.embedDisplay?.hideTitle ||
+          (content.description &&
+            !context.stylingConfig.embedDisplay?.hideDescription)) && (
+          <div
             style={{
-              background: "none",
-              border: "none",
-              fontSize: "24px",
-              cursor: "pointer",
-              color: "#4a5568",
-              padding: "4px",
-              borderRadius: "4px",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#f7fafc";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent";
+              padding: "16px 24px",
+              borderBottom: "1px solid #e2e8f0",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexShrink: 0,
             }}
           >
-            ×
-          </button>
-        </div>
+            <div>
+              {!context.stylingConfig.embedDisplay?.hideTitle && (
+                <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "600" }}>
+                  {content.name}
+                </h2>
+              )}
+              {content.description &&
+                !context.stylingConfig.embedDisplay?.hideDescription && (
+                  <p
+                    style={{
+                      margin: context.stylingConfig.embedDisplay?.hideTitle
+                        ? "0"
+                        : "4px 0 0 0",
+                      color: "#4a5568",
+                      fontSize: "14px",
+                    }}
+                  >
+                    {content.description}
+                  </p>
+                )}
+            </div>
+            <button
+              onClick={onClose}
+              style={{
+                background: "none",
+                border: "none",
+                fontSize: "24px",
+                cursor: "pointer",
+                color: "#4a5568",
+                padding: "4px",
+                borderRadius: "4px",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#f7fafc";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* Content */}
-        <div style={{ flex: 1, padding: "24px", overflow: "hidden" }}>
+        <div
+          style={{
+            flex: 1,
+            padding: "24px",
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          {/* Close button when header is hidden */}
+          {context.stylingConfig.embedDisplay?.hideTitle &&
+            (!content.description ||
+              context.stylingConfig.embedDisplay?.hideDescription) && (
+              <button
+                onClick={onClose}
+                style={{
+                  position: "absolute",
+                  top: "8px",
+                  right: "8px",
+                  background: "rgba(255, 255, 255, 0.9)",
+                  border: "1px solid #e2e8f0",
+                  fontSize: "20px",
+                  cursor: "pointer",
+                  color: "#4a5568",
+                  padding: "4px 8px",
+                  borderRadius: "4px",
+                  zIndex: 10,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor =
+                    "rgba(255, 255, 255, 1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor =
+                    "rgba(255, 255, 255, 0.9)";
+                }}
+              >
+                ×
+              </button>
+            )}
           <ThoughtSpotEmbed
             content={content}
             width="100%"

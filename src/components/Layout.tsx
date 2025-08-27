@@ -43,9 +43,11 @@ import {
   clearStorageAndReloadDefaults,
   saveConfigurationToStorage,
   setIsImportingConfiguration,
+  redirectFromCustomMenu,
 } from "../services/configurationService";
 import LoadingDialog from "./LoadingDialog";
 import ConfigurationLoader from "./ConfigurationLoader";
+import StylingProvider from "./StylingProvider";
 
 // Configuration interfaces for compatibility
 interface ConfigurationData {
@@ -193,6 +195,35 @@ const DEFAULT_CONFIG = {
         backgroundColor: "#ffffff",
         foregroundColor: "#333333",
       },
+      buttons: {
+        primary: {
+          backgroundColor: "#3182ce",
+          foregroundColor: "#ffffff",
+          borderColor: "#3182ce",
+          hoverBackgroundColor: "#2c5aa0",
+          hoverForegroundColor: "#ffffff",
+        },
+        secondary: {
+          backgroundColor: "#ffffff",
+          foregroundColor: "#374151",
+          borderColor: "#d1d5db",
+          hoverBackgroundColor: "#f9fafb",
+          hoverForegroundColor: "#374151",
+        },
+      },
+      backgrounds: {
+        mainBackground: "#f7fafc",
+        contentBackground: "#ffffff",
+        cardBackground: "#ffffff",
+        borderColor: "#e2e8f0",
+      },
+      typography: {
+        primaryColor: "#1f2937",
+        secondaryColor: "#6b7280",
+        linkColor: "#3182ce",
+        linkHoverColor: "#2c5aa0",
+      },
+      selectedTheme: "default",
     },
     embeddedContent: {
       strings: {},
@@ -204,6 +235,10 @@ const DEFAULT_CONFIG = {
       },
     },
     embedFlags: {},
+    embedDisplay: {
+      hideTitle: false,
+      hideDescription: false,
+    },
   } as StylingConfig,
   userConfig: {
     users: [],
@@ -743,6 +778,9 @@ export default function Layout({ children }: LayoutProps) {
 
       // Small delay to show completion
       await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Check if we're on a custom menu page and redirect if needed
+      redirectFromCustomMenu(loadedConfig.standardMenus);
 
       // Hide loading dialog
       setIsLoadingConfiguration(false);
@@ -1511,300 +1549,310 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <AppContext.Provider value={contextValue}>
-      <SessionChecker
-        thoughtspotUrl={appConfig.thoughtspotUrl}
-        onSessionStatusChange={handleSessionStatusChange}
-        onConfigureSettings={handleConfigureSettings}
-      >
-        <div
-          style={{ height: "100vh", display: "flex", flexDirection: "column" }}
+      <StylingProvider stylingConfig={stylingConfig}>
+        <SessionChecker
+          thoughtspotUrl={appConfig.thoughtspotUrl}
+          onSessionStatusChange={handleSessionStatusChange}
+          onConfigureSettings={handleConfigureSettings}
         >
-          {/* Top Bar */}
-          <TopBar
-            title={appConfig.applicationName || "TSE Demo Builder"}
-            logoUrl={
-              stylingConfig.application.topBar.logoUrl ||
-              appConfig.logo ||
-              "/ts.png"
-            }
-            users={userConfig.users.map((user) => ({
-              id: user.id,
-              name: user.name,
-            }))}
-            currentUser={
-              userConfig.users.find((u) => u.id === userConfig.currentUserId) ||
-              userConfig.users[0] || { id: "1", name: "User" }
-            }
-            onUserChange={handleUserChange}
-            backgroundColor={stylingConfig.application.topBar.backgroundColor}
-            foregroundColor={stylingConfig.application.topBar.foregroundColor}
-          />
-
-          {/* Main Content Area */}
-          <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-            {/* Side Navigation */}
-            <SideNav
-              onSettingsClick={() => setIsSettingsOpen(true)}
-              standardMenus={accessibleStandardMenus}
-              customMenus={accessibleCustomMenus}
-              menuOrder={menuOrder}
-              onMenuOrderChange={setMenuOrder}
-              userConfig={userConfig}
-              backgroundColor={
-                stylingConfig.application.sidebar.backgroundColor
+          <div
+            style={{
+              height: "100vh",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* Top Bar */}
+            <TopBar
+              title={appConfig.applicationName || "TSE Demo Builder"}
+              logoUrl={
+                stylingConfig.application.topBar.logoUrl ||
+                appConfig.logo ||
+                "/ts.png"
               }
-              foregroundColor={
-                stylingConfig.application.sidebar.foregroundColor
+              users={userConfig.users.map((user) => ({
+                id: user.id,
+                name: user.name,
+              }))}
+              currentUser={
+                userConfig.users.find(
+                  (u) => u.id === userConfig.currentUserId
+                ) ||
+                userConfig.users[0] || { id: "1", name: "User" }
               }
-              hoverColor={stylingConfig.application.sidebar.hoverColor}
-              selectedColor={stylingConfig.application.sidebar.selectedColor}
-              selectedTextColor={
-                stylingConfig.application.sidebar.selectedTextColor
-              }
+              onUserChange={handleUserChange}
+              backgroundColor={stylingConfig.application.topBar.backgroundColor}
+              foregroundColor={stylingConfig.application.topBar.foregroundColor}
             />
 
-            {/* Content Area */}
-            <div
-              style={{
-                flex: 1,
-                backgroundColor: "#ffffff",
-                overflow: "auto",
-                overflowX: "hidden",
-                padding: "24px",
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              <div style={{ flex: 1 }}>{children}</div>
-              {(appConfig.showFooter ?? true) && (
-                <Footer
-                  backgroundColor={
-                    stylingConfig.application.footer.backgroundColor
-                  }
-                  foregroundColor={
-                    stylingConfig.application.footer.foregroundColor
-                  }
-                />
-              )}
-            </div>
-          </div>
+            {/* Main Content Area */}
+            <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+              {/* Side Navigation */}
+              <SideNav
+                onSettingsClick={() => setIsSettingsOpen(true)}
+                standardMenus={accessibleStandardMenus}
+                customMenus={accessibleCustomMenus}
+                menuOrder={menuOrder}
+                onMenuOrderChange={setMenuOrder}
+                userConfig={userConfig}
+                backgroundColor={
+                  stylingConfig.application.sidebar.backgroundColor
+                }
+                foregroundColor={
+                  stylingConfig.application.sidebar.foregroundColor
+                }
+                hoverColor={stylingConfig.application.sidebar.hoverColor}
+                selectedColor={stylingConfig.application.sidebar.selectedColor}
+                selectedTextColor={
+                  stylingConfig.application.sidebar.selectedTextColor
+                }
+              />
 
-          {/* Settings Modal */}
-          <SettingsModal
-            isOpen={isSettingsOpen}
-            onClose={() => {
-              setIsSettingsOpen(false);
-              // Clear any storage errors when closing the modal
-              setStorageError(null);
-            }}
-            standardMenus={allStandardMenus}
-            updateStandardMenu={updateStandardMenu}
-            homePageConfig={homePageConfig}
-            updateHomePageConfig={updateHomePageConfig}
-            appConfig={appConfig}
-            updateAppConfig={updateAppConfig}
-            fullAppConfig={fullAppConfig}
-            updateFullAppConfig={updateFullAppConfig}
-            customMenus={allCustomMenus}
-            addCustomMenu={addCustomMenu}
-            updateCustomMenu={updateCustomMenu}
-            deleteCustomMenu={deleteCustomMenu}
-            clearCustomMenus={clearCustomMenus}
-            stylingConfig={stylingConfig}
-            updateStylingConfig={updateStylingConfig}
-            userConfig={userConfig}
-            updateUserConfig={updateUserConfig}
-            setMenuOrder={setMenuOrder}
-            clearAllConfigurations={clearAllConfigurations}
-            exportConfiguration={handleExportConfiguration}
-            storageError={storageError}
-            setStorageError={setStorageError}
-            loadConfigurationSynchronously={loadConfigurationSynchronously}
-            setIsImportingConfiguration={setIsImportingConfiguration}
-            initialTab={settingsInitialTab}
-            initialSubTab={settingsInitialSubTab}
-            onTabChange={(tab, subTab) => {
-              setSettingsInitialTab(tab);
-              if (subTab) {
-                setSettingsInitialSubTab(subTab);
-              }
-            }}
-          />
-
-          {/* Cluster Change Warning Dialog */}
-          {showClusterChangeWarning && (
-            <div
-              style={{
-                position: "fixed",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: "rgba(0, 0, 0, 0.5)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                zIndex: 10000,
-              }}
-            >
+              {/* Content Area */}
               <div
                 style={{
-                  backgroundColor: "white",
-                  borderRadius: "12px",
-                  padding: "32px",
-                  maxWidth: "500px",
-                  width: "90%",
-                  boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
+                  flex: 1,
+                  backgroundColor:
+                    stylingConfig.application.backgrounds?.contentBackground ||
+                    "#ffffff",
+                  overflow: "auto",
+                  overflowX: "hidden",
+                  padding: "24px",
+                  display: "flex",
+                  flexDirection: "column",
                 }}
               >
-                <div style={{ textAlign: "center", marginBottom: "24px" }}>
-                  <div style={{ fontSize: "48px", marginBottom: "16px" }}>
-                    ⚠️
-                  </div>
-                  <h2
-                    style={{
-                      margin: "0 0 16px 0",
-                      fontSize: "24px",
-                      fontWeight: "600",
-                      color: "#1f2937",
-                    }}
-                  >
-                    Change ThoughtSpot Cluster?
-                  </h2>
-                  <p
-                    style={{
-                      margin: "0 0 8px 0",
-                      fontSize: "16px",
-                      color: "#4b5563",
-                      lineHeight: "1.5",
-                    }}
-                  >
-                    You&apos;re about to change your ThoughtSpot cluster from:
-                  </p>
-                  <p
-                    style={{
-                      margin: "0 0 16px 0",
-                      fontSize: "14px",
-                      color: "#6b7280",
-                      fontFamily: "monospace",
-                      backgroundColor: "#f3f4f6",
-                      padding: "8px 12px",
-                      borderRadius: "4px",
-                    }}
-                  >
-                    {appConfig.thoughtspotUrl}
-                  </p>
-                  <p
-                    style={{
-                      margin: "0 0 8px 0",
-                      fontSize: "16px",
-                      color: "#4b5563",
-                      lineHeight: "1.5",
-                    }}
-                  >
-                    to:
-                  </p>
-                  <p
-                    style={{
-                      margin: "0 0 24px 0",
-                      fontSize: "14px",
-                      color: "#6b7280",
-                      fontFamily: "monospace",
-                      backgroundColor: "#f3f4f6",
-                      padding: "8px 12px",
-                      borderRadius: "4px",
-                    }}
-                  >
-                    {pendingClusterUrl}
-                  </p>
-                  <div
-                    style={{
-                      backgroundColor: "#fef3c7",
-                      border: "1px solid #f59e0b",
-                      borderRadius: "8px",
-                      padding: "16px",
-                      marginBottom: "24px",
-                    }}
-                  >
+                <div style={{ flex: 1 }}>{children}</div>
+                {(appConfig.showFooter ?? true) && (
+                  <Footer
+                    backgroundColor={
+                      stylingConfig.application.footer.backgroundColor
+                    }
+                    foregroundColor={
+                      stylingConfig.application.footer.foregroundColor
+                    }
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Settings Modal */}
+            <SettingsModal
+              isOpen={isSettingsOpen}
+              onClose={() => {
+                setIsSettingsOpen(false);
+                // Clear any storage errors when closing the modal
+                setStorageError(null);
+              }}
+              standardMenus={allStandardMenus}
+              updateStandardMenu={updateStandardMenu}
+              homePageConfig={homePageConfig}
+              updateHomePageConfig={updateHomePageConfig}
+              appConfig={appConfig}
+              updateAppConfig={updateAppConfig}
+              fullAppConfig={fullAppConfig}
+              updateFullAppConfig={updateFullAppConfig}
+              customMenus={allCustomMenus}
+              addCustomMenu={addCustomMenu}
+              updateCustomMenu={updateCustomMenu}
+              deleteCustomMenu={deleteCustomMenu}
+              clearCustomMenus={clearCustomMenus}
+              stylingConfig={stylingConfig}
+              updateStylingConfig={updateStylingConfig}
+              userConfig={userConfig}
+              updateUserConfig={updateUserConfig}
+              setMenuOrder={setMenuOrder}
+              clearAllConfigurations={clearAllConfigurations}
+              exportConfiguration={handleExportConfiguration}
+              storageError={storageError}
+              setStorageError={setStorageError}
+              loadConfigurationSynchronously={loadConfigurationSynchronously}
+              setIsImportingConfiguration={setIsImportingConfiguration}
+              initialTab={settingsInitialTab}
+              initialSubTab={settingsInitialSubTab}
+              onTabChange={(tab, subTab) => {
+                setSettingsInitialTab(tab);
+                if (subTab) {
+                  setSettingsInitialSubTab(subTab);
+                }
+              }}
+            />
+
+            {/* Cluster Change Warning Dialog */}
+            {showClusterChangeWarning && (
+              <div
+                style={{
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 10000,
+                }}
+              >
+                <div
+                  style={{
+                    backgroundColor: "white",
+                    borderRadius: "12px",
+                    padding: "32px",
+                    maxWidth: "500px",
+                    width: "90%",
+                    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
+                  }}
+                >
+                  <div style={{ textAlign: "center", marginBottom: "24px" }}>
+                    <div style={{ fontSize: "48px", marginBottom: "16px" }}>
+                      ⚠️
+                    </div>
+                    <h2
+                      style={{
+                        margin: "0 0 16px 0",
+                        fontSize: "24px",
+                        fontWeight: "600",
+                        color: "#1f2937",
+                      }}
+                    >
+                      Change ThoughtSpot Cluster?
+                    </h2>
                     <p
                       style={{
-                        margin: "0",
-                        fontSize: "14px",
-                        color: "#92400e",
+                        margin: "0 0 8px 0",
+                        fontSize: "16px",
+                        color: "#4b5563",
                         lineHeight: "1.5",
                       }}
                     >
-                      <strong>Important:</strong> Changing clusters will clear
-                      all your current configurations (styling, menus,
-                      customizations) to ensure compatibility with the new
-                      cluster. You can import saved configurations after
-                      connecting to the new cluster.
+                      You&apos;re about to change your ThoughtSpot cluster from:
                     </p>
+                    <p
+                      style={{
+                        margin: "0 0 16px 0",
+                        fontSize: "14px",
+                        color: "#6b7280",
+                        fontFamily: "monospace",
+                        backgroundColor: "#f3f4f6",
+                        padding: "8px 12px",
+                        borderRadius: "4px",
+                      }}
+                    >
+                      {appConfig.thoughtspotUrl}
+                    </p>
+                    <p
+                      style={{
+                        margin: "0 0 8px 0",
+                        fontSize: "16px",
+                        color: "#4b5563",
+                        lineHeight: "1.5",
+                      }}
+                    >
+                      to:
+                    </p>
+                    <p
+                      style={{
+                        margin: "0 0 24px 0",
+                        fontSize: "14px",
+                        color: "#6b7280",
+                        fontFamily: "monospace",
+                        backgroundColor: "#f3f4f6",
+                        padding: "8px 12px",
+                        borderRadius: "4px",
+                      }}
+                    >
+                      {pendingClusterUrl}
+                    </p>
+                    <div
+                      style={{
+                        backgroundColor: "#fef3c7",
+                        border: "1px solid #f59e0b",
+                        borderRadius: "8px",
+                        padding: "16px",
+                        marginBottom: "24px",
+                      }}
+                    >
+                      <p
+                        style={{
+                          margin: "0",
+                          fontSize: "14px",
+                          color: "#92400e",
+                          lineHeight: "1.5",
+                        }}
+                      >
+                        <strong>Important:</strong> Changing clusters will clear
+                        all your current configurations (styling, menus,
+                        customizations) to ensure compatibility with the new
+                        cluster. You can import saved configurations after
+                        connecting to the new cluster.
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "12px",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <button
+                      onClick={handleClusterChangeCancel}
+                      style={{
+                        padding: "12px 24px",
+                        backgroundColor: "#6b7280",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleClusterChangeConfirm}
+                      style={{
+                        padding: "12px 24px",
+                        backgroundColor: "#dc2626",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Change Cluster & Clear Config
+                    </button>
                   </div>
                 </div>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "12px",
-                    justifyContent: "center",
-                  }}
-                >
-                  <button
-                    onClick={handleClusterChangeCancel}
-                    style={{
-                      padding: "12px 24px",
-                      backgroundColor: "#6b7280",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleClusterChangeConfirm}
-                    style={{
-                      padding: "12px 24px",
-                      backgroundColor: "#dc2626",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Change Cluster & Clear Config
-                  </button>
-                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Chat Bubble */}
-          <ChatBubble />
+            {/* Chat Bubble */}
+            <ChatBubble />
 
-          {/* Loading Dialog */}
-          <LoadingDialog
-            isOpen={isLoadingConfiguration}
-            message={loadingMessage}
-            progress={loadingProgress}
-          />
+            {/* Loading Dialog */}
+            <LoadingDialog
+              isOpen={isLoadingConfiguration}
+              message={loadingMessage}
+              progress={loadingProgress}
+            />
 
-          {/* Configuration Loader */}
-          <ConfigurationLoader
-            onLoadStart={() => {}}
-            onLoadComplete={() => {}}
-            onLoadError={(error) => {
-              console.error("Configuration loading error:", error);
-              alert(`Configuration loading failed: ${error}`);
-            }}
-          />
-        </div>
-      </SessionChecker>
+            {/* Configuration Loader */}
+            <ConfigurationLoader
+              onLoadStart={() => {}}
+              onLoadComplete={() => {}}
+              onLoadError={(error) => {
+                console.error("Configuration loading error:", error);
+                alert(`Configuration loading failed: ${error}`);
+              }}
+            />
+          </div>
+        </SessionChecker>
+      </StylingProvider>
     </AppContext.Provider>
   );
 }

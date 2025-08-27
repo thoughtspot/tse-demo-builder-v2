@@ -9,17 +9,27 @@ interface EmbedFlagsEditorProps {
     searchEmbed?: Record<string, unknown>;
     appEmbed?: Record<string, unknown>;
   };
+  embedDisplay?: {
+    hideTitle?: boolean;
+    hideDescription?: boolean;
+  };
   onChange: (embedFlags: {
     spotterEmbed?: Record<string, unknown>;
     liveboardEmbed?: Record<string, unknown>;
     searchEmbed?: Record<string, unknown>;
     appEmbed?: Record<string, unknown>;
   }) => void;
+  onEmbedDisplayChange: (embedDisplay: {
+    hideTitle?: boolean;
+    hideDescription?: boolean;
+  }) => void;
 }
 
 export default function EmbedFlagsEditor({
   embedFlags,
+  embedDisplay = {},
   onChange,
+  onEmbedDisplayChange,
 }: EmbedFlagsEditorProps) {
   const [localFlags, setLocalFlags] = useState({
     spotterEmbed: JSON.stringify(embedFlags.spotterEmbed || {}, null, 2),
@@ -106,6 +116,105 @@ export default function EmbedFlagsEditor({
 
   return (
     <div>
+      {/* Embed Display Configuration */}
+      <div
+        style={{
+          marginBottom: "32px",
+          padding: "20px",
+          border: "1px solid #e2e8f0",
+          borderRadius: "8px",
+          backgroundColor: "#fafafa",
+        }}
+      >
+        <h4
+          style={{
+            fontSize: "18px",
+            fontWeight: "600",
+            marginBottom: "16px",
+            color: "#2d3748",
+          }}
+        >
+          Embed Display Options
+        </h4>
+        <p
+          style={{
+            fontSize: "14px",
+            color: "#6b7280",
+            marginBottom: "20px",
+          }}
+        >
+          Configure how embedded content titles and descriptions are displayed.
+        </p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              cursor: "pointer",
+              fontSize: "14px",
+              color: "#374151",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={embedDisplay.hideTitle || false}
+              onChange={(e) =>
+                onEmbedDisplayChange({
+                  ...embedDisplay,
+                  hideTitle: e.target.checked,
+                })
+              }
+              style={{
+                marginRight: "8px",
+                width: "16px",
+                height: "16px",
+              }}
+            />
+            Hide embedded content title
+          </label>
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              cursor: "pointer",
+              fontSize: "14px",
+              color: "#374151",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={embedDisplay.hideDescription || false}
+              onChange={(e) =>
+                onEmbedDisplayChange({
+                  ...embedDisplay,
+                  hideDescription: e.target.checked,
+                })
+              }
+              style={{
+                marginRight: "8px",
+                width: "16px",
+                height: "16px",
+              }}
+            />
+            Hide embedded content description
+          </label>
+        </div>
+
+        <p
+          style={{
+            marginTop: "12px",
+            fontSize: "12px",
+            color: "#6b7280",
+            fontStyle: "italic",
+          }}
+        >
+          Note: If both title and description are hidden, the entire header
+          container will be hidden.
+        </p>
+      </div>
+
       <h4
         style={{
           fontSize: "18px",

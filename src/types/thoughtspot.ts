@@ -209,6 +209,37 @@ export interface ApplicationStyles {
     backgroundColor: string;
     foregroundColor: string;
   };
+  // New comprehensive styling options
+  buttons: {
+    primary: {
+      backgroundColor: string;
+      foregroundColor: string;
+      borderColor: string;
+      hoverBackgroundColor: string;
+      hoverForegroundColor: string;
+    };
+    secondary: {
+      backgroundColor: string;
+      foregroundColor: string;
+      borderColor: string;
+      hoverBackgroundColor: string;
+      hoverForegroundColor: string;
+    };
+  };
+  backgrounds: {
+    mainBackground: string;
+    contentBackground: string;
+    cardBackground: string;
+    borderColor: string;
+  };
+  typography: {
+    primaryColor: string;
+    secondaryColor: string;
+    linkColor: string;
+    linkHoverColor: string;
+  };
+  // Theme selection
+  selectedTheme?: string;
 }
 
 export interface EmbeddedContentCustomization {
@@ -226,6 +257,10 @@ export interface StylingConfig {
   embeddedContent: EmbeddedContentCustomization;
   embedFlags?: EmbedFlags;
   doubleClickHandling?: DoubleClickHandlingConfig;
+  embedDisplay?: {
+    hideTitle?: boolean;
+    hideDescription?: boolean;
+  };
 }
 
 // Double-click event handling configuration

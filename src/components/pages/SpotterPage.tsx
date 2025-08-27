@@ -73,6 +73,12 @@ export default function SpotterPage({
             ? currentUser.access.hiddenActions.actions
             : [];
 
+          // Get custom CSS configuration from styling config
+          const customCSS = context.stylingConfig.embeddedContent.customCSS;
+          const cssUrl = context.stylingConfig.embeddedContent.cssUrl;
+          const strings = context.stylingConfig.embeddedContent.strings;
+          const stringIDs = context.stylingConfig.embeddedContent.stringIDs;
+
           const embedConfig: ThoughtSpotEmbedConfig = {
             worksheetId: finalSpotterModelId,
             frameParams: {
@@ -83,7 +89,20 @@ export default function SpotterPage({
             ...(hiddenActionsStrings.length > 0 && {
               hiddenActions: hiddenActionsStrings,
             }),
-          };
+            customizations: {
+              content: {
+                strings: strings || {},
+                stringIDs: stringIDs || {},
+              },
+              style: {
+                customCSSUrl: cssUrl || undefined,
+                customCSS: {
+                  variables: customCSS.variables || {},
+                  rules_UNSTABLE: customCSS.rules_UNSTABLE || {},
+                },
+              },
+            },
+          } as any;
 
           // Only add searchOptions if searchQuery is provided
           if (finalSpotterSearchQuery && finalSpotterSearchQuery.trim()) {
@@ -133,6 +152,10 @@ export default function SpotterPage({
     finalSpotterModelId,
     finalSpotterSearchQuery,
     finalEmbedFlags,
+    context.stylingConfig.embeddedContent.customCSS,
+    context.stylingConfig.embeddedContent.cssUrl,
+    context.stylingConfig.embeddedContent.strings,
+    context.stylingConfig.embeddedContent.stringIDs,
     context.userConfig.currentUserId,
     context.userConfig.users,
   ]);
