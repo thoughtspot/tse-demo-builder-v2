@@ -41,6 +41,20 @@ export interface ThoughtSpotEmbedConfig {
     searchQuery: string;
   };
   hiddenActions?: string[];
+  customizations?: {
+    content: {
+      strings: Record<string, string>;
+      stringIDs: Record<string, string>;
+    };
+    style: {
+      customCSSUrl?: string;
+      customCSS: {
+        variables: Record<string, string>;
+        rules_UNSTABLE: Record<string, Record<string, string>>;
+      };
+    };
+  };
+  [key: string]: unknown; // Allow additional properties from embed flags
 }
 
 export interface ThoughtSpotSearchEmbedConfig {
@@ -53,6 +67,41 @@ export interface ThoughtSpotSearchEmbedConfig {
     executeSearch: boolean;
   };
   hiddenActions?: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+  customizations?: {
+    content: {
+      strings: Record<string, string>;
+      stringIDs: Record<string, string>;
+    };
+    style: {
+      customCSSUrl?: string;
+      customCSS: {
+        variables: Record<string, string>;
+        rules_UNSTABLE: Record<string, Record<string, string>>;
+      };
+    };
+  };
+  [key: string]: unknown; // Allow additional properties from embed flags
+}
+
+export interface ThoughtSpotBaseEmbedConfig {
+  frameParams: {
+    width: string;
+    height: string;
+  };
+  customizations: {
+    content: {
+      strings: Record<string, string>;
+      stringIDs: Record<string, string>;
+    };
+    style: {
+      customCSSUrl?: string;
+      customCSS: {
+        variables: Record<string, string>;
+        rules_UNSTABLE: Record<string, Record<string, string>>;
+      };
+    };
+  };
+  [key: string]: unknown; // Allow additional properties from embed flags
 }
 
 export interface ThoughtSpotContent {

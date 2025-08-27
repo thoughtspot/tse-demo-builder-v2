@@ -36,7 +36,7 @@ export default function FullAppPage() {
         const strings = stylingConfig.embeddedContent.strings;
         const stringIDs = stylingConfig.embeddedContent.stringIDs;
 
-        const embedInstance = new AppEmbed(embedRef.current, {
+        const embedConfig = {
           showPrimaryNavbar: fullAppConfig.showPrimaryNavbar,
           modularHomeExperience: true,
           hideHomepageLeftNav: fullAppConfig.hideHomepageLeftNav,
@@ -52,6 +52,10 @@ export default function FullAppPage() {
             HomepageModule.MyLibrary,
           ],
           pageId: Page.Home,
+          frameParams: {
+            width: "100%",
+            height: "100%",
+          },
           ...(stylingConfig.embedFlags?.appEmbed || {}),
           ...(hiddenActions.length > 0 && { hiddenActions }),
           customizations: {
@@ -66,8 +70,10 @@ export default function FullAppPage() {
                 rules_UNSTABLE: customCSS.rules_UNSTABLE || {},
               },
             },
-          } as any,
-        });
+          },
+        };
+
+        const embedInstance = new AppEmbed(embedRef.current, embedConfig);
 
         embedInstanceRef.current = embedInstance;
         await embedInstance.render();

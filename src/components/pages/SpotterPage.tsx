@@ -102,7 +102,7 @@ export default function SpotterPage({
                 },
               },
             },
-          } as any;
+          };
 
           // Only add searchOptions if searchQuery is provided
           if (finalSpotterSearchQuery && finalSpotterSearchQuery.trim()) {

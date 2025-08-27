@@ -5,6 +5,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   ThoughtSpotContent,
   VizPointDoubleClickEvent,
+  ThoughtSpotBaseEmbedConfig,
 } from "../types/thoughtspot";
 import { VizPointClickDataType } from "../types/data-classes-types";
 import { useAppContext } from "./Layout";
@@ -156,7 +157,7 @@ export default function ThoughtSpotEmbed({
         const stringIDs = context.stylingConfig.embeddedContent.stringIDs;
 
         // Base embed configuration with customizations
-        const baseEmbedConfig = {
+        const baseEmbedConfig: ThoughtSpotBaseEmbedConfig = {
           frameParams: {
             width,
             height,
@@ -175,7 +176,7 @@ export default function ThoughtSpotEmbed({
                 rules_UNSTABLE: customCSS.rules_UNSTABLE || {},
               },
             },
-          } as any,
+          },
         };
 
         if (content.type === "liveboard") {

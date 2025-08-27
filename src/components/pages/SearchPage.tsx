@@ -108,7 +108,7 @@ export default function SearchPage({
                 },
               },
             },
-          } as any;
+          };
 
           // Only add searchOptions if searchTokenString is provided
           if (finalSearchTokenString && finalSearchTokenString.trim()) {
