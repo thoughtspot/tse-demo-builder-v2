@@ -261,6 +261,21 @@ function StandardMenusContent({
   onSubTabChange?: (subTab: string) => void;
 }) {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "home");
+
+  // Ensure we always have a valid sub-tab selected
+  useEffect(() => {
+    const validSubTabs = [
+      "home",
+      "favorites",
+      "my-reports",
+      "spotter",
+      "search",
+      "full-app",
+    ];
+    if (!validSubTabs.includes(activeSubTab)) {
+      setActiveSubTab("home");
+    }
+  }, [activeSubTab]);
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
 
   const [modelOptions, setModelOptions] = useState<
@@ -2488,6 +2503,14 @@ function StylingContent({
 }) {
   const [activeSubTab, setActiveSubTab] = useState("application");
 
+  // Ensure we always have a valid sub-tab selected
+  useEffect(() => {
+    const validSubTabs = ["application", "embedded"];
+    if (!validSubTabs.includes(activeSubTab)) {
+      setActiveSubTab("application");
+    }
+  }, [activeSubTab]);
+
   const subTabs = [
     { id: "application", name: "Application Styles", icon: "🎨" },
     { id: "embedded", name: "Embedded Content", icon: "🔧" },
@@ -2899,13 +2922,23 @@ function StylingContent({
                 }}
               >
                 <ColorPicker
-                  value={stylingConfig.application.buttons?.primary?.backgroundColor || "#3182ce"}
-                  onChange={(value) => updateButtonStyles("primary", "backgroundColor", value)}
+                  value={
+                    stylingConfig.application.buttons?.primary
+                      ?.backgroundColor || "#3182ce"
+                  }
+                  onChange={(value) =>
+                    updateButtonStyles("primary", "backgroundColor", value)
+                  }
                   label="Background Color"
                 />
                 <ColorPicker
-                  value={stylingConfig.application.buttons?.primary?.foregroundColor || "#ffffff"}
-                  onChange={(value) => updateButtonStyles("primary", "foregroundColor", value)}
+                  value={
+                    stylingConfig.application.buttons?.primary
+                      ?.foregroundColor || "#ffffff"
+                  }
+                  onChange={(value) =>
+                    updateButtonStyles("primary", "foregroundColor", value)
+                  }
                   label="Text Color"
                 />
               </div>
@@ -2919,20 +2952,35 @@ function StylingContent({
                 }}
               >
                 <ColorPicker
-                  value={stylingConfig.application.buttons?.primary?.borderColor || "#3182ce"}
-                  onChange={(value) => updateButtonStyles("primary", "borderColor", value)}
+                  value={
+                    stylingConfig.application.buttons?.primary?.borderColor ||
+                    "#3182ce"
+                  }
+                  onChange={(value) =>
+                    updateButtonStyles("primary", "borderColor", value)
+                  }
                   label="Border Color"
                 />
                 <ColorPicker
-                  value={stylingConfig.application.buttons?.primary?.hoverBackgroundColor || "#2c5aa0"}
-                  onChange={(value) => updateButtonStyles("primary", "hoverBackgroundColor", value)}
+                  value={
+                    stylingConfig.application.buttons?.primary
+                      ?.hoverBackgroundColor || "#2c5aa0"
+                  }
+                  onChange={(value) =>
+                    updateButtonStyles("primary", "hoverBackgroundColor", value)
+                  }
                   label="Hover Background"
                 />
               </div>
 
               <ColorPicker
-                value={stylingConfig.application.buttons?.primary?.hoverForegroundColor || "#ffffff"}
-                onChange={(value) => updateButtonStyles("primary", "hoverForegroundColor", value)}
+                value={
+                  stylingConfig.application.buttons?.primary
+                    ?.hoverForegroundColor || "#ffffff"
+                }
+                onChange={(value) =>
+                  updateButtonStyles("primary", "hoverForegroundColor", value)
+                }
                 label="Hover Text Color"
               />
             </div>
@@ -2966,13 +3014,23 @@ function StylingContent({
                 }}
               >
                 <ColorPicker
-                  value={stylingConfig.application.buttons?.secondary?.backgroundColor || "#ffffff"}
-                  onChange={(value) => updateButtonStyles("secondary", "backgroundColor", value)}
+                  value={
+                    stylingConfig.application.buttons?.secondary
+                      ?.backgroundColor || "#ffffff"
+                  }
+                  onChange={(value) =>
+                    updateButtonStyles("secondary", "backgroundColor", value)
+                  }
                   label="Background Color"
                 />
                 <ColorPicker
-                  value={stylingConfig.application.buttons?.secondary?.foregroundColor || "#374151"}
-                  onChange={(value) => updateButtonStyles("secondary", "foregroundColor", value)}
+                  value={
+                    stylingConfig.application.buttons?.secondary
+                      ?.foregroundColor || "#374151"
+                  }
+                  onChange={(value) =>
+                    updateButtonStyles("secondary", "foregroundColor", value)
+                  }
                   label="Text Color"
                 />
               </div>
@@ -2986,20 +3044,39 @@ function StylingContent({
                 }}
               >
                 <ColorPicker
-                  value={stylingConfig.application.buttons?.secondary?.borderColor || "#d1d5db"}
-                  onChange={(value) => updateButtonStyles("secondary", "borderColor", value)}
+                  value={
+                    stylingConfig.application.buttons?.secondary?.borderColor ||
+                    "#d1d5db"
+                  }
+                  onChange={(value) =>
+                    updateButtonStyles("secondary", "borderColor", value)
+                  }
                   label="Border Color"
                 />
                 <ColorPicker
-                  value={stylingConfig.application.buttons?.secondary?.hoverBackgroundColor || "#f9fafb"}
-                  onChange={(value) => updateButtonStyles("secondary", "hoverBackgroundColor", value)}
+                  value={
+                    stylingConfig.application.buttons?.secondary
+                      ?.hoverBackgroundColor || "#f9fafb"
+                  }
+                  onChange={(value) =>
+                    updateButtonStyles(
+                      "secondary",
+                      "hoverBackgroundColor",
+                      value
+                    )
+                  }
                   label="Hover Background"
                 />
               </div>
 
               <ColorPicker
-                value={stylingConfig.application.buttons?.secondary?.hoverForegroundColor || "#374151"}
-                onChange={(value) => updateButtonStyles("secondary", "hoverForegroundColor", value)}
+                value={
+                  stylingConfig.application.buttons?.secondary
+                    ?.hoverForegroundColor || "#374151"
+                }
+                onChange={(value) =>
+                  updateButtonStyles("secondary", "hoverForegroundColor", value)
+                }
                 label="Hover Text Color"
               />
             </div>
@@ -3033,13 +3110,23 @@ function StylingContent({
                 }}
               >
                 <ColorPicker
-                  value={stylingConfig.application.backgrounds?.mainBackground || "#f7fafc"}
-                  onChange={(value) => updateBackgroundStyles("mainBackground", value)}
+                  value={
+                    stylingConfig.application.backgrounds?.mainBackground ||
+                    "#f7fafc"
+                  }
+                  onChange={(value) =>
+                    updateBackgroundStyles("mainBackground", value)
+                  }
                   label="Main Background"
                 />
                 <ColorPicker
-                  value={stylingConfig.application.backgrounds?.contentBackground || "#ffffff"}
-                  onChange={(value) => updateBackgroundStyles("contentBackground", value)}
+                  value={
+                    stylingConfig.application.backgrounds?.contentBackground ||
+                    "#ffffff"
+                  }
+                  onChange={(value) =>
+                    updateBackgroundStyles("contentBackground", value)
+                  }
                   label="Content Background"
                 />
               </div>
@@ -3053,13 +3140,23 @@ function StylingContent({
                 }}
               >
                 <ColorPicker
-                  value={stylingConfig.application.backgrounds?.cardBackground || "#ffffff"}
-                  onChange={(value) => updateBackgroundStyles("cardBackground", value)}
+                  value={
+                    stylingConfig.application.backgrounds?.cardBackground ||
+                    "#ffffff"
+                  }
+                  onChange={(value) =>
+                    updateBackgroundStyles("cardBackground", value)
+                  }
                   label="Card Background"
                 />
                 <ColorPicker
-                  value={stylingConfig.application.backgrounds?.borderColor || "#e2e8f0"}
-                  onChange={(value) => updateBackgroundStyles("borderColor", value)}
+                  value={
+                    stylingConfig.application.backgrounds?.borderColor ||
+                    "#e2e8f0"
+                  }
+                  onChange={(value) =>
+                    updateBackgroundStyles("borderColor", value)
+                  }
                   label="Border Color"
                 />
               </div>
@@ -3094,13 +3191,23 @@ function StylingContent({
                 }}
               >
                 <ColorPicker
-                  value={stylingConfig.application.typography?.primaryColor || "#1f2937"}
-                  onChange={(value) => updateTypographyStyles("primaryColor", value)}
+                  value={
+                    stylingConfig.application.typography?.primaryColor ||
+                    "#1f2937"
+                  }
+                  onChange={(value) =>
+                    updateTypographyStyles("primaryColor", value)
+                  }
                   label="Primary Text Color"
                 />
                 <ColorPicker
-                  value={stylingConfig.application.typography?.secondaryColor || "#6b7280"}
-                  onChange={(value) => updateTypographyStyles("secondaryColor", value)}
+                  value={
+                    stylingConfig.application.typography?.secondaryColor ||
+                    "#6b7280"
+                  }
+                  onChange={(value) =>
+                    updateTypographyStyles("secondaryColor", value)
+                  }
                   label="Secondary Text Color"
                 />
               </div>
@@ -3113,13 +3220,22 @@ function StylingContent({
                 }}
               >
                 <ColorPicker
-                  value={stylingConfig.application.typography?.linkColor || "#3182ce"}
-                  onChange={(value) => updateTypographyStyles("linkColor", value)}
+                  value={
+                    stylingConfig.application.typography?.linkColor || "#3182ce"
+                  }
+                  onChange={(value) =>
+                    updateTypographyStyles("linkColor", value)
+                  }
                   label="Link Color"
                 />
                 <ColorPicker
-                  value={stylingConfig.application.typography?.linkHoverColor || "#2c5aa0"}
-                  onChange={(value) => updateTypographyStyles("linkHoverColor", value)}
+                  value={
+                    stylingConfig.application.typography?.linkHoverColor ||
+                    "#2c5aa0"
+                  }
+                  onChange={(value) =>
+                    updateTypographyStyles("linkHoverColor", value)
+                  }
                   label="Link Hover Color"
                 />
               </div>
@@ -3955,6 +4071,8 @@ function ConfigurationContent({
   updateUserConfig,
   setMenuOrder,
   standardMenus,
+  initialSubTab,
+  onSubTabChange,
 }: {
   appConfig: AppConfig;
   updateAppConfig: (config: AppConfig, bypassClusterWarning?: boolean) => void;
@@ -3973,8 +4091,10 @@ function ConfigurationContent({
   updateUserConfig?: (config: UserConfig) => void;
   setMenuOrder?: (order: string[]) => void;
   standardMenus?: StandardMenu[];
+  initialSubTab?: string;
+  onSubTabChange?: (subTab: string) => void;
 }) {
-  const [activeSubTab, setActiveSubTab] = useState("general");
+  const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "general");
   const [importStatus, setImportStatus] = useState<{
     message: string;
     type: "success" | "error" | null;
@@ -3990,6 +4110,13 @@ function ConfigurationContent({
   const [showGitHubDialog, setShowGitHubDialog] = useState(false);
   const [selectedConfiguration, setSelectedConfiguration] =
     useState<string>("");
+
+  // Update activeSubTab when initialSubTab changes
+  useEffect(() => {
+    if (initialSubTab && initialSubTab !== activeSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab, activeSubTab]);
 
   const subTabs = [
     { id: "general", name: "General", icon: "settings" },
@@ -4037,7 +4164,10 @@ function ConfigurationContent({
         {subTabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveSubTab(tab.id)}
+            onClick={() => {
+              setActiveSubTab(tab.id);
+              onSubTabChange?.(tab.id);
+            }}
             style={{
               padding: "12px 20px",
               border: "none",
@@ -4866,6 +4996,22 @@ export default function SettingsModal({
     }
   }, [initialTab, activeTab]);
 
+  // Ensure we always have a valid tab selected
+  useEffect(() => {
+    const validTabs = [
+      "configuration",
+      "standard-menus",
+      "custom-menus",
+      "users",
+      "styling",
+      "events",
+      "storage",
+    ];
+    if (!validTabs.includes(activeTab)) {
+      setActiveTab("configuration");
+    }
+  }, [activeTab]);
+
   // Temporary state for unsaved changes
   const [pendingStandardMenus, setPendingStandardMenus] =
     useState(standardMenus);
@@ -5274,6 +5420,8 @@ export default function SettingsModal({
           updateUserConfig={updateUserConfig}
           setMenuOrder={setMenuOrder}
           standardMenus={pendingStandardMenus}
+          initialSubTab={initialSubTab}
+          onSubTabChange={(subTab) => onTabChange?.("configuration", subTab)}
         />
       ),
     },
