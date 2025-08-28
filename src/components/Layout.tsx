@@ -449,7 +449,10 @@ export default function Layout({ children }: LayoutProps) {
       if (
         message.includes("Failed to load resource") ||
         message.includes("net::ERR_") ||
-        message.includes("favicon.ico")
+        message.includes("favicon.ico") ||
+        message.includes("Failed to fetch") ||
+        message.includes("session/info") ||
+        message.includes("401")
       ) {
         return; // Don't log these errors
       }

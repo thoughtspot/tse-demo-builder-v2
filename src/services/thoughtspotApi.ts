@@ -186,7 +186,14 @@ async function makeThoughtSpotApiCall(
     const responseData = await response.json();
     return responseData;
   } catch (error) {
-    console.error("ThoughtSpot API call failed:", error);
+    // Don't log 401 errors as they are expected when not logged in
+    if (error instanceof Error && error.message.includes("401")) {
+      console.log(
+        "User not authenticated (401) - this is expected when not logged in"
+      );
+    } else {
+      console.error("ThoughtSpot API call failed:", error);
+    }
     // Return empty array instead of throwing to prevent app crashes
     return [];
   }
@@ -221,7 +228,14 @@ async function makeThoughtSpotGetCall(
     const responseData = await response.json();
     return responseData;
   } catch (error) {
-    console.error("ThoughtSpot GET API call failed:", error);
+    // Don't log 401 errors as they are expected when not logged in
+    if (error instanceof Error && error.message.includes("401")) {
+      console.log(
+        "User not authenticated (401) - this is expected when not logged in"
+      );
+    } else {
+      console.error("ThoughtSpot GET API call failed:", error);
+    }
     // Return empty object instead of throwing to prevent app crashes
     return {};
   }
@@ -259,7 +273,14 @@ async function makeThoughtSpotTagsCall(
     const responseData = await response.json();
     return responseData;
   } catch (error) {
-    console.error("ThoughtSpot tags API call failed:", error);
+    // Don't log 401 errors as they are expected when not logged in
+    if (error instanceof Error && error.message.includes("401")) {
+      console.log(
+        "User not authenticated (401) - this is expected when not logged in"
+      );
+    } else {
+      console.error("ThoughtSpot tags API call failed:", error);
+    }
     // Return empty array instead of throwing to prevent app crashes
     return [];
   }
@@ -687,7 +708,14 @@ export async function getCurrentUser(): Promise<ThoughtSpotUser | null> {
     console.warn("Invalid user response format:", response);
     return null;
   } catch (error) {
-    console.error("Failed to fetch current user:", error);
+    // Don't log 401 errors as they are expected when not logged in
+    if (error instanceof Error && error.message.includes("401")) {
+      console.log(
+        "User not authenticated (401) - this is expected when not logged in"
+      );
+    } else {
+      console.error("Failed to fetch current user:", error);
+    }
     return null;
   }
 }

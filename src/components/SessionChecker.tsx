@@ -82,7 +82,7 @@ function SessionWarningBanner({
               fontWeight: "500",
             }}
           >
-            Login
+            Go to TS
           </button>
         )}
         <button
