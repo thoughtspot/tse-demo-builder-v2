@@ -80,11 +80,18 @@ export default function SearchPage({
             ? (currentUser.access.hiddenActions.actions as any[]) // eslint-disable-line @typescript-eslint/no-explicit-any
             : [];
 
+          // Get current user's locale
+          const userLocale = currentUser?.locale || "en";
+
           // Get custom CSS configuration from styling config
           const customCSS = context.stylingConfig.embeddedContent.customCSS;
           const cssUrl = context.stylingConfig.embeddedContent.cssUrl;
           const strings = context.stylingConfig.embeddedContent.strings;
           const stringIDs = context.stylingConfig.embeddedContent.stringIDs;
+
+          // Filter out visibleActions from embed flags to prevent conflicts with hiddenActions
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { visibleActions, ...filteredEmbedFlags } = finalEmbedFlags;
 
           const embedConfig: ThoughtSpotSearchEmbedConfig = {
             frameParams: {},
@@ -93,7 +100,8 @@ export default function SearchPage({
             collapseDataSources: !!(
               finalSearchTokenString && finalSearchTokenString.trim()
             ),
-            ...finalEmbedFlags,
+            locale: userLocale,
+            ...filteredEmbedFlags,
             ...(hiddenActions.length > 0 && { hiddenActions }),
             customizations: {
               content: {
@@ -147,6 +155,8 @@ export default function SearchPage({
     context.stylingConfig.embeddedContent.cssUrl,
     context.stylingConfig.embeddedContent.strings,
     context.stylingConfig.embeddedContent.stringIDs,
+    context.userConfig.currentUserId,
+    context.userConfig.users,
   ]);
 
   return (

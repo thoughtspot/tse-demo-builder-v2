@@ -150,11 +150,18 @@ export default function ThoughtSpotEmbed({
           ? (currentUser.access.hiddenActions.actions as any[]) // eslint-disable-line @typescript-eslint/no-explicit-any
           : [];
 
+        // Get user locale
+        const userLocale = currentUser?.locale || "en";
+
         // Get custom CSS configuration from styling config
         const customCSS = context.stylingConfig.embeddedContent.customCSS;
         const cssUrl = context.stylingConfig.embeddedContent.cssUrl;
         const strings = context.stylingConfig.embeddedContent.strings;
         const stringIDs = context.stylingConfig.embeddedContent.stringIDs;
+
+        // Filter out visibleActions from embed flags to prevent conflicts with hiddenActions
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { visibleActions, ...filteredEmbedFlags } = embedFlags;
 
         // Base embed configuration with customizations
         const baseEmbedConfig: ThoughtSpotBaseEmbedConfig = {
@@ -162,7 +169,8 @@ export default function ThoughtSpotEmbed({
             width,
             height,
           },
-          ...embedFlags,
+          locale: userLocale,
+          ...filteredEmbedFlags,
           ...(hiddenActions.length > 0 && { hiddenActions }),
           customizations: {
             content: {

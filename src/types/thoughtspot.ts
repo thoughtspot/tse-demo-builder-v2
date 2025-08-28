@@ -33,6 +33,7 @@ export interface ThoughtSpotEmbedConfig {
   worksheetId?: string;
   liveboardId?: string;
   answerId?: string;
+  locale?: string; // User locale preference
   frameParams?: {
     width: string;
     height: string;
@@ -62,6 +63,7 @@ export interface ThoughtSpotSearchEmbedConfig {
   dataSource: string;
   dataPanelV2?: boolean;
   collapseDataSources?: boolean;
+  locale?: string; // User locale preference
   searchOptions?: {
     searchTokenString: string;
     executeSearch: boolean;
@@ -88,6 +90,7 @@ export interface ThoughtSpotBaseEmbedConfig {
     width: string;
     height: string;
   };
+  locale?: string; // User locale preference
   customizations: {
     content: {
       strings: Record<string, string>;

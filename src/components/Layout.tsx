@@ -541,6 +541,55 @@ export default function Layout({ children }: LayoutProps) {
       return;
     }
 
+    // Ensure default users exist if userConfig is empty
+    if (userConfig.users.length === 0) {
+      console.log("No users found, creating default users");
+      const defaultUsers = [
+        {
+          id: "power-user",
+          name: "Power User",
+          description:
+            "Full access - can access all features including Search and Full App",
+          locale: "en",
+          access: {
+            standardMenus: {
+              home: true,
+              favorites: true,
+              "my-reports": true,
+              spotter: true,
+              search: true,
+              "full-app": true,
+            },
+            customMenus: [],
+            hiddenActions: { enabled: false, actions: [] },
+          },
+        },
+        {
+          id: "basic-user",
+          name: "Basic User",
+          description: "Limited access - cannot access Search and Full App",
+          locale: "en",
+          access: {
+            standardMenus: {
+              home: true,
+              favorites: true,
+              "my-reports": true,
+              spotter: true,
+              search: false,
+              "full-app": false,
+            },
+            customMenus: [],
+            hiddenActions: { enabled: false, actions: [] },
+          },
+        },
+      ];
+
+      setUserConfig({
+        users: defaultUsers,
+        currentUserId: defaultUsers[0].id,
+      });
+    }
+
     const loadConfiguration = async () => {
       try {
         // Set import flag to prevent auto-save loops during initial load
@@ -1481,11 +1530,78 @@ export default function Layout({ children }: LayoutProps) {
     }
   };
 
-  // Test function commented out due to type conflicts
-  // const testGitHubConfig = async () => {
-  //   console.log("Testing GitHub configuration loading...");
-  //   // Implementation removed due to type conflicts
-  // };
+  // Test function for debugging user access
+  const testUserAccess = () => {
+    console.log("=== User Access Test ===");
+    console.log("Current userConfig:", userConfig);
+    console.log(
+      "Current user:",
+      userConfig.users.find((u) => u.id === userConfig.currentUserId)
+    );
+    console.log("Standard menus:", standardMenus);
+    console.log("Accessible menus:", accessibleStandardMenus);
+
+    const fullAppMenu = standardMenus.find((m) => m.id === "full-app");
+    console.log("Full app menu:", fullAppMenu);
+    console.log("Full app enabled globally:", fullAppMenu?.enabled);
+
+    const fullAppAccessible = accessibleStandardMenus.find(
+      (m) => m.id === "full-app"
+    );
+    console.log("Full app accessible:", fullAppAccessible);
+
+    if (fullAppMenu?.enabled === false) {
+      console.log(
+        "⚠️  Full App menu is globally disabled - this takes priority over user access"
+      );
+    }
+  };
+
+  // Function to fix disabled menus
+  const fixDisabledMenus = () => {
+    console.log("=== Fixing Disabled Menus ===");
+    const updatedMenus = standardMenus.map((menu) => ({
+      ...menu,
+      enabled: true, // Enable all menus
+    }));
+    setStandardMenus(updatedMenus);
+    console.log("All menus have been enabled");
+  };
+
+  // Function to specifically enable Full App menu
+  const enableFullApp = () => {
+    console.log("=== Enabling Full App Menu ===");
+    const updatedMenus = standardMenus.map((menu) =>
+      menu.id === "full-app" ? { ...menu, enabled: true } : menu
+    );
+    setStandardMenus(updatedMenus);
+    console.log("Full App menu has been enabled");
+  };
+
+  // Expose test functions to window for debugging
+  if (typeof window !== "undefined") {
+    (
+      window as unknown as {
+        testUserAccess: typeof testUserAccess;
+        fixDisabledMenus: typeof fixDisabledMenus;
+        enableFullApp: typeof enableFullApp;
+      }
+    ).testUserAccess = testUserAccess;
+    (
+      window as unknown as {
+        testUserAccess: typeof testUserAccess;
+        fixDisabledMenus: typeof fixDisabledMenus;
+        enableFullApp: typeof enableFullApp;
+      }
+    ).fixDisabledMenus = fixDisabledMenus;
+    (
+      window as unknown as {
+        testUserAccess: typeof testUserAccess;
+        fixDisabledMenus: typeof fixDisabledMenus;
+        enableFullApp: typeof enableFullApp;
+      }
+    ).enableFullApp = enableFullApp;
+  }
 
   const handleExportConfiguration = (customName?: string) => {
     exportConfigurationService(
@@ -1510,15 +1626,117 @@ export default function Layout({ children }: LayoutProps) {
   const allStandardMenus = standardMenus; // These are already all standard menus
   const allCustomMenus = customMenus; // These are already all custom menus
 
+  // Debug logging for user configuration (only in development)
+  if (process.env.NODE_ENV === "development") {
+    const currentUser = userConfig.users.find(
+      (u) => u.id === userConfig.currentUserId
+    );
+    console.log("User configuration debug:", {
+      userConfig,
+      currentUserId: userConfig.currentUserId,
+      users: userConfig.users,
+      currentUser,
+      currentUserAccess: currentUser?.access,
+      fullAppAccess: currentUser?.access?.standardMenus?.["full-app"],
+    });
+  }
+
   // Filter menus based on current user access for navigation
   const accessibleStandardMenus = standardMenus.filter((menu) => {
     const currentUser = userConfig.users.find(
       (u) => u.id === userConfig.currentUserId
     );
+
+    // If no current user is found, set the first user as current and show all menus (fallback)
+    if (!currentUser) {
+      console.warn("No current user found, setting first user as current");
+
+      if (userConfig.users.length > 0) {
+        setUserConfig({
+          ...userConfig,
+          currentUserId: userConfig.users[0].id,
+        });
+        return true;
+      } else {
+        console.warn("No users available, showing all menus");
+        return true;
+      }
+    }
+
     const standardMenuAccess = currentUser?.access?.standardMenus as
       | Record<string, boolean>
       | undefined;
-    return standardMenuAccess?.[menu.id] !== false;
+
+    // If no access configuration is found, create default access and show all menus (fallback)
+    if (!standardMenuAccess) {
+      console.warn(
+        "No standard menu access configuration found for user:",
+        currentUser.id,
+        "Creating default access configuration"
+      );
+
+      // Create default access configuration for the user
+      const updatedUser = {
+        ...currentUser,
+        access: {
+          ...currentUser.access,
+          standardMenus: {
+            home: true,
+            favorites: true,
+            "my-reports": true,
+            spotter: true,
+            search: true,
+            "full-app": true,
+          },
+        },
+      };
+
+      // Update the user configuration
+      const updatedUsers = userConfig.users.map((u) =>
+        u.id === currentUser.id ? updatedUser : u
+      );
+
+      setUserConfig({
+        ...userConfig,
+        users: updatedUsers,
+      });
+
+      return true;
+    }
+
+    // Debug logging for full-app access (only in development)
+    if (menu.id === "full-app" && process.env.NODE_ENV === "development") {
+      console.log("Full App access check:", {
+        userId: currentUser.id,
+        userName: currentUser.name,
+        menuId: menu.id,
+        accessConfig: standardMenuAccess[menu.id],
+        allAccess: standardMenuAccess,
+        userConfig: userConfig,
+        currentUserId: userConfig.currentUserId,
+      });
+    }
+
+    // Priority 1: Menu must be globally enabled
+    if (menu.enabled === false) {
+      if (menu.id === "full-app" && process.env.NODE_ENV === "development") {
+        console.log("Full App menu is globally disabled");
+      }
+      return false;
+    }
+
+    // Priority 2: User must have access to the menu
+    const hasUserAccess = standardMenuAccess[menu.id] !== false;
+
+    if (menu.id === "full-app" && process.env.NODE_ENV === "development") {
+      console.log("Full App access check:", {
+        hasUserAccess,
+        menuEnabled: menu.enabled,
+        menuId: menu.id,
+      });
+    }
+
+    return hasUserAccess;
   });
 
   const accessibleCustomMenus = customMenus.filter((menu) => {

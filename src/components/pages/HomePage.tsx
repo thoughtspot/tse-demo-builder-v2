@@ -236,11 +236,18 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
           }
         }
 
+        // Get current user's locale
+        const currentUser = context.userConfig.users.find(
+          (u) => u.id === context.userConfig.currentUserId
+        );
+        const userLocale = currentUser?.locale || "en";
+
         switch (contentType) {
           case "liveboard":
             if (liveboardRef.current) {
               embedInstance = new LiveboardEmbed(liveboardRef.current, {
                 liveboardId: homePageConfig.value,
+                locale: userLocale,
                 frameParams: {
                   width: "100%",
                   height: "100%",
@@ -256,6 +263,7 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
             if (searchRef.current) {
               embedInstance = new SearchEmbed(searchRef.current, {
                 answerId: homePageConfig.value,
+                locale: userLocale,
                 frameParams: {
                   width: "100%",
                   height: "600px",
@@ -271,6 +279,7 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
             if (spotterRef.current) {
               embedInstance = new SpotterEmbed(spotterRef.current, {
                 worksheetId: homePageConfig.value,
+                locale: userLocale,
                 frameParams: {
                   width: "100%",
                   height: "600px",
@@ -296,7 +305,12 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
         embedInstance.destroy();
       }
     };
-  }, [homePageConfig.type, homePageConfig.value]);
+  }, [
+    homePageConfig.type,
+    homePageConfig.value,
+    context.userConfig.currentUserId,
+    context.userConfig.users,
+  ]);
 
   // Additional cleanup effect for when content becomes empty
   useEffect(() => {

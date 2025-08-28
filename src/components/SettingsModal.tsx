@@ -3447,16 +3447,35 @@ function UserConfigContent({
 
   const handleSaveUser = () => {
     if (editingUser && editingUser.name.trim()) {
+      // Update the user description based on the current access configuration
+      const updatedUser = { ...editingUser };
+      if (
+        updatedUser.access.standardMenus["full-app"] &&
+        updatedUser.access.standardMenus["search"]
+      ) {
+        updatedUser.description =
+          "Full access - can access all features including Search and Full App";
+      } else if (updatedUser.access.standardMenus["full-app"]) {
+        updatedUser.description =
+          "Limited access - can access Full App but not Search";
+      } else if (updatedUser.access.standardMenus["search"]) {
+        updatedUser.description =
+          "Limited access - can access Search but not Full App";
+      } else {
+        updatedUser.description =
+          "Limited access - cannot access Search and Full App";
+      }
+
       if (isCreating) {
         updateUserConfig({
           ...userConfig,
-          users: [...userConfig.users, editingUser],
+          users: [...userConfig.users, updatedUser],
         });
       } else {
         updateUserConfig({
           ...userConfig,
           users: userConfig.users.map((user) =>
-            user.id === editingUser.id ? editingUser : user
+            user.id === updatedUser.id ? updatedUser : user
           ),
         });
       }
@@ -3520,6 +3539,28 @@ function UserConfigContent({
         [field]: value,
       },
     };
+
+    // Update the user description based on the new access configuration
+    if (
+      field === "standardMenus" &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+    ) {
+      const standardMenus = value as Record<string, boolean>;
+      if (standardMenus["full-app"] && standardMenus["search"]) {
+        updatedUser.description =
+          "Full access - can access all features including Search and Full App";
+      } else if (standardMenus["full-app"]) {
+        updatedUser.description =
+          "Limited access - can access Full App but not Search";
+      } else if (standardMenus["search"]) {
+        updatedUser.description =
+          "Limited access - can access Search but not Full App";
+      } else {
+        updatedUser.description =
+          "Limited access - cannot access Search and Full App";
+      }
+    }
 
     updateUserConfig({
       ...userConfig,
@@ -3591,7 +3632,14 @@ function UserConfigContent({
               color: "#6b7280",
             }}
           >
-            {currentUser.description}
+            {currentUser.access.standardMenus["full-app"] &&
+            currentUser.access.standardMenus["search"]
+              ? "Full access - can access all features including Search and Full App"
+              : currentUser.access.standardMenus["full-app"]
+              ? "Limited access - can access Full App but not Search"
+              : currentUser.access.standardMenus["search"]
+              ? "Limited access - can access Search but not Full App"
+              : "Limited access - cannot access Search and Full App"}
           </p>
         )}
       </div>
@@ -3754,6 +3802,19 @@ function UserConfigContent({
             </h5>
             <div
               style={{
+                marginBottom: "12px",
+                padding: "8px 12px",
+                backgroundColor: "#f0f9ff",
+                border: "1px solid #bae6fd",
+                borderRadius: "4px",
+                fontSize: "12px",
+                color: "#0369a1",
+              }}
+            >
+              <strong>Current Access:</strong> {editingUser.description}
+            </div>
+            <div
+              style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
                 gap: "12px",
@@ -3774,14 +3835,36 @@ function UserConfigContent({
                       type="checkbox"
                       checked={hasAccess}
                       onChange={(e) => {
+                        const updatedStandardMenus = {
+                          ...editingUser.access.standardMenus,
+                          [menuId]: e.target.checked,
+                        };
+
+                        // Update the user description based on the new access configuration
+                        let newDescription = "";
+                        if (
+                          updatedStandardMenus["full-app"] &&
+                          updatedStandardMenus["search"]
+                        ) {
+                          newDescription =
+                            "Full access - can access all features including Search and Full App";
+                        } else if (updatedStandardMenus["full-app"]) {
+                          newDescription =
+                            "Limited access - can access Full App but not Search";
+                        } else if (updatedStandardMenus["search"]) {
+                          newDescription =
+                            "Limited access - can access Search but not Full App";
+                        } else {
+                          newDescription =
+                            "Limited access - cannot access Search and Full App";
+                        }
+
                         const updatedUser = {
                           ...editingUser,
+                          description: newDescription,
                           access: {
                             ...editingUser.access,
-                            standardMenus: {
-                              ...editingUser.access.standardMenus,
-                              [menuId]: e.target.checked,
-                            },
+                            standardMenus: updatedStandardMenus,
                           },
                         };
                         setEditingUser(updatedUser);
@@ -4047,6 +4130,24 @@ function UserConfigContent({
                     </>
                   )}
                   {user.locale && <> • Locale: {user.locale}</>}
+                </div>
+                {/* Dynamic description based on current access */}
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "#6b7280",
+                    marginTop: "4px",
+                  }}
+                >
+                  <strong>Status:</strong>{" "}
+                  {user.access.standardMenus["full-app"] &&
+                  user.access.standardMenus["search"]
+                    ? "Full access - can access all features including Search and Full App"
+                    : user.access.standardMenus["full-app"]
+                    ? "Limited access - can access Full App but not Search"
+                    : user.access.standardMenus["search"]
+                    ? "Limited access - can access Search but not Full App"
+                    : "Limited access - cannot access Search and Full App"}
                 </div>
               </div>
             ))}

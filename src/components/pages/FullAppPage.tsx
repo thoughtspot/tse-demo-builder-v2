@@ -30,13 +30,22 @@ export default function FullAppPage() {
           ? (currentUser.access.hiddenActions.actions as any[]) // eslint-disable-line @typescript-eslint/no-explicit-any
           : [];
 
+        // Get current user's locale
+        const userLocale = currentUser?.locale || "en";
+
         // Get custom CSS configuration from styling config
         const customCSS = stylingConfig.embeddedContent.customCSS;
         const cssUrl = stylingConfig.embeddedContent.cssUrl;
         const strings = stylingConfig.embeddedContent.strings;
         const stringIDs = stylingConfig.embeddedContent.stringIDs;
 
+        // Filter out visibleActions from embed flags to prevent conflicts with hiddenActions
+        const appEmbedFlags = stylingConfig.embedFlags?.appEmbed || {};
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { visibleActions, ...filteredAppEmbedFlags } = appEmbedFlags;
+
         const embedConfig = {
+          locale: userLocale,
           showPrimaryNavbar: fullAppConfig.showPrimaryNavbar,
           modularHomeExperience: true,
           hideHomepageLeftNav: fullAppConfig.hideHomepageLeftNav,
@@ -56,7 +65,7 @@ export default function FullAppPage() {
             width: "100%",
             height: "100%",
           },
-          ...(stylingConfig.embedFlags?.appEmbed || {}),
+          ...filteredAppEmbedFlags,
           ...(hiddenActions.length > 0 && { hiddenActions }),
           customizations: {
             content: {
@@ -107,6 +116,8 @@ export default function FullAppPage() {
     stylingConfig.embeddedContent.cssUrl,
     stylingConfig.embeddedContent.strings,
     stylingConfig.embeddedContent.stringIDs,
+    userConfig.currentUserId,
+    userConfig.users,
   ]);
 
   if (error) {

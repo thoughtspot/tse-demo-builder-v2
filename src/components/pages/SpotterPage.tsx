@@ -73,19 +73,27 @@ export default function SpotterPage({
             ? currentUser.access.hiddenActions.actions
             : [];
 
+          // Get current user's locale
+          const userLocale = currentUser?.locale || "en";
+
           // Get custom CSS configuration from styling config
           const customCSS = context.stylingConfig.embeddedContent.customCSS;
           const cssUrl = context.stylingConfig.embeddedContent.cssUrl;
           const strings = context.stylingConfig.embeddedContent.strings;
           const stringIDs = context.stylingConfig.embeddedContent.stringIDs;
 
+          // Filter out visibleActions from embed flags to prevent conflicts with hiddenActions
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { visibleActions, ...filteredEmbedFlags } = finalEmbedFlags;
+
           const embedConfig: ThoughtSpotEmbedConfig = {
+            locale: userLocale,
             worksheetId: finalSpotterModelId,
             frameParams: {
               width: "100%",
               height: "100%",
             },
-            ...finalEmbedFlags,
+            ...filteredEmbedFlags,
             ...(hiddenActionsStrings.length > 0 && {
               hiddenActions: hiddenActionsStrings,
             }),
