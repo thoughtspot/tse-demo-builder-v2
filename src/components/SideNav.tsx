@@ -110,28 +110,14 @@ export default function SideNav({
     selectedTextColor: selectedTextColor || generatedColors.selectedTextColor,
   };
 
-  // Filter menus based on user access
+  // Filter menus based on user access (only if not already filtered)
   const filterMenusByUserAccess = (
     menus: StandardMenu[] | CustomMenu[],
     isCustom: boolean
   ) => {
-    if (!userAccess) return menus; // If no user access defined, show all menus
-
-    return menus.filter((menu) => {
-      if (isCustom) {
-        // For custom menus, check if the user has access to this specific menu
-        const customMenu = menu as CustomMenu;
-        return userAccess.customMenus.includes(customMenu.id);
-      } else {
-        // For standard menus, check if the user has access to this menu type
-        const standardMenu = menu as StandardMenu;
-        return (
-          userAccess.standardMenus[
-            standardMenu.id as keyof typeof userAccess.standardMenus
-          ] === true
-        );
-      }
-    });
+    // If menus are already filtered (passed from Layout), don't filter again
+    // The Layout component handles the filtering, so we trust the menus we receive
+    return menus;
   };
 
   // Create a map of all enabled menus for easy lookup
@@ -140,27 +126,15 @@ export default function SideNav({
     { menu: StandardMenu | CustomMenu; isCustom: boolean }
   >();
 
-  // Add enabled standard menus (filtered by user access)
-  const accessibleStandardMenus = filterMenusByUserAccess(
-    standardMenus,
-    false
-  ) as StandardMenu[];
-  accessibleStandardMenus
-    .filter((menu) => menu.enabled)
-    .forEach((menu) => {
-      allMenus.set(menu.id, { menu, isCustom: false });
-    });
+  // Add standard menus (already filtered by Layout)
+  standardMenus.forEach((menu) => {
+    allMenus.set(menu.id, { menu, isCustom: false });
+  });
 
-  // Add enabled custom menus (filtered by user access)
-  const accessibleCustomMenus = filterMenusByUserAccess(
-    customMenus,
-    true
-  ) as CustomMenu[];
-  accessibleCustomMenus
-    .filter((menu) => menu.enabled)
-    .forEach((menu) => {
-      allMenus.set(menu.id, { menu, isCustom: true });
-    });
+  // Add custom menus (already filtered by Layout)
+  customMenus.forEach((menu) => {
+    allMenus.set(menu.id, { menu, isCustom: true });
+  });
 
   // Create navigation items based on menuOrder or default order
   const createNavItems = (): NavItem[] => {
@@ -255,6 +229,17 @@ export default function SideNav({
   };
 
   const navItems = createNavItems();
+  
+  // Debug logging for nav items (only in development)
+  if (process.env.NODE_ENV === "development") {
+    console.log("SideNav debug:", {
+      standardMenus: standardMenus.map(m => ({ id: m.id, enabled: m.enabled })),
+      customMenus: customMenus.map(m => ({ id: m.id, enabled: m.enabled })),
+      menuOrder,
+      navItems: navItems.map(item => ({ id: item.id, name: item.name, isCustom: item.isCustom })),
+      fullAppInNavItems: navItems.find(item => item.id === "full-app")
+    });
+  }
 
   const handleNavClick = (route: string) => {
     router.push(route);

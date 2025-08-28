@@ -1578,6 +1578,42 @@ export default function Layout({ children }: LayoutProps) {
     console.log("Full App menu has been enabled");
   };
 
+  // Function to force refresh and test
+  const forceRefresh = () => {
+    console.log("=== Force Refresh ===");
+    console.log("Current standardMenus:", standardMenus);
+    console.log("Current accessibleStandardMenus:", accessibleStandardMenus);
+    console.log("Current userConfig:", userConfig);
+
+    // Force a re-render by updating state
+    setStandardMenus([...standardMenus]);
+    console.log("Forced re-render triggered");
+  };
+
+  // Function to check and fix menu order
+  const checkMenuOrder = () => {
+    console.log("=== Menu Order Check ===");
+    console.log("Current menuOrder:", menuOrder);
+    console.log(
+      "Standard menu IDs:",
+      standardMenus.map((m) => m.id)
+    );
+    console.log(
+      "Accessible menu IDs:",
+      accessibleStandardMenus.map((m) => m.id)
+    );
+
+    // Check if full-app is in menu order
+    const fullAppInOrder = menuOrder?.includes("full-app");
+    console.log("Full App in menu order:", fullAppInOrder);
+
+    if (!fullAppInOrder && menuOrder) {
+      console.log("Adding full-app to menu order");
+      const newMenuOrder = [...menuOrder, "full-app"];
+      setMenuOrder(newMenuOrder);
+    }
+  };
+
   // Expose test functions to window for debugging
   if (typeof window !== "undefined") {
     (
@@ -1585,6 +1621,8 @@ export default function Layout({ children }: LayoutProps) {
         testUserAccess: typeof testUserAccess;
         fixDisabledMenus: typeof fixDisabledMenus;
         enableFullApp: typeof enableFullApp;
+        forceRefresh: typeof forceRefresh;
+        checkMenuOrder: typeof checkMenuOrder;
       }
     ).testUserAccess = testUserAccess;
     (
@@ -1592,6 +1630,8 @@ export default function Layout({ children }: LayoutProps) {
         testUserAccess: typeof testUserAccess;
         fixDisabledMenus: typeof fixDisabledMenus;
         enableFullApp: typeof enableFullApp;
+        forceRefresh: typeof forceRefresh;
+        checkMenuOrder: typeof checkMenuOrder;
       }
     ).fixDisabledMenus = fixDisabledMenus;
     (
@@ -1599,8 +1639,28 @@ export default function Layout({ children }: LayoutProps) {
         testUserAccess: typeof testUserAccess;
         fixDisabledMenus: typeof fixDisabledMenus;
         enableFullApp: typeof enableFullApp;
+        forceRefresh: typeof forceRefresh;
+        checkMenuOrder: typeof checkMenuOrder;
       }
     ).enableFullApp = enableFullApp;
+    (
+      window as unknown as {
+        testUserAccess: typeof testUserAccess;
+        fixDisabledMenus: typeof fixDisabledMenus;
+        enableFullApp: typeof enableFullApp;
+        forceRefresh: typeof forceRefresh;
+        checkMenuOrder: typeof checkMenuOrder;
+      }
+    ).forceRefresh = forceRefresh;
+    (
+      window as unknown as {
+        testUserAccess: typeof testUserAccess;
+        fixDisabledMenus: typeof fixDisabledMenus;
+        enableFullApp: typeof enableFullApp;
+        forceRefresh: typeof forceRefresh;
+        checkMenuOrder: typeof checkMenuOrder;
+      }
+    ).checkMenuOrder = checkMenuOrder;
   }
 
   const handleExportConfiguration = (customName?: string) => {
@@ -1738,6 +1798,29 @@ export default function Layout({ children }: LayoutProps) {
 
     return hasUserAccess;
   });
+
+  // Debug logging for accessible menus (only in development)
+  if (process.env.NODE_ENV === "development") {
+    const fullAppMenu = standardMenus.find((m) => m.id === "full-app");
+    const fullAppAccessible = accessibleStandardMenus.find(
+      (m) => m.id === "full-app"
+    );
+    console.log("Full App menu debug:", {
+      fullAppMenu,
+      fullAppEnabled: fullAppMenu?.enabled,
+      fullAppInStandardMenus: standardMenus.map((m) => ({
+        id: m.id,
+        enabled: m.enabled,
+      })),
+      fullAppInAccessibleMenus: accessibleStandardMenus.map((m) => ({
+        id: m.id,
+        enabled: m.enabled,
+      })),
+      fullAppAccessible,
+      accessibleMenusCount: accessibleStandardMenus.length,
+      totalMenusCount: standardMenus.length,
+    });
+  }
 
   const accessibleCustomMenus = customMenus.filter((menu) => {
     const currentUser = userConfig.users.find(
