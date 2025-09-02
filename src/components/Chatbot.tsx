@@ -89,7 +89,12 @@ export default function Chatbot({ isOpen, onClose }: ChatbotProps) {
     };
 
     initializeConversation();
-  }, [selectedModel, step]);
+  }, [
+    context.appConfig.thoughtspotUrl,
+    context.lastClusterChangeTime,
+    selectedModel,
+    step,
+  ]);
 
   const filterModelsByQuery = (
     allModels: ThoughtSpotContent[],

@@ -148,6 +148,9 @@ export default function SearchPage({
       }
     };
   }, [
+    context.appConfig.thoughtspotUrl, // Add cluster URL to dependencies
+    context.lastClusterChangeTime, // Add cluster change timestamp to dependencies
+    context.configVersion, // Add config version to force re-initialization on config changes
     finalSearchDataSource,
     finalSearchTokenString,
     finalRunSearch,
@@ -273,9 +276,9 @@ export default function SearchPage({
             </div>
           ) : (
             <div
-              key={`search-embed-${JSON.stringify(
-                context.stylingConfig.embeddedContent
-              )}`}
+              key={`search-embed-${
+                context.appConfig.thoughtspotUrl
+              }-${context.lastClusterChangeTime}-${JSON.stringify(context.stylingConfig.embeddedContent)}`}
               ref={embedRef}
               style={{
                 width: "100%",

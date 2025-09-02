@@ -9,7 +9,14 @@ export default function FullAppPage() {
   const embedRef = useRef<HTMLDivElement>(null);
   const embedInstanceRef = useRef<{ destroy?: () => void } | null>(null);
 
-  const { fullAppConfig, stylingConfig, userConfig } = useAppContext();
+  const {
+    appConfig,
+    fullAppConfig,
+    stylingConfig,
+    userConfig,
+    lastClusterChangeTime,
+    configVersion,
+  } = useAppContext();
 
   useEffect(() => {
     const initEmbed = async () => {
@@ -110,6 +117,9 @@ export default function FullAppPage() {
       }
     };
   }, [
+    appConfig.thoughtspotUrl, // Add cluster URL to dependencies
+    lastClusterChangeTime, // Add cluster change timestamp to dependencies
+    configVersion, // Add config version to force re-initialization on config changes
     fullAppConfig.showPrimaryNavbar,
     fullAppConfig.hideHomepageLeftNav,
     stylingConfig.embeddedContent.customCSS,

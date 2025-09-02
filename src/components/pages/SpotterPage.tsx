@@ -157,6 +157,9 @@ export default function SpotterPage({
       }
     };
   }, [
+    context.appConfig.thoughtspotUrl, // Add cluster URL to dependencies
+    context.lastClusterChangeTime, // Add cluster change timestamp to dependencies
+    context.configVersion, // Add config version to force re-initialization on config changes
     finalSpotterModelId,
     finalSpotterSearchQuery,
     finalEmbedFlags,
@@ -282,9 +285,9 @@ export default function SpotterPage({
             </div>
           ) : (
             <div
-              key={`spotter-embed-${JSON.stringify(
-                context.stylingConfig.embeddedContent
-              )}`}
+              key={`spotter-embed-${context.appConfig.thoughtspotUrl}-${
+                context.lastClusterChangeTime
+              }-${JSON.stringify(context.stylingConfig.embeddedContent)}`}
               ref={embedRef}
               style={{
                 width: "100%",

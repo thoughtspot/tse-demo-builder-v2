@@ -130,8 +130,22 @@ export default function ThoughtSpotEmbed({
         setIsLoading(true);
         setError(null);
 
+        // Add a small delay to ensure ThoughtSpot SDK is properly initialized
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         const { LiveboardEmbed, SearchEmbed, EmbedEvent } = await import(
           "@thoughtspot/visual-embed-sdk"
+        );
+
+        console.log(
+          "[ThoughtSpotEmbed] Initializing embed with cluster URL:",
+          context.appConfig.thoughtspotUrl
+        );
+        console.log(
+          "[ThoughtSpotEmbed] Content type:",
+          content.type,
+          "Content ID:",
+          content.id
         );
 
         let embedInstance;
@@ -188,17 +202,20 @@ export default function ThoughtSpotEmbed({
         };
 
         if (content.type === "liveboard") {
+          console.log("[ThoughtSpotEmbed] Creating LiveboardEmbed with config:", { liveboardId: content.id, ...baseEmbedConfig });
           embedInstance = new LiveboardEmbed(embedRef.current, {
             liveboardId: content.id,
             ...baseEmbedConfig,
           });
         } else if (content.type === "answer") {
+          console.log("[ThoughtSpotEmbed] Creating SearchEmbed with config:", { answerId: content.id, ...baseEmbedConfig });
           embedInstance = new SearchEmbed(embedRef.current, {
             answerId: content.id,
             ...baseEmbedConfig,
           });
         } else if (content.type === "model") {
           // For models, use SearchEmbed with dataSource
+          console.log("[ThoughtSpotEmbed] Creating SearchEmbed with config:", { dataSource: content.id, ...baseEmbedConfig });
           embedInstance = new SearchEmbed(embedRef.current, {
             dataSource: content.id,
             ...baseEmbedConfig,
@@ -235,11 +252,19 @@ export default function ThoughtSpotEmbed({
 
     // Cleanup function
     return () => {
+      console.log(
+        "[ThoughtSpotEmbed] Cleaning up embed instance for:",
+        content.id
+      );
       if (
         embedInstanceRef.current &&
         typeof embedInstanceRef.current.destroy === "function"
       ) {
         embedInstanceRef.current.destroy();
+        console.log(
+          "[ThoughtSpotEmbed] Embed instance destroyed for:",
+          content.id
+        );
       }
     };
   }, [
@@ -249,6 +274,9 @@ export default function ThoughtSpotEmbed({
     height,
     onLoad,
     onError,
+    context.appConfig.thoughtspotUrl, // Add cluster URL to dependencies
+    context.lastClusterChangeTime, // Add cluster change timestamp to dependencies
+    context.configVersion, // Add config version to force re-initialization on config changes
     context.stylingConfig.doubleClickHandling,
     context.stylingConfig.embedFlags?.liveboardEmbed,
     context.stylingConfig.embedFlags?.searchEmbed,

@@ -90,6 +90,8 @@ interface AppContextType {
   clearAllConfigurations: () => void;
   openSettingsWithTab: (tab?: string, subTab?: string) => void;
   exportConfiguration: (customName?: string) => void;
+  lastClusterChangeTime: number;
+  configVersion: number;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -526,6 +528,9 @@ export default function Layout({ children }: LayoutProps) {
   const [showClusterChangeWarning, setShowClusterChangeWarning] =
     useState(false);
   const [pendingClusterUrl, setPendingClusterUrl] = useState<string>("");
+  const [lastClusterChangeTime, setLastClusterChangeTime] = useState<number>(
+    Date.now()
+  );
 
   // Load initial state from configurationService
   const [standardMenus, setStandardMenus] = useState<StandardMenu[]>(
@@ -1010,13 +1015,23 @@ export default function Layout({ children }: LayoutProps) {
 
   // ThoughtSpot initialization
   useEffect(() => {
+    console.log("[Layout] ThoughtSpot initialization useEffect triggered");
+    console.log("[Layout] appConfig.thoughtspotUrl:", appConfig.thoughtspotUrl);
+    console.log("[Layout] isInitialLoadInProgress:", isInitialLoadInProgress);
+
     // Prevent initialization if no URL is configured
     if (!appConfig.thoughtspotUrl) {
+      console.log(
+        "[Layout] No ThoughtSpot URL configured, skipping initialization"
+      );
       return;
     }
 
     // Prevent initialization during initial load
     if (isInitialLoadInProgress) {
+      console.log(
+        "[Layout] Initial load in progress, skipping ThoughtSpot initialization"
+      );
       return;
     }
 
@@ -1036,6 +1051,7 @@ export default function Layout({ children }: LayoutProps) {
         return;
       }
 
+      console.log("[Layout] Setting ThoughtSpot initialization flag to true");
       (
         window as { __thoughtspotInitializing?: boolean }
       ).__thoughtspotInitializing = true;
@@ -1050,6 +1066,13 @@ export default function Layout({ children }: LayoutProps) {
           previousThoughtspotUrl &&
           previousThoughtspotUrl !== appConfig.thoughtspotUrl
         ) {
+          console.log(
+            "[Layout] Cluster URL changed from",
+            previousThoughtspotUrl,
+            "to",
+            appConfig.thoughtspotUrl
+          );
+
           // Clear any cached data or state that might be cluster-specific
           if (typeof window !== "undefined") {
             // Clear any ThoughtSpot-related localStorage items
@@ -1072,6 +1095,36 @@ export default function Layout({ children }: LayoutProps) {
             );
             sessionKeysToRemove.forEach((key) => {
               sessionStorage.removeItem(key);
+            });
+
+            // Also clear any cookies that might be cluster-specific
+            document.cookie.split(";").forEach((cookie) => {
+              const eqPos = cookie.indexOf("=");
+              const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+              if (
+                name.includes("thoughtspot") ||
+                name.includes("ts-") ||
+                name.includes("ts_")
+              ) {
+                document.cookie =
+                  name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+              }
+            });
+
+            // Clear any ThoughtSpot-related global variables
+            const globalWindow = window as unknown as Record<string, unknown>;
+            Object.keys(globalWindow).forEach((key) => {
+              if (
+                key.includes("thoughtspot") ||
+                key.includes("ThoughtSpot") ||
+                key.includes("ts_")
+              ) {
+                try {
+                  delete globalWindow[key];
+                } catch (e) {
+                  // Ignore errors for non-configurable properties
+                }
+              }
             });
           }
         }
@@ -1099,6 +1152,11 @@ export default function Layout({ children }: LayoutProps) {
             ...earlyAccessFlags,
           },
         };
+
+        console.log(
+          "[Layout] Initializing ThoughtSpot with config:",
+          initConfig
+        );
 
         // Always add customizations to ensure embed containers work properly
         const baseRules = {
@@ -1137,11 +1195,17 @@ export default function Layout({ children }: LayoutProps) {
           },
         };
 
+        console.log(
+          "[Layout] Calling ThoughtSpot init with host:",
+          initConfig.thoughtSpotHost
+        );
         init(initConfig);
+        console.log("[Layout] ThoughtSpot init completed successfully");
       } catch (error) {
         console.error("Failed to initialize ThoughtSpot:", error);
       } finally {
         // Reset the initialization flag
+        console.log("[Layout] Resetting ThoughtSpot initialization flag to false");
         (
           window as { __thoughtspotInitializing?: boolean }
         ).__thoughtspotInitializing = false;
@@ -1201,6 +1265,35 @@ export default function Layout({ children }: LayoutProps) {
     stylingConfig.embeddedContent?.cssUrl,
   ]);
 
+  // Force re-initialization when app config changes (including cluster URL changes)
+  useEffect(() => {
+    if (appConfig.thoughtspotUrl && !isInitialLoadInProgress) {
+      console.log(
+        "[Layout] App config changed, forcing ThoughtSpot re-initialization"
+      );
+      
+      // Clear the initialization flag to allow re-initialization
+      if (typeof window !== "undefined") {
+        console.log("[Layout] Clearing ThoughtSpot initialization flag to allow re-initialization");
+        (window as { __thoughtspotInitializing?: boolean }).__thoughtspotInitializing = false;
+      }
+      
+      // Increment config version to force re-initialization
+      const newVersion = configVersion + 1;
+      setConfigVersion(newVersion);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          "tse-demo-builder-config-version",
+          newVersion.toString()
+        );
+      }
+    }
+  }, [
+    appConfig.thoughtspotUrl,
+    appConfig.earlyAccessFlags,
+    isInitialLoadInProgress,
+  ]);
+
   const handleUserChange = (userId: string) => {
     // Update the current user in the user configuration
     if (userConfig) {
@@ -1226,9 +1319,13 @@ export default function Layout({ children }: LayoutProps) {
   const handleClusterChangeConfirm = () => {
     // Create new app config with the new cluster URL but keep other default values
     const newAppConfig = {
-      ...DEFAULT_CONFIG.appConfig,
       thoughtspotUrl: pendingClusterUrl,
-    };
+      applicationName: "TSE Demo Builder",
+      logo: "",
+      earlyAccessFlags: "",
+      favicon: "/ts.png",
+      showFooter: true,
+    } as AppConfig;
 
     // Close the warning dialog first
     setShowClusterChangeWarning(false);
@@ -1238,27 +1335,62 @@ export default function Layout({ children }: LayoutProps) {
     clearAllConfigurationsService()
       .then(async () => {
         try {
-          // Save the new app config immediately to ensure it's persisted
+          // Now reset all other configurations to defaults
+          setStandardMenus(DEFAULT_CONFIG.standardMenus);
+          setCustomMenus(DEFAULT_CONFIG.customMenus);
+          setMenuOrder(DEFAULT_CONFIG.menuOrder);
+          setHomePageConfig(DEFAULT_CONFIG.homePageConfig);
+          setFullAppConfig(DEFAULT_CONFIG.fullAppConfig);
+          setStylingConfig(DEFAULT_CONFIG.stylingConfig);
+          setUserConfig(DEFAULT_CONFIG.userConfig);
+
+          // Update app config last to ensure proper state propagation
+          setAppConfig(newAppConfig);
+
+          // Save the new app config AFTER clearing storage to ensure it's the only config
+          console.log("[Layout] About to save new app config:", newAppConfig);
           await saveAppConfig(newAppConfig, (errorMessage) => {
             console.error(
               `[Layout] Failed to save new cluster config: ${errorMessage}`
             );
           });
 
-          // Now reset all other configurations to defaults
-          setStandardMenus(DEFAULT_CONFIG.standardMenus);
-          setCustomMenus(DEFAULT_CONFIG.customMenus);
-          setMenuOrder(DEFAULT_CONFIG.menuOrder);
-          setHomePageConfig(DEFAULT_CONFIG.homePageConfig);
-          setAppConfig(newAppConfig); // Use the new config with the new cluster URL
-          setFullAppConfig(DEFAULT_CONFIG.fullAppConfig);
-          setStylingConfig(DEFAULT_CONFIG.stylingConfig);
-          setUserConfig(DEFAULT_CONFIG.userConfig);
+          // Verify the config was saved correctly
+          console.log("[Layout] New app config saved, verifying storage...");
+          try {
+            const savedConfig = await loadAllConfigurations();
+            console.log(
+              "[Layout] Config in storage after save:",
+              savedConfig?.appConfig
+            );
+          } catch (error) {
+            console.error("[Layout] Failed to verify saved config:", error);
+          }
 
-          // Wait a bit to ensure the save completes, then reload
-          setTimeout(() => {
-            window.location.reload();
-          }, 1000); // 1 second should be enough for the save to complete
+          // Force a re-initialization of ThoughtSpot with the new cluster URL
+          // by incrementing the config version
+          setConfigVersion((prev) => prev + 1);
+
+          // Clear any existing ThoughtSpot initialization flag to force re-initialization
+          if (typeof window !== "undefined") {
+            (
+              window as { __thoughtspotInitializing?: boolean }
+            ).__thoughtspotInitializing = false;
+          }
+
+          // Force all embed components to re-render by updating a timestamp
+          setLastClusterChangeTime(Date.now());
+
+          // Don't reload the page - let the state changes propagate naturally
+          console.log(
+            "[Layout] Cluster change completed successfully to:",
+            newAppConfig.thoughtspotUrl
+          );
+          console.log("[Layout] Current appConfig state:", appConfig);
+          console.log("[Layout] New appConfig:", newAppConfig);
+          console.log(
+            "[Layout] Page will not reload - state changes will propagate naturally"
+          );
         } catch (error) {
           console.error("Failed to save new cluster config:", error);
           // Even if save fails, reload to ensure clean state
@@ -1899,6 +2031,8 @@ export default function Layout({ children }: LayoutProps) {
     clearAllConfigurations,
     openSettingsWithTab,
     exportConfiguration: handleExportConfiguration,
+    lastClusterChangeTime,
+    configVersion,
   };
 
   return (
