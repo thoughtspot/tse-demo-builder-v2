@@ -46,7 +46,7 @@ const saveImageToIndexedDB = async (
   });
 };
 
-const getImageFromIndexedDB = async (id: string): Promise<string | null> => {
+export const getImageFromIndexedDB = async (id: string): Promise<string | null> => {
   try {
     const db = await openImageDB();
     return new Promise((resolve, reject) => {
@@ -280,7 +280,8 @@ export default function ImageUpload({
             }}
           >
             {displayImage.startsWith("data:") ||
-            displayImage.startsWith("http") ? (
+            displayImage.startsWith("http") ||
+            displayImage.startsWith("/") ? (
               <img
                 src={displayImage}
                 alt="Preview"
@@ -341,7 +342,7 @@ export default function ImageUpload({
 
       {/* URL Input */}
       <input
-        type="url"
+        type="text"
         value={value || ""}
         onChange={handleUrlChange}
         placeholder={placeholder}
@@ -373,7 +374,7 @@ export default function ImageUpload({
           color: "#6b7280",
         }}
       >
-        Upload an image file (max {maxSizeMB}MB) or provide a URL. Large images
+        Upload an image file (max {maxSizeMB}MB) or provide a URL or local file path (e.g., /icons/image.png). Large images
         will be automatically resized and compressed.
         {useIndexedDB && " Using IndexedDB for better storage capacity."}
       </p>

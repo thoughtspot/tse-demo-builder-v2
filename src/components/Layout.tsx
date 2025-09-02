@@ -428,8 +428,27 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  // Suppress third-party console errors (like Mixpanel)
+  // Fix hydration issues and suppress third-party console errors (like Mixpanel)
   useEffect(() => {
+    // Fix hydration mismatches caused by browser extensions
+    const htmlElement = document.documentElement;
+
+    // Remove problematic attributes that cause hydration issues
+    const problematicAttributes = [
+      "_mindisisolatedcontentloaded",
+      "_mindisisolatedcontentloaded_",
+      "data-adblockkey",
+      "data-adblock",
+      "data-ublock-origin",
+      "data-ublock-origin_",
+    ];
+
+    problematicAttributes.forEach((attr) => {
+      if (htmlElement.hasAttribute(attr)) {
+        htmlElement.removeAttribute(attr);
+      }
+    });
+
     const originalError = console.error;
     const originalWarn = console.warn;
 
@@ -1205,21 +1224,52 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const handleClusterChangeConfirm = () => {
-    // Clear all configurations to start fresh with new cluster
-    clearAllConfigurations();
-
-    // Update the app config with the new URL
-    setAppConfig((prev) => ({
-      ...prev,
+    // Create new app config with the new cluster URL but keep other default values
+    const newAppConfig = {
+      ...DEFAULT_CONFIG.appConfig,
       thoughtspotUrl: pendingClusterUrl,
-    }));
+    };
 
-    // Close the warning dialog
+    // Close the warning dialog first
     setShowClusterChangeWarning(false);
     setPendingClusterUrl("");
 
-    // Force page reload to clear any cached ThoughtSpot state
-    window.location.reload();
+    // Clear storage first
+    clearAllConfigurationsService()
+      .then(async () => {
+        try {
+          // Save the new app config immediately to ensure it's persisted
+          await saveAppConfig(newAppConfig, (errorMessage) => {
+            console.error(
+              `[Layout] Failed to save new cluster config: ${errorMessage}`
+            );
+          });
+
+          // Now reset all other configurations to defaults
+          setStandardMenus(DEFAULT_CONFIG.standardMenus);
+          setCustomMenus(DEFAULT_CONFIG.customMenus);
+          setMenuOrder(DEFAULT_CONFIG.menuOrder);
+          setHomePageConfig(DEFAULT_CONFIG.homePageConfig);
+          setAppConfig(newAppConfig); // Use the new config with the new cluster URL
+          setFullAppConfig(DEFAULT_CONFIG.fullAppConfig);
+          setStylingConfig(DEFAULT_CONFIG.stylingConfig);
+          setUserConfig(DEFAULT_CONFIG.userConfig);
+
+          // Wait a bit to ensure the save completes, then reload
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000); // 1 second should be enough for the save to complete
+        } catch (error) {
+          console.error("Failed to save new cluster config:", error);
+          // Even if save fails, reload to ensure clean state
+          window.location.reload();
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to clear storage:", error);
+        // If clearing fails, still reload
+        window.location.reload();
+      });
   };
 
   const handleClusterChangeCancel = () => {
@@ -1869,11 +1919,7 @@ export default function Layout({ children }: LayoutProps) {
             {/* Top Bar */}
             <TopBar
               title={appConfig.applicationName || "TSE Demo Builder"}
-              logoUrl={
-                stylingConfig.application.topBar.logoUrl ||
-                appConfig.logo ||
-                "/ts.png"
-              }
+              logoUrl={stylingConfig.application.topBar.logoUrl || "/ts.png"}
               users={userConfig.users.map((user) => ({
                 id: user.id,
                 name: user.name,

@@ -3,30 +3,7 @@
 import Image from "next/image";
 import { useState, useEffect } from "react";
 
-// Utility function to convert icon identifiers to image paths
-const getIconImagePath = (icon: string): string => {
-  // If it's already a valid image path or URL, return as is
-  if (
-    icon.startsWith("http") ||
-    icon.startsWith("data:") ||
-    icon.startsWith("/")
-  ) {
-    return icon;
-  }
 
-  // Map icon identifiers to their corresponding image paths
-  const iconPathMap: Record<string, string> = {
-    home: "/icons/home.png",
-    favorites: "/icons/favorites.png",
-    "my-reports": "/icons/my-reports.png",
-    spotter: "/icons/spotter-custom.svg",
-    search: "/icons/search.png",
-    "full-app": "/icons/full-app.png",
-  };
-
-  // Return the mapped path or fallback to default
-  return iconPathMap[icon] || "/ts.png";
-};
 
 interface TopBarProps {
   title: string;
@@ -54,6 +31,7 @@ export default function TopBar({
   const [thoughtSpotVersion, setThoughtSpotVersion] = useState<string | null>(
     null
   );
+  const [processedLogoUrl, setProcessedLogoUrl] = useState<string>("/ts.png");
 
   useEffect(() => {
     const fetchVersion = async () => {
@@ -71,8 +49,43 @@ export default function TopBar({
     fetchVersion();
   }, []);
 
-  // Convert logoUrl to a valid image path
-  const validLogoUrl = getIconImagePath(logoUrl);
+  // Process logo URL to handle IndexedDB URLs
+  useEffect(() => {
+    const processLogoUrl = async () => {
+      if (!logoUrl || logoUrl === "/ts.png") {
+        setProcessedLogoUrl("/ts.png");
+        return;
+      }
+
+      if (logoUrl.startsWith("indexeddb://")) {
+        try {
+          // Extract the image ID from the IndexedDB URL
+          const imageId = logoUrl.replace("indexeddb://", "");
+          
+          // Get the image data from IndexedDB
+          const { getImageFromIndexedDB } = await import("../components/ImageUpload");
+          const imageData = await getImageFromIndexedDB(imageId);
+          
+          if (imageData) {
+            setProcessedLogoUrl(imageData);
+          } else {
+            console.warn("Failed to load image from IndexedDB:", imageId);
+            setProcessedLogoUrl("/ts.png");
+          }
+        } catch (error) {
+          console.error("Failed to load image from IndexedDB:", error);
+          setProcessedLogoUrl("/ts.png");
+        }
+      } else {
+        // For other URL types, use as-is
+        setProcessedLogoUrl(logoUrl);
+      }
+    };
+
+    processLogoUrl();
+  }, [logoUrl]);
+
+
 
   return (
     <div
@@ -88,13 +101,42 @@ export default function TopBar({
     >
       {/* Logo and Title */}
       <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-        <Image
-          src={validLogoUrl}
-          alt="Logo"
-          height={32}
-          width={32}
-          style={{ height: "32px", width: "auto" }}
-        />
+        {processedLogoUrl && processedLogoUrl !== "/ts.png" ? (
+          processedLogoUrl.startsWith("indexeddb://") ? (
+            <img
+              src={processedLogoUrl}
+              alt="Logo"
+              style={{ height: "32px", width: "auto" }}
+              onError={(e) => {
+                console.error("IndexedDB img failed to load:", processedLogoUrl, e);
+              }}
+            />
+          ) : (
+            <Image
+              src={processedLogoUrl}
+              alt="Logo"
+              height={32}
+              width={32}
+              style={{ height: "32px", width: "auto" }}
+              onError={(e) => {
+                console.error(
+                  "Next.js Image failed to load:",
+                  processedLogoUrl,
+                  e
+                );
+              }}
+            />
+          )
+        ) : (
+          <img
+            src={processedLogoUrl}
+            alt="Logo"
+            style={{ height: "32px", width: "auto" }}
+            onError={(e) => {
+              console.error("Regular img failed to load:", processedLogoUrl, e);
+            }}
+          />
+        )}
         <h1
           style={{
             fontSize: "20px",
@@ -191,8 +233,6 @@ export default function TopBar({
                 <span>{user.name}</span>
               </button>
             ))}
-
-
 
             {/* Version display */}
             {thoughtSpotVersion && (

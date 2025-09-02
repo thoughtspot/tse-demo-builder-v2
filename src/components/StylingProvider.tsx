@@ -11,6 +11,9 @@ export default function StylingProvider({
   children,
 }: StylingProviderProps) {
   useEffect(() => {
+    // Ensure we're on the client side
+    if (typeof window === "undefined") return;
+
     const root = document.documentElement;
 
     // Apply application styling to CSS custom properties

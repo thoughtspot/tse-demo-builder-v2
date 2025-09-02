@@ -2730,13 +2730,6 @@ function StylingContent({
                 Top Bar
               </h5>
 
-              <ImageUpload
-                value={stylingConfig.application.topBar.logoUrl}
-                onChange={(value) => updateTopBarStyles("logoUrl", value)}
-                label="Logo"
-                placeholder="https://example.com/logo.png"
-              />
-
               <div
                 style={{
                   display: "grid",
@@ -4505,33 +4498,27 @@ function ConfigurationContent({
               {/* Right Column */}
               <div>
                 <div style={{ marginBottom: "24px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontWeight: "500",
-                      fontSize: "14px",
-                    }}
-                  >
-                    Logo URL
-                  </label>
-                  <input
-                    type="url"
-                    value={appConfig.logo}
-                    onChange={(e) =>
-                      updateAppConfig({
-                        ...appConfig,
-                        logo: e.target.value,
+                  <ImageUpload
+                    value={stylingConfig.application.topBar.logoUrl}
+                    onChange={(url) =>
+                      updateStylingConfig({
+                        ...stylingConfig,
+                        application: {
+                          ...stylingConfig.application,
+                          topBar: {
+                            ...stylingConfig.application.topBar,
+                            logoUrl: url,
+                          },
+                        },
                       })
                     }
+                    label="Application Logo"
                     placeholder="https://example.com/logo.png"
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "4px",
-                      fontSize: "14px",
-                    }}
+                    accept="image/*"
+                    maxSizeMB={2}
+                    maxWidth={200}
+                    maxHeight={80}
+                    useIndexedDB={true}
                   />
                   <p
                     style={{
@@ -4540,38 +4527,117 @@ function ConfigurationContent({
                       color: "#6b7280",
                     }}
                   >
-                    URL to your application logo (optional)
+                    Upload an image or provide a URL for your application logo.
+                    This logo will be displayed in the top bar.
                   </p>
+
+                  {/* Logo Preview */}
+                  {stylingConfig.application.topBar.logoUrl && (
+                    <div style={{ marginTop: "16px" }}>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "8px",
+                          fontWeight: "500",
+                          fontSize: "14px",
+                        }}
+                      >
+                        Logo Preview
+                      </label>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "16px",
+                          padding: "16px",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "8px",
+                          backgroundColor: "#f9fafb",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: "120px",
+                            height: "48px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "4px",
+                            overflow: "hidden",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor: "white",
+                          }}
+                        >
+                          <img
+                            src={stylingConfig.application.topBar.logoUrl}
+                            alt="Logo Preview"
+                            style={{
+                              maxWidth: "100%",
+                              maxHeight: "100%",
+                              objectFit: "contain",
+                            }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                              const nextElement = e.currentTarget
+                                .nextElementSibling as HTMLElement;
+                              if (nextElement) {
+                                nextElement.style.display = "flex";
+                              }
+                            }}
+                          />
+                          <span
+                            style={{
+                              display: "none",
+                              fontSize: "12px",
+                              color: "#6b7280",
+                              textAlign: "center",
+                            }}
+                          >
+                            Invalid Image
+                          </span>
+                        </div>
+                        <div>
+                          <p
+                            style={{
+                              margin: "0 0 4px 0",
+                              fontSize: "14px",
+                              fontWeight: "500",
+                            }}
+                          >
+                            Top Bar Display
+                          </p>
+                          <p
+                            style={{
+                              margin: "0",
+                              fontSize: "12px",
+                              color: "#6b7280",
+                            }}
+                          >
+                            This is how your logo will appear in the application
+                            header
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ marginBottom: "24px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontWeight: "500",
-                      fontSize: "14px",
-                    }}
-                  >
-                    Favicon URL
-                  </label>
-                  <input
-                    type="url"
+                  <ImageUpload
                     value={appConfig.favicon || ""}
-                    onChange={(e) =>
+                    onChange={(url) =>
                       updateAppConfig({
                         ...appConfig,
-                        favicon: e.target.value,
+                        favicon: url,
                       })
                     }
+                    label="Favicon"
                     placeholder="https://example.com/favicon.ico"
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "4px",
-                      fontSize: "14px",
-                    }}
+                    accept="image/*"
+                    maxSizeMB={1}
+                    maxWidth={64}
+                    maxHeight={64}
+                    useIndexedDB={true}
                   />
                   <p
                     style={{
@@ -4580,9 +4646,10 @@ function ConfigurationContent({
                       color: "#6b7280",
                     }}
                   >
-                    URL to your browser tab icon (optional). Leave empty to use
-                    the default.
+                    Upload an image or provide a URL for your browser tab icon.
+                    Leave empty to use the default.
                   </p>
+
                   <div style={{ marginTop: "8px" }}>
                     <label
                       style={{
@@ -4645,6 +4712,95 @@ function ConfigurationContent({
                     >
                       When checked, the favicon will automatically match the
                       Home menu icon
+                    </p>
+                  </div>
+
+                  <div style={{ marginTop: "8px" }}>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={
+                          appConfig.logo ===
+                          stylingConfig.application.topBar.logoUrl
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            // Sync main logo with styling logo
+                            updateAppConfig({
+                              ...appConfig,
+                              logo:
+                                stylingConfig.application.topBar.logoUrl || "",
+                            });
+                          }
+                        }}
+                        style={{ cursor: "pointer" }}
+                      />
+                      <span>Sync main logo with styling logo</span>
+                    </label>
+                    <p
+                      style={{
+                        margin: "4px 0 0 0",
+                        fontSize: "12px",
+                        color: "#6b7280",
+                      }}
+                    >
+                      When checked, the main application logo will automatically
+                      match the styling logo
+                    </p>
+                  </div>
+
+                  <div style={{ marginTop: "8px" }}>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={
+                          stylingConfig.application.topBar.logoUrl ===
+                          appConfig.logo
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            // Sync styling logo with main logo
+                            updateStylingConfig({
+                              ...stylingConfig,
+                              application: {
+                                ...stylingConfig.application,
+                                topBar: {
+                                  ...stylingConfig.application.topBar,
+                                  logoUrl: appConfig.logo,
+                                },
+                              },
+                            });
+                          }
+                        }}
+                        style={{ cursor: "pointer" }}
+                      />
+                      <span>Sync styling logo with main logo</span>
+                    </label>
+                    <p
+                      style={{
+                        margin: "4px 0 0 0",
+                        fontSize: "12px",
+                        color: "#6b7280",
+                      }}
+                    >
+                      When checked, the styling logo will automatically match
+                      the main application logo
                     </p>
                   </div>
                 </div>
