@@ -1,327 +1,135 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAppContext } from "../Layout";
-import {
-  ThoughtSpotEmbedInstance,
-  HomePageConfig,
-} from "../../types/thoughtspot";
-
-// IndexedDB utilities for image handling
-const openImageDB = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open("ImageStorage", 1);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains("images")) {
-        db.createObjectStore("images", { keyPath: "id" });
-      }
-    };
-  });
-};
-
-const getImageFromIndexedDB = async (id: string): Promise<string | null> => {
-  try {
-    const db = await openImageDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(["images"], "readonly");
-      const store = transaction.objectStore("images");
-      const request = store.get(id);
-
-      request.onsuccess = () => resolve(request.result?.dataUrl || null);
-      request.onerror = () => reject(request.error);
-    });
-  } catch (error) {
-    console.warn("Failed to get image from IndexedDB:", error);
-    return null;
-  }
-};
+import { HomePageConfig, StandardMenu } from "../../types/thoughtspot";
+import ThoughtSpotEmbed from "../ThoughtSpotEmbed";
+import { ThoughtSpotContent } from "../../types/thoughtspot";
 
 interface HomePageProps {
-  config?: HomePageConfig;
   onConfigUpdate?: (config: HomePageConfig) => void;
 }
 
-interface ThoughtSpotContent {
-  id: string;
-  name: string;
-  type: "liveboard" | "answer" | "model";
-}
-
-export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
+export default function HomePage({ onConfigUpdate }: HomePageProps) {
   const [iframeError, setIframeError] = useState<string | null>(null);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const liveboardRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLDivElement>(null);
-  const spotterRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Always call the hook to follow React rules
   const context = useAppContext();
 
   // Use context if available, otherwise fall back to props
-  let contextConfig: HomePageConfig | undefined;
-  const contextUpdate: ((config: HomePageConfig) => void) | undefined =
-    context.updateHomePageConfig;
-  let appName = "TSE Demo Builder";
+  const homePageConfig: HomePageConfig = context?.homePageConfig || {
+    type: "html",
+    value: "",
+  };
 
-  // Get home page configuration from standard menus
-  const homeMenu = context.standardMenus.find((m) => m.id === "home");
-  if (homeMenu && homeMenu.homePageType) {
-    // Map the homePageType to the correct HomePageConfig type
-    let mappedType: "html" | "url" | "embed" = "html";
-    if (
-      homeMenu.homePageType === "html" ||
-      homeMenu.homePageType === "url" ||
-      homeMenu.homePageType === "embed"
-    ) {
-      mappedType = homeMenu.homePageType;
-    } else if (homeMenu.homePageType === "iframe") {
-      mappedType = "embed";
-    } else {
-      // For liveboard, answer, spotter, image - use embed type
-      mappedType = "embed";
-    }
+  const standardMenus: StandardMenu[] = context?.standardMenus || [];
 
-    contextConfig = {
-      type: mappedType,
-      value: homeMenu.homePageValue || "",
-    };
+  // Find the home menu configuration
+  const homeMenu = standardMenus.find((m) => m.id === "home");
+
+  // Map the homePageType to the appropriate type for rendering
+  // Use homeMenu.homePageValue for the actual content, fallback to homePageConfig.value
+  let mappedType = homePageConfig.type;
+  let mappedValue = homeMenu?.homePageValue || homePageConfig.value;
+
+  if (homeMenu?.homePageType === "iframe") {
+    // For iframe, map to url type for external websites
+    mappedType = "url";
+    mappedValue =
+      homeMenu?.homePageValue || homePageConfig.value || "https://example.com";
+  } else if (homeMenu?.homePageType === "liveboard") {
+    // For ThoughtSpot content, map to embed type
+    mappedType = "embed";
+    mappedValue = homeMenu?.homePageValue || homePageConfig.value;
+  } else if (homeMenu?.homePageType === "answer") {
+    // For ThoughtSpot content, map to embed type
+    mappedType = "embed";
+    mappedValue = homeMenu?.homePageValue || homePageConfig.value;
+  } else if (homeMenu?.homePageType === "spotter") {
+    // For ThoughtSpot content, map to embed type
+    mappedType = "embed";
+    mappedValue = homeMenu?.homePageValue || homePageConfig.value;
   } else {
-    // Fallback to old homePageConfig if available
-    contextConfig = context.homePageConfig;
+    // Default to html for other types
+    mappedType = "html";
+    mappedValue = homeMenu?.homePageValue || homePageConfig.value;
   }
-  appName = context.appConfig.applicationName || "TSE Demo Builder";
 
-  // Use context config if available, otherwise use props, otherwise use default
-  const homePageConfig = contextConfig ||
-    config || {
-      type: "html",
-      value: `<div style='padding: 20px; text-align: center;'><h1>Welcome to ${appName}</h1><p>Configure your home page content in the settings.</p></div>`,
-    };
-
-  // ThoughtSpot content data - will be populated from API or fallback to mock data
-  const [thoughtSpotContent, setThoughtSpotContent] = useState<
-    ThoughtSpotContent[]
-  >([]);
-
-  // Fetch ThoughtSpot content on component mount
+  // Effect to handle image content
   useEffect(() => {
-    const fetchContent = async () => {
-      try {
-        const { fetchAllThoughtSpotContent } = await import(
-          "../../services/thoughtspotApi"
-        );
-        const { liveboards, answers, models } =
-          await fetchAllThoughtSpotContent();
-
-        const allContent = [
-          ...liveboards.map(
-            (item: {
-              id: string;
-              name: string;
-              type: string;
-              description?: string;
-              authorName?: string;
-              created?: number;
-              modified?: number;
-            }) => ({ ...item, type: "liveboard" as const })
-          ),
-          ...answers.map(
-            (item: {
-              id: string;
-              name: string;
-              type: string;
-              description?: string;
-              authorName?: string;
-              created?: number;
-              modified?: number;
-            }) => ({ ...item, type: "answer" as const })
-          ),
-          ...models.map(
-            (item: {
-              id: string;
-              name: string;
-              type: string;
-              description?: string;
-              authorName?: string;
-              created?: number;
-              modified?: number;
-            }) => ({ ...item, type: "model" as const })
-          ),
-        ];
-
-        setThoughtSpotContent(allContent);
-      } catch (error) {
-        console.error("Failed to fetch ThoughtSpot content:", error);
-        // Keep empty array on error
-        setThoughtSpotContent([]);
-      }
-    };
-
-    fetchContent();
-  }, []);
-
-  const handleIframeLoad = (event: React.SyntheticEvent<HTMLIFrameElement>) => {
-    setIframeError(null);
-  };
-
-  const handleIframeError = () => {
-    setIframeError(
-      "Failed to load content. This may be due to Content Security Policy (CSP) restrictions or the site not allowing iframe embedding."
-    );
-  };
-
-  // Effect to handle image loading from IndexedDB
-  useEffect(() => {
-    const loadImage = async () => {
-      // Check if the value contains image data (either indexeddb:// or data:image)
-      if (
-        homePageConfig.value &&
-        (homePageConfig.value.startsWith("indexeddb://") ||
-          homePageConfig.value.startsWith("data:image"))
-      ) {
-        if (homePageConfig.value.startsWith("indexeddb://")) {
-          const imageId = homePageConfig.value.replace("indexeddb://", "");
-          const imageData = await getImageFromIndexedDB(imageId);
-          setImageSrc(imageData);
-        } else {
-          setImageSrc(homePageConfig.value);
-        }
-      } else {
-        setImageSrc(null);
-      }
-    };
-
-    loadImage();
-  }, [homePageConfig.value]);
-
-  // Effect to handle ThoughtSpot embeds
-  useEffect(() => {
-    // Only run for embed type and when there's a value
+    // Use the mapped value for image content detection
     if (
-      !homePageConfig.value ||
-      !homePageConfig.value.trim() ||
-      homePageConfig.type !== "embed"
+      mappedValue &&
+      (mappedValue.startsWith("indexeddb://") ||
+        mappedValue.startsWith("data:image"))
     ) {
-      return;
-    }
+      // Handle image content
+      if (mappedValue.startsWith("indexeddb://")) {
+        // Load from IndexedDB
+        const loadImageFromIndexedDB = async () => {
+          try {
+            const db = await window.indexedDB.open("imageStorage", 1);
+            db.onsuccess = (event) => {
+              const database = (event.target as IDBOpenDBRequest).result;
+              const transaction = database.transaction(["images"], "readonly");
+              const objectStore = transaction.objectStore("images");
+              const request = objectStore.get(
+                mappedValue.replace("indexeddb://", "")
+              );
 
-    let embedInstance: ThoughtSpotEmbedInstance | null = null;
-
-    const initEmbed = async () => {
-      try {
-        // Dynamically import ThoughtSpot SDK to avoid SSR issues
-        const { LiveboardEmbed, SearchEmbed, SpotterEmbed } = await import(
-          "@thoughtspot/visual-embed-sdk"
-        );
-
-        // Determine the content type from the original homePageType or from the value
-        const homeMenu = context.standardMenus.find((m) => m.id === "home");
-        const originalType = homeMenu?.homePageType;
-
-        // Try to determine content type from original type or from value format
-        let contentType = originalType;
-        if (!contentType) {
-          // Fallback: try to determine from value format
-          if (homePageConfig.value.includes("liveboard")) {
-            contentType = "liveboard";
-          } else if (homePageConfig.value.includes("answer")) {
-            contentType = "answer";
-          } else if (homePageConfig.value.includes("spotter")) {
-            contentType = "spotter";
+              request.onsuccess = () => {
+                if (request.result) {
+                  setImageSrc(request.result.dataUrl);
+                }
+              };
+            };
+          } catch (error) {
+            console.error("Error loading image from IndexedDB:", error);
           }
-        }
-
-        // Get current user's locale
-        const currentUser = context.userConfig.users.find(
-          (u) => u.id === context.userConfig.currentUserId
-        );
-        const userLocale = currentUser?.locale || "en";
-
-        switch (contentType) {
-          case "liveboard":
-            if (liveboardRef.current) {
-              embedInstance = new LiveboardEmbed(liveboardRef.current, {
-                liveboardId: homePageConfig.value,
-                locale: userLocale,
-                frameParams: {
-                  width: "100%",
-                  height: "100%",
-                },
-              });
-              if (embedInstance.render) {
-                await embedInstance.render();
-              }
-            }
-            break;
-
-          case "answer":
-            if (searchRef.current) {
-              embedInstance = new SearchEmbed(searchRef.current, {
-                answerId: homePageConfig.value,
-                locale: userLocale,
-                frameParams: {
-                  width: "100%",
-                  height: "600px",
-                },
-              });
-              if (embedInstance.render) {
-                await embedInstance.render();
-              }
-            }
-            break;
-
-          case "spotter":
-            if (spotterRef.current) {
-              embedInstance = new SpotterEmbed(spotterRef.current, {
-                worksheetId: homePageConfig.value,
-                locale: userLocale,
-                frameParams: {
-                  width: "100%",
-                  height: "600px",
-                },
-              });
-              if (embedInstance.render) {
-                await embedInstance.render();
-              }
-            }
-            break;
-        }
-      } catch (error) {
-        console.error("Failed to initialize ThoughtSpot embed:", error);
-        setIframeError("Failed to load ThoughtSpot content");
+        };
+        loadImageFromIndexedDB();
+      } else {
+        // Direct data URL
+        setImageSrc(mappedValue);
       }
+    } else {
+      setImageSrc(null);
+    }
+  }, [mappedValue]);
+
+  // Effect to handle iframe errors
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const handleLoad = () => {
+      setIframeError(null);
     };
 
-    initEmbed();
+    const handleError = () => {
+      setIframeError(
+        "Failed to load the website. The website may not allow iframe embedding."
+      );
+    };
 
-    // Cleanup function
+    iframe.addEventListener("load", handleLoad);
+    iframe.addEventListener("error", handleError);
+
     return () => {
-      if (embedInstance && typeof embedInstance.destroy === "function") {
-        embedInstance.destroy();
-      }
+      iframe.removeEventListener("load", handleLoad);
+      iframe.removeEventListener("error", handleError);
     };
-  }, [
-    context.appConfig.thoughtspotUrl, // Add cluster URL to dependencies
-    context.lastClusterChangeTime, // Add cluster change timestamp to dependencies
-    context.configVersion, // Add config version to force re-initialization on config changes
-    homePageConfig.type,
-    homePageConfig.value,
-    context.userConfig.currentUserId,
-    context.userConfig.users,
-  ]);
+  }, [mappedValue]);
 
   // Additional cleanup effect for when content becomes empty
   useEffect(() => {
-    if (!homePageConfig.value || !homePageConfig.value.trim()) {
+    if (!mappedValue || !mappedValue.trim()) {
       // Clear any iframe errors when content is empty
       setIframeError(null);
     }
-  }, [homePageConfig.value]);
+  }, [mappedValue]);
 
   const renderContent = () => {
     // Check if this is image content based on the value
@@ -362,12 +170,12 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
       );
     }
 
-    switch (homePageConfig.type) {
+    switch (mappedType) {
       case "html":
-        if (homePageConfig.value && homePageConfig.value.trim()) {
+        if (mappedValue && mappedValue.trim()) {
           return (
             <div
-              dangerouslySetInnerHTML={{ __html: homePageConfig.value }}
+              dangerouslySetInnerHTML={{ __html: mappedValue }}
               style={{
                 backgroundColor: "white",
                 padding: "20px",
@@ -406,162 +214,204 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
                 fontSize: "14px",
               }}
             >
-              <strong>Example:</strong> You can add custom HTML, CSS, and
-              JavaScript to create personalized content.
+              <strong>💡 Tip:</strong> You can use HTML to create custom
+              layouts, add instructions, or embed external content. For example:
+              <pre
+                style={{
+                  margin: "12px 0 0 0",
+                  padding: "12px",
+                  backgroundColor: "#f8fafc",
+                  borderRadius: "4px",
+                  fontSize: "13px",
+                  overflow: "auto",
+                }}
+              >
+                {`<h1>Welcome to Your Dashboard</h1>
+<p>This is a custom HTML section where you can:</p>
+<ul>
+  <li>Add company branding</li>
+  <li>Include helpful instructions</li>
+  <li>Create custom layouts</li>
+  <li>Embed external widgets</li>
+</ul>
+<div style="background: #f0f9ff; padding: 16px; border-radius: 8px;">
+  <strong>Quick Start:</strong> Use the settings menu to configure your home page content.
+</div>`}
+              </pre>
             </div>
           </div>
         );
 
       case "url":
-        if (homePageConfig.value && homePageConfig.value.trim()) {
+        const urlToDisplay = mappedValue || "https://example.com";
+
+        // Prevent infinite loop by checking if the URL is the same as current app
+        const currentOrigin = window.location.origin;
+        const isSameApp = urlToDisplay.startsWith(currentOrigin);
+
+        if (isSameApp) {
           return (
-            <div style={{ width: "100%", height: "100%", flex: 1 }}>
-              {iframeError ? (
-                <div
-                  style={{
-                    padding: "20px",
-                    backgroundColor: "#fed7d7",
-                    border: "1px solid #feb2b2",
-                    borderRadius: "8px",
-                    color: "#c53030",
-                  }}
-                >
-                  <h3 style={{ margin: "0 0 10px 0" }}>⚠️ Embedding Error</h3>
-                  <p style={{ margin: 0 }}>{iframeError}</p>
-                  <p style={{ margin: "10px 0 0 0", fontSize: "14px" }}>
-                    URL: <code>{homePageConfig.value}</code>
-                  </p>
-                </div>
-              ) : (
-                <iframe
-                  src={homePageConfig.value}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                  }}
-                  onLoad={handleIframeLoad}
-                  onError={handleIframeError}
-                  title="Embedded content"
-                />
-              )}
+            <div
+              style={{
+                padding: "40px",
+                textAlign: "center",
+                backgroundColor: "#fef2f2",
+                borderRadius: "8px",
+                border: "1px solid #fecaca",
+              }}
+            >
+              <h2 style={{ margin: "0 0 16px 0", color: "#dc2626" }}>
+                ⚠️ Invalid URL
+              </h2>
+              <p style={{ margin: "0 0 20px 0", color: "#4a5568" }}>
+                You cannot embed this application within itself. This would
+                create an infinite loop.
+              </p>
+              <div
+                style={{
+                  padding: "16px",
+                  backgroundColor: "#f0f9ff",
+                  border: "1px solid #0ea5e9",
+                  borderRadius: "6px",
+                  color: "#0369a1",
+                  fontSize: "14px",
+                }}
+              >
+                <strong>💡 Tip:</strong> Use an external website URL like:
+                <ul style={{ margin: "8px 0 0 0", paddingLeft: "20px" }}>
+                  <li>
+                    <code>https://example.com</code>
+                  </li>
+                  <li>
+                    <code>https://thoughtspot.com</code>
+                  </li>
+                  <li>
+                    <code>https://github.com</code>
+                  </li>
+                </ul>
+              </div>
             </div>
           );
         }
+
         return (
-          <div
-            style={{
-              padding: "40px",
-              textAlign: "center",
-              backgroundColor: "#f7fafc",
-              borderRadius: "8px",
-              border: "1px solid #e2e8f0",
-            }}
-          >
-            <h2 style={{ margin: "0 0 16px 0", color: "#2d3748" }}>
-              🌐 Website Embed
-            </h2>
-            <p style={{ margin: "0 0 20px 0", color: "#4a5568" }}>
-              Configure a website URL in the settings to embed external content
-              on your home page.
-            </p>
-            <div
-              style={{
-                padding: "16px",
-                backgroundColor: "#f0f9ff",
-                border: "1px solid #0ea5e9",
-                borderRadius: "6px",
-                color: "#0369a1",
-                fontSize: "14px",
-              }}
-            >
-              <strong>Note:</strong> The website must allow iframe embedding for
-              this to work properly.
-            </div>
+          <div style={{ height: "100%", position: "relative" }}>
+            {iframeError ? (
+              <div
+                style={{
+                  padding: "20px",
+                  backgroundColor: "#fed7d7",
+                  border: "1px solid #feb2b2",
+                  borderRadius: "8px",
+                  color: "#c53030",
+                  textAlign: "center",
+                }}
+              >
+                <p style={{ margin: "0 0 12px 0" }}>
+                  <strong>Error:</strong> {iframeError}
+                </p>
+                <p style={{ margin: "0", fontSize: "14px" }}>
+                  Try a different website or check if the website allows iframe
+                  embedding.
+                </p>
+              </div>
+            ) : (
+              <iframe
+                ref={iframeRef}
+                src={urlToDisplay}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  border: "none",
+                  borderRadius: "8px",
+                }}
+                title="Embedded website"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+              />
+            )}
           </div>
         );
 
       case "embed":
-        if (homePageConfig.value && homePageConfig.value.trim()) {
-          const liveboardContent = thoughtSpotContent.find(
-            (c) => c.id === homePageConfig.value && c.type === "liveboard"
-          );
+        if (!mappedValue || !mappedValue.trim()) {
           return (
-            <div style={{ width: "100%", height: "100%", flex: 1 }}>
-              {iframeError ? (
-                <div
-                  style={{
-                    padding: "20px",
-                    backgroundColor: "#fed7d7",
-                    border: "1px solid #feb2b2",
-                    borderRadius: "8px",
-                    color: "#c53030",
-                  }}
-                >
-                  <h3 style={{ margin: "0 0 10px 0" }}>⚠️ Liveboard Error</h3>
-                  <p style={{ margin: 0 }}>{iframeError}</p>
-                </div>
-              ) : (
-                <div
-                  key={`home-liveboard-embed-${
-                    context.appConfig.thoughtspotUrl
-                  }-${context.lastClusterChangeTime}-${JSON.stringify(
-                    context.stylingConfig.embeddedContent
-                  )}`}
-                  ref={liveboardRef}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                  }}
-                />
-              )}
-            </div>
-          );
-        }
-        return (
-          <div
-            style={{
-              padding: "40px",
-              textAlign: "center",
-              backgroundColor: "#f7fafc",
-              borderRadius: "8px",
-              border: "1px solid #e2e8f0",
-            }}
-          >
-            <h2 style={{ margin: "0 0 16px 0", color: "#2d3748" }}>
-              📊 Liveboard
-            </h2>
-            <p style={{ margin: "0 0 20px 0", color: "#4a5568" }}>
-              Select a liveboard in the settings to display it on your home
-              page.
-            </p>
-            {thoughtSpotContent.filter((c) => c.type === "liveboard").length ===
-              0 && (
+            <div
+              style={{
+                padding: "40px",
+                textAlign: "center",
+                backgroundColor: "#f7fafc",
+                borderRadius: "8px",
+                border: "1px solid #e2e8f0",
+              }}
+            >
+              <h2 style={{ margin: "0 0 16px 0", color: "#2d3748" }}>
+                🔍 ThoughtSpot Content
+              </h2>
+              <p style={{ margin: "0 0 20px 0", color: "#4a5568" }}>
+                Configure a ThoughtSpot content ID in the settings to display
+                liveboards, answers, or spotter content on your home page.
+              </p>
               <div
                 style={{
                   padding: "16px",
-                  backgroundColor: "#fef2f2",
-                  border: "1px solid #f87171",
+                  backgroundColor: "#f0f9ff",
+                  border: "1px solid #0ea5e9",
                   borderRadius: "6px",
-                  color: "#dc2626",
-                  marginBottom: "20px",
+                  color: "#0369a1",
+                  fontSize: "14px",
                 }}
               >
-                No liveboards found in your ThoughtSpot instance.
+                <strong>💡 Tip:</strong> You can embed:
+                <ul style={{ margin: "8px 0 0 0", paddingLeft: "20px" }}>
+                  <li>
+                    <strong>Liveboards:</strong> Complete dashboards with
+                    multiple visualizations
+                  </li>
+                  <li>
+                    <strong>Answers:</strong> Individual charts or tables
+                  </li>
+                  <li>
+                    <strong>Spotter:</strong> AI-powered data analysis
+                  </li>
+                </ul>
               </div>
-            )}
-            <div
-              style={{
-                padding: "16px",
-                backgroundColor: "#f0f9ff",
-                border: "1px solid #0ea5e9",
-                borderRadius: "6px",
-                color: "#0369a1",
-                fontSize: "14px",
-              }}
-            >
-              <strong>Tip:</strong> Liveboards provide interactive dashboards
-              with multiple visualizations.
             </div>
+          );
+        }
+
+        // Determine the content type from the home menu
+        const contentType = homeMenu?.homePageType;
+        if (!contentType) {
+          return (
+            <div
+              style={{ padding: "20px", textAlign: "center", color: "#4a5568" }}
+            >
+              Unable to determine content type. Please check your configuration.
+            </div>
+          );
+        }
+
+        // Create ThoughtSpot content object
+        // Map spotter to model type since Spotter uses worksheet/model IDs
+        const contentTypeForEmbed =
+          contentType === "spotter" ? "model" : contentType;
+        const thoughtSpotContent: ThoughtSpotContent = {
+          id: mappedValue,
+          name: `${contentType} Content`, // Default name for the content
+          type: contentTypeForEmbed as "liveboard" | "answer" | "model",
+        };
+
+        return (
+          <div style={{ height: "100%", width: "100%" }}>
+            <ThoughtSpotEmbed
+              content={thoughtSpotContent}
+              width="100%"
+              height="100%"
+              onError={(error) => {
+                console.error("ThoughtSpot embed error:", error);
+                setIframeError(`Failed to load ${contentType}: ${error}`);
+              }}
+            />
           </div>
         );
 
@@ -576,8 +426,11 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
               border: "1px solid #e2e8f0",
             }}
           >
-            <p style={{ color: "#4a5568", margin: 0 }}>
-              Please configure home page content
+            <h2 style={{ margin: "0 0 16px 0", color: "#2d3748" }}>
+              ⚙️ Configuration Required
+            </h2>
+            <p style={{ margin: "0 0 20px 0", color: "#4a5568" }}>
+              Please configure your home page content in the settings.
             </p>
           </div>
         );
@@ -585,17 +438,16 @@ export default function HomePage({ config, onConfigUpdate }: HomePageProps) {
   };
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          minHeight: 0,
-        }}
-      >
-        {renderContent()}
-      </div>
+    <div
+      style={{
+        height: "100%",
+        width: "100%",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {renderContent()}
     </div>
   );
 }

@@ -124,18 +124,29 @@ export default function ThoughtSpotEmbed({
 
   useEffect(() => {
     const initEmbed = async () => {
-      if (!embedRef.current) return;
+      // Ensure the DOM element is available
+      if (!embedRef.current) {
+        console.warn(
+          "[ThoughtSpotEmbed] embedRef.current is null, waiting for DOM..."
+        );
+        // Wait a bit more for the DOM to be ready
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        if (!embedRef.current) {
+          setError("Failed to initialize: DOM element not available");
+          setIsLoading(false);
+          return;
+        }
+      }
 
       try {
         setIsLoading(true);
         setError(null);
 
         // Add a small delay to ensure ThoughtSpot SDK is properly initialized
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
-        const { LiveboardEmbed, SearchEmbed, EmbedEvent } = await import(
-          "@thoughtspot/visual-embed-sdk"
-        );
+        const { LiveboardEmbed, SearchEmbed, SpotterEmbed, EmbedEvent } =
+          await import("@thoughtspot/visual-embed-sdk");
 
         console.log(
           "[ThoughtSpotEmbed] Initializing embed with cluster URL:",
@@ -151,10 +162,14 @@ export default function ThoughtSpotEmbed({
         let embedInstance;
 
         // Get embed flags based on content type
-        const embedFlags =
-          content.type === "liveboard"
-            ? context.stylingConfig.embedFlags?.liveboardEmbed || {}
-            : context.stylingConfig.embedFlags?.searchEmbed || {};
+        let embedFlags: Record<string, unknown> = {};
+        if (content.type === "liveboard") {
+          embedFlags = context.stylingConfig.embedFlags?.liveboardEmbed || {};
+        } else if (content.type === "answer") {
+          embedFlags = context.stylingConfig.embedFlags?.searchEmbed || {};
+        } else if (content.type === "model") {
+          embedFlags = context.stylingConfig.embedFlags?.spotterEmbed || {};
+        }
 
         // Get hidden actions for current user
         const currentUser = context.userConfig.users.find(
@@ -202,22 +217,31 @@ export default function ThoughtSpotEmbed({
         };
 
         if (content.type === "liveboard") {
-          console.log("[ThoughtSpotEmbed] Creating LiveboardEmbed with config:", { liveboardId: content.id, ...baseEmbedConfig });
+          console.log(
+            "[ThoughtSpotEmbed] Creating LiveboardEmbed with config:",
+            { liveboardId: content.id, ...baseEmbedConfig }
+          );
           embedInstance = new LiveboardEmbed(embedRef.current, {
             liveboardId: content.id,
             ...baseEmbedConfig,
           });
         } else if (content.type === "answer") {
-          console.log("[ThoughtSpotEmbed] Creating SearchEmbed with config:", { answerId: content.id, ...baseEmbedConfig });
+          console.log("[ThoughtSpotEmbed] Creating SearchEmbed with config:", {
+            answerId: content.id,
+            ...baseEmbedConfig,
+          });
           embedInstance = new SearchEmbed(embedRef.current, {
             answerId: content.id,
             ...baseEmbedConfig,
           });
         } else if (content.type === "model") {
-          // For models, use SearchEmbed with dataSource
-          console.log("[ThoughtSpotEmbed] Creating SearchEmbed with config:", { dataSource: content.id, ...baseEmbedConfig });
-          embedInstance = new SearchEmbed(embedRef.current, {
-            dataSource: content.id,
+          // For models (Spotter), use SpotterEmbed with worksheetId
+          console.log("[ThoughtSpotEmbed] Creating SpotterEmbed with config:", {
+            worksheetId: content.id,
+            ...baseEmbedConfig,
+          });
+          embedInstance = new SpotterEmbed(embedRef.current, {
+            worksheetId: content.id,
             ...baseEmbedConfig,
           });
         }
@@ -234,9 +258,27 @@ export default function ThoughtSpotEmbed({
             );
           }
 
-          await embedInstance.render();
-          setIsLoading(false);
-          onLoad?.();
+          try {
+            // Ensure the DOM element is still available before rendering
+            if (!embedRef.current) {
+              throw new Error("DOM element was removed before render");
+            }
+
+            await embedInstance.render();
+            setIsLoading(false);
+            onLoad?.();
+          } catch (renderError) {
+            console.error("Failed to render embed:", renderError);
+            throw new Error(
+              `Render failed: ${
+                renderError instanceof Error
+                  ? renderError.message
+                  : "Unknown error"
+              }`
+            );
+          }
+        } else {
+          throw new Error(`Failed to create ${content.type} embed instance`);
         }
       } catch (error) {
         console.error("Failed to initialize ThoughtSpot embed:", error);
@@ -280,6 +322,7 @@ export default function ThoughtSpotEmbed({
     context.stylingConfig.doubleClickHandling,
     context.stylingConfig.embedFlags?.liveboardEmbed,
     context.stylingConfig.embedFlags?.searchEmbed,
+    context.stylingConfig.embedFlags?.spotterEmbed,
     context.stylingConfig.embeddedContent.customCSS,
     context.stylingConfig.embeddedContent.cssUrl,
     context.stylingConfig.embeddedContent.strings,

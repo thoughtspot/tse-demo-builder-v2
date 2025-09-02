@@ -1175,13 +1175,24 @@ function StandardMenusContent({
                             <input
                               type="url"
                               value={menu.homePageValue || ""}
-                              onChange={(e) =>
+                              onChange={(e) => {
+                                const url = e.target.value;
+                                // Prevent setting the same application URL
+                                if (
+                                  url &&
+                                  url.startsWith(window.location.origin)
+                                ) {
+                                  alert(
+                                    "⚠️ You cannot embed this application within itself. This would create an infinite loop. Please use an external website URL."
+                                  );
+                                  return;
+                                }
                                 updateStandardMenu(
                                   menu.id,
                                   "homePageValue",
-                                  e.target.value
-                                )
-                              }
+                                  url
+                                );
+                              }}
                               placeholder="https://example.com"
                               style={{
                                 width: "100%",
@@ -1191,6 +1202,20 @@ function StandardMenusContent({
                                 fontSize: "14px",
                               }}
                             />
+                            <p
+                              style={{
+                                margin: "8px 0 0 0",
+                                fontSize: "12px",
+                                color: "#6b7280",
+                                fontStyle: "italic",
+                              }}
+                            >
+                              Enter a website URL to embed. The website must
+                              allow iframe embedding.{" "}
+                              <strong>
+                                Do not use this application&apos;s URL.
+                              </strong>
+                            </p>
                           </div>
                         )}
 
