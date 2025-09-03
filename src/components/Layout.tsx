@@ -1617,6 +1617,33 @@ export default function Layout({ children }: LayoutProps) {
         console.error("Failed to save menu order:", error);
       }
     }
+
+    // Grant current user access to the new custom menu
+    const currentUser = userConfig.users.find(
+      (u) => u.id === userConfig.currentUserId
+    );
+    if (currentUser && !currentUser.access.customMenus.includes(menu.id)) {
+      const updatedUserConfig = {
+        ...userConfig,
+        users: userConfig.users.map((user) =>
+          user.id === currentUser.id
+            ? {
+                ...user,
+                access: {
+                  ...user.access,
+                  customMenus: [...user.access.customMenus, menu.id],
+                },
+              }
+            : user
+        ),
+      };
+      setUserConfig(updatedUserConfig);
+      try {
+        await saveUserConfig(updatedUserConfig);
+      } catch (error) {
+        console.error("Failed to save user config:", error);
+      }
+    }
   };
 
   const updateCustomMenu = (id: string, menu: CustomMenu) => {

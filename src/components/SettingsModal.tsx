@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import HomePage from "./pages/HomePage";
 import FavoritesPage from "./pages/FavoritesPage";
 import MyReportsPage from "./pages/MyReportsPage";
@@ -1901,9 +1901,7 @@ function CustomMenusContent({
 
   // Track changes to the editing menu - simplified to prevent infinite loops
   useEffect(() => {
-    if (editingMenu) {
-      onEditingMenuChange?.(editingMenu);
-    }
+    onEditingMenuChange?.(editingMenu);
   }, [editingMenu, onEditingMenuChange]);
 
   // Expose functions through ref
@@ -1954,189 +1952,26 @@ function CustomMenusContent({
       )}
 
       {editingMenu && (
-        <div
-          style={{
-            border: "1px solid #e5e7eb",
-            borderRadius: "8px",
-            padding: "20px",
-            marginBottom: "20px",
-            backgroundColor: "#f9fafb",
-          }}
-        >
-          <h4
-            style={{
-              marginBottom: "16px",
-              fontSize: "16px",
-              fontWeight: "600",
-            }}
-          >
-            {isCreating ? "Create New Menu" : "Edit Menu"}
-          </h4>
-
+        <>
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "16px",
-              marginBottom: "16px",
+              border: "1px solid #e5e7eb",
+              borderRadius: "8px",
+              padding: "20px",
+              marginBottom: "20px",
+              backgroundColor: "#f9fafb",
             }}
           >
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "4px",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                }}
-              >
-                Menu Name *
-              </label>
-              <input
-                type="text"
-                value={editingMenu.name}
-                onChange={(e) =>
-                  setEditingMenu({ ...editingMenu, name: e.target.value })
-                }
-                placeholder="Enter menu name"
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "4px",
-                  fontSize: "14px",
-                }}
-              />
-            </div>
-
-            <div>
-              <IconPicker
-                value={editingMenu.icon}
-                onChange={(icon) => setEditingMenu({ ...editingMenu, icon })}
-                label="Icon"
-                placeholder="Search icons..."
-              />
-            </div>
-          </div>
-
-          <div style={{ marginBottom: "16px" }}>
-            <label
+            <h4
               style={{
-                display: "block",
-                marginBottom: "4px",
-                fontSize: "14px",
-                fontWeight: "500",
+                marginBottom: "16px",
+                fontSize: "16px",
+                fontWeight: "600",
               }}
             >
-              Description
-            </label>
-            <textarea
-              value={editingMenu.description}
-              onChange={(e) =>
-                setEditingMenu({ ...editingMenu, description: e.target.value })
-              }
-              placeholder="Enter menu description"
-              rows={2}
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                border: "1px solid #d1d5db",
-                borderRadius: "4px",
-                fontSize: "14px",
-                resize: "vertical",
-              }}
-            />
-          </div>
+              {isCreating ? "Create New Menu" : "Edit Menu"}
+            </h4>
 
-          <div style={{ marginBottom: "16px" }}>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                cursor: "pointer",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={editingMenu.enabled}
-                onChange={(e) =>
-                  setEditingMenu({ ...editingMenu, enabled: e.target.checked })
-                }
-                style={{ cursor: "pointer" }}
-              />
-              <span style={{ fontSize: "14px" }}>Show in navigation</span>
-            </label>
-          </div>
-
-          <div style={{ marginBottom: "16px" }}>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "8px",
-                fontSize: "14px",
-                fontWeight: "500",
-              }}
-            >
-              Content Selection Method
-            </label>
-            <div style={{ display: "flex", gap: "16px" }}>
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="radio"
-                  name="contentType"
-                  checked={editingMenu.contentSelection.type === "specific"}
-                  onChange={() =>
-                    setEditingMenu({
-                      ...editingMenu,
-                      contentSelection: {
-                        type: "specific",
-                        specificContent: { liveboards: [], answers: [] },
-                      },
-                    })
-                  }
-                  style={{ cursor: "pointer" }}
-                />
-                <span style={{ fontSize: "14px" }}>
-                  Select specific content
-                </span>
-              </label>
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="radio"
-                  name="contentType"
-                  checked={editingMenu.contentSelection.type === "tag"}
-                  onChange={() =>
-                    setEditingMenu({
-                      ...editingMenu,
-                      contentSelection: {
-                        type: "tag",
-                        tagIdentifiers: [],
-                      },
-                    })
-                  }
-                  style={{ cursor: "pointer" }}
-                />
-                <span style={{ fontSize: "14px" }}>Filter by tags</span>
-              </label>
-            </div>
-          </div>
-
-          {editingMenu.contentSelection.type === "specific" && (
             <div
               style={{
                 display: "grid",
@@ -2149,132 +1984,96 @@ function CustomMenusContent({
                 <label
                   style={{
                     display: "block",
-                    marginBottom: "8px",
+                    marginBottom: "4px",
                     fontSize: "14px",
                     fontWeight: "500",
                   }}
                 >
-                  Liveboards
+                  Menu Name *
                 </label>
                 <input
                   type="text"
-                  placeholder="Filter liveboards..."
-                  value={liveboardFilter}
-                  onChange={(e) => setLiveboardFilter(e.target.value)}
+                  value={editingMenu.name}
+                  onChange={(e) =>
+                    setEditingMenu({ ...editingMenu, name: e.target.value })
+                  }
+                  placeholder="Enter menu name"
                   style={{
                     width: "100%",
                     padding: "8px 12px",
                     border: "1px solid #d1d5db",
                     borderRadius: "4px",
                     fontSize: "14px",
-                    marginBottom: "8px",
                   }}
                 />
-                <select
-                  multiple
-                  value={
-                    editingMenu.contentSelection.specificContent?.liveboards ||
-                    []
-                  }
-                  onChange={(e) => {
-                    const selected = Array.from(
-                      e.target.selectedOptions,
-                      (option) => option.value
-                    );
-                    setEditingMenu({
-                      ...editingMenu,
-                      contentSelection: {
-                        ...editingMenu.contentSelection,
-                        specificContent: {
-                          ...editingMenu.contentSelection.specificContent!,
-                          liveboards: selected,
-                        },
-                      },
-                    });
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
-                    fontSize: "14px",
-                    minHeight: "100px",
-                  }}
-                >
-                  {filteredLiveboards.map((liveboard) => (
-                    <option key={liveboard.id} value={liveboard.id}>
-                      {liveboard.name}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <div>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "8px",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                  }}
-                >
-                  Answers
-                </label>
-                <input
-                  type="text"
-                  placeholder="Filter answers..."
-                  value={answerFilter}
-                  onChange={(e) => setAnswerFilter(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
-                    fontSize: "14px",
-                    marginBottom: "8px",
-                  }}
+                <IconPicker
+                  value={editingMenu.icon}
+                  onChange={(icon) => setEditingMenu({ ...editingMenu, icon })}
+                  label="Icon"
+                  placeholder="Search icons..."
                 />
-                <select
-                  multiple
-                  value={
-                    editingMenu.contentSelection.specificContent?.answers || []
-                  }
-                  onChange={(e) => {
-                    const selected = Array.from(
-                      e.target.selectedOptions,
-                      (option) => option.value
-                    );
-                    setEditingMenu({
-                      ...editingMenu,
-                      contentSelection: {
-                        ...editingMenu.contentSelection,
-                        specificContent: {
-                          ...editingMenu.contentSelection.specificContent!,
-                          answers: selected,
-                        },
-                      },
-                    });
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
-                    fontSize: "14px",
-                    minHeight: "100px",
-                  }}
-                >
-                  {filteredAnswers.map((answer) => (
-                    <option key={answer.id} value={answer.id}>
-                      {answer.name}
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
-          )}
 
-          {editingMenu.contentSelection.type === "tag" && (
+            <div style={{ marginBottom: "16px" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "4px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Description
+              </label>
+              <textarea
+                value={editingMenu.description}
+                onChange={(e) =>
+                  setEditingMenu({
+                    ...editingMenu,
+                    description: e.target.value,
+                  })
+                }
+                placeholder="Enter menu description"
+                rows={2}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "4px",
+                  fontSize: "14px",
+                  resize: "vertical",
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: "16px" }}>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={editingMenu.enabled}
+                  onChange={(e) =>
+                    setEditingMenu({
+                      ...editingMenu,
+                      enabled: e.target.checked,
+                    })
+                  }
+                  style={{ cursor: "pointer" }}
+                />
+                <span style={{ fontSize: "14px" }}>Show in navigation</span>
+              </label>
+            </div>
+
             <div style={{ marginBottom: "16px" }}>
               <label
                 style={{
@@ -2284,56 +2083,306 @@ function CustomMenusContent({
                   fontWeight: "500",
                 }}
               >
-                Tags
+                Content Selection Method
               </label>
-              <input
-                type="text"
-                placeholder="Filter tags..."
-                value={tagFilter}
-                onChange={(e) => setTagFilter(e.target.value)}
+              <div style={{ display: "flex", gap: "16px" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="contentType"
+                    checked={editingMenu.contentSelection.type === "specific"}
+                    onChange={() =>
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          type: "specific",
+                          specificContent: { liveboards: [], answers: [] },
+                        },
+                      })
+                    }
+                    style={{ cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: "14px" }}>
+                    Select specific content
+                  </span>
+                </label>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="contentType"
+                    checked={editingMenu.contentSelection.type === "tag"}
+                    onChange={() =>
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          type: "tag",
+                          tagIdentifiers: [],
+                        },
+                      })
+                    }
+                    style={{ cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: "14px" }}>Filter by tags</span>
+                </label>
+              </div>
+            </div>
+
+            {editingMenu.contentSelection.type === "specific" && (
+              <div
                 style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "4px",
-                  fontSize: "14px",
-                  marginBottom: "8px",
-                }}
-              />
-              <select
-                multiple
-                value={editingMenu.contentSelection.tagIdentifiers || []}
-                onChange={(e) => {
-                  const selected = Array.from(
-                    e.target.selectedOptions,
-                    (option) => option.value
-                  );
-                  setEditingMenu({
-                    ...editingMenu,
-                    contentSelection: {
-                      ...editingMenu.contentSelection,
-                      tagIdentifiers: selected,
-                    },
-                  });
-                }}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "4px",
-                  fontSize: "14px",
-                  minHeight: "100px",
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "16px",
+                  marginBottom: "16px",
                 }}
               >
-                {filteredTags.map((tag) => (
-                  <option key={tag.id} value={tag.name}>
-                    {tag.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Liveboards
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Filter liveboards..."
+                    value={liveboardFilter}
+                    onChange={(e) => setLiveboardFilter(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                      marginBottom: "8px",
+                    }}
+                  />
+                  <select
+                    multiple
+                    value={
+                      editingMenu.contentSelection.specificContent
+                        ?.liveboards || []
+                    }
+                    onChange={(e) => {
+                      const selected = Array.from(
+                        e.target.selectedOptions,
+                        (option) => option.value
+                      );
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          ...editingMenu.contentSelection,
+                          specificContent: {
+                            ...editingMenu.contentSelection.specificContent!,
+                            liveboards: selected,
+                          },
+                        },
+                      });
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                      minHeight: "100px",
+                    }}
+                  >
+                    {filteredLiveboards.map((liveboard) => (
+                      <option key={liveboard.id} value={liveboard.id}>
+                        {liveboard.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Answers
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Filter answers..."
+                    value={answerFilter}
+                    onChange={(e) => setAnswerFilter(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                      marginBottom: "8px",
+                    }}
+                  />
+                  <select
+                    multiple
+                    value={
+                      editingMenu.contentSelection.specificContent?.answers ||
+                      []
+                    }
+                    onChange={(e) => {
+                      const selected = Array.from(
+                        e.target.selectedOptions,
+                        (option) => option.value
+                      );
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          ...editingMenu.contentSelection,
+                          specificContent: {
+                            ...editingMenu.contentSelection.specificContent!,
+                            answers: selected,
+                          },
+                        },
+                      });
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                      minHeight: "100px",
+                    }}
+                  >
+                    {filteredAnswers.map((answer) => (
+                      <option key={answer.id} value={answer.id}>
+                        {answer.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {editingMenu.contentSelection.type === "tag" && (
+              <div style={{ marginBottom: "16px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                  }}
+                >
+                  Tags
+                </label>
+                <input
+                  type="text"
+                  placeholder="Filter tags..."
+                  value={tagFilter}
+                  onChange={(e) => setTagFilter(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                    marginBottom: "8px",
+                  }}
+                />
+                <select
+                  multiple
+                  value={editingMenu.contentSelection.tagIdentifiers || []}
+                  onChange={(e) => {
+                    const selected = Array.from(
+                      e.target.selectedOptions,
+                      (option) => option.value
+                    );
+                    setEditingMenu({
+                      ...editingMenu,
+                      contentSelection: {
+                        ...editingMenu.contentSelection,
+                        tagIdentifiers: selected,
+                      },
+                    });
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                    minHeight: "100px",
+                  }}
+                >
+                  {filteredTags.map((tag) => (
+                    <option key={tag.id} value={tag.name}>
+                      {tag.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Save and Cancel buttons */}
+          <div
+            style={{
+              display: "flex",
+              gap: "12px",
+              justifyContent: "flex-end",
+              marginTop: "20px",
+            }}
+          >
+            <button
+              onClick={handleCancelEdit}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: "#6b7280",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "14px",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveMenu}
+              disabled={!editingMenu?.name.trim()}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: editingMenu?.name.trim()
+                  ? "#3182ce"
+                  : "#9ca3af",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: editingMenu?.name.trim() ? "pointer" : "not-allowed",
+                fontSize: "14px",
+              }}
+            >
+              {isCreating ? "Create" : "Save"}
+            </button>
+          </div>
+        </>
       )}
 
       <div style={{ flex: 1, overflow: "auto" }}>
@@ -5478,6 +5527,12 @@ export default function SettingsModal({
       customMenuRef: customMenuRef.current ? "available" : "null",
     });
 
+    // Check if we have a pending custom menu to save
+    if (!pendingCustomMenuSave) {
+      console.log("No pending custom menu to save");
+      return;
+    }
+
     // Add a safeguard to prevent multiple rapid calls
     if (customMenuRef.current) {
       console.log("Calling saveMenu through ref");
@@ -5737,6 +5792,12 @@ export default function SettingsModal({
             setIsCreatingCustomMenu(
               menu !== null && !customMenus.find((m) => m.id === menu?.id)
             );
+            console.log("onEditingMenuChange called with:", {
+              menu: menu?.name,
+              isEditing: menu !== null,
+              isCreating:
+                menu !== null && !customMenus.find((m) => m.id === menu?.id),
+            });
           }}
           onSaveMenu={handleCustomMenuSave}
           onCancelEdit={handleCustomMenuCancel}
@@ -5981,44 +6042,6 @@ export default function SettingsModal({
           }}
         >
           <div style={{ display: "flex", gap: "12px" }}>
-            {/* Custom Menu Save/Cancel buttons - only show when editing */}
-            {isEditingCustomMenu && (
-              <>
-                <button
-                  onClick={handleCustomMenuCancel}
-                  style={{
-                    padding: "8px 16px",
-                    backgroundColor: "#6b7280",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCustomMenuSave}
-                  disabled={false} // Temporarily enable for testing
-                  style={{
-                    padding: "8px 16px",
-                    backgroundColor: "#3182ce", // Always enabled for testing
-                    color: "white",
-                    border: "none",
-                    borderRadius: "6px",
-                    cursor: "pointer", // Always enabled for testing
-                    fontSize: "14px",
-                  }}
-                  title={`Button state: pendingCustomMenuSave=${
-                    pendingCustomMenuSave?.name || "null"
-                  }, ref=${customMenuRef.current ? "available" : "null"}`}
-                >
-                  {isCreatingCustomMenu ? "Create" : "Save"}
-                </button>
-              </>
-            )}
-
             {/* Apply button - show when there are unsaved changes and not editing custom menu */}
             {!isEditingCustomMenu && hasUnsavedChanges && (
               <button
