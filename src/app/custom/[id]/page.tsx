@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useAppContext } from "../../../components/Layout";
 import ContentGrid from "../../../components/ContentGrid";
+import ThoughtSpotEmbed from "../../../components/ThoughtSpotEmbed";
 import { ThoughtSpotContent } from "../../../types/thoughtspot";
 
 type ContentType = "all" | "answer" | "liveboard";
@@ -11,7 +12,7 @@ type ContentType = "all" | "answer" | "liveboard";
 function CustomMenuPageContent() {
   const params = useParams();
   const router = useRouter();
-  const { customMenus } = useAppContext();
+  const { customMenus, stylingConfig } = useAppContext();
   const [mounted, setMounted] = useState(false);
   const [selectedContentType, setSelectedContentType] =
     useState<ContentType>("all");
@@ -129,7 +130,7 @@ function CustomMenuPageContent() {
 
   const contentTypeTabs = getTabLabels();
 
-  // If showing content directly, render the content view without tabs
+  // If showing content directly, render the content view with proper space utilization
   if (showContentDirectly && selectedContent) {
     return (
       <div
@@ -138,24 +139,135 @@ function CustomMenuPageContent() {
           display: "flex",
           flexDirection: "column",
           minHeight: 0,
+          height: "100%",
+          overflow: "hidden",
         }}
       >
-        <ContentGrid
-          title={customMenu?.name || "Content"}
-          subtitle={selectedContent.name}
-          description={selectedContent.description || ""}
-          emptyMessage="No content found."
-          showDirectContent={true}
-          onContentOpen={handleContentOpen}
-          onBackClick={handleBackToGrid}
-          customContent={{
-            ...customMenu,
-            contentSelection: {
-              ...customMenu?.contentSelection,
-            },
-          }}
-          tabContentType={undefined}
-        />
+        <div style={{ marginBottom: "24px" }}>
+          <button
+            onClick={handleBackToGrid}
+            style={{
+              padding: "8px 16px",
+              backgroundColor:
+                stylingConfig.application.buttons?.secondary?.backgroundColor ||
+                "#6b7280",
+              color:
+                stylingConfig.application.buttons?.secondary?.foregroundColor ||
+                "white",
+              border: `1px solid ${
+                stylingConfig.application.buttons?.secondary?.borderColor ||
+                "#6b7280"
+              }`,
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            ← Back to {customMenu?.name || "Content"}
+          </button>
+        </div>
+        {!stylingConfig.embedDisplay?.hideTitle ||
+        (selectedContent.description &&
+          !stylingConfig.embedDisplay?.hideDescription) ? (
+          <div
+            style={{
+              backgroundColor:
+                stylingConfig.application.backgrounds?.cardBackground ||
+                "#f7fafc",
+              padding: "24px",
+              borderRadius: "8px",
+              border: `1px solid ${
+                stylingConfig.application.backgrounds?.borderColor || "#e2e8f0"
+              }`,
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "auto",
+              minHeight: 0,
+            }}
+          >
+            {!stylingConfig.embedDisplay?.hideTitle && (
+              <h2
+                style={{
+                  fontSize: "24px",
+                  fontWeight: "600",
+                  marginBottom: "16px",
+                }}
+              >
+                {selectedContent.name}
+              </h2>
+            )}
+            {selectedContent.description &&
+              !stylingConfig.embedDisplay?.hideDescription && (
+                <p
+                  style={{
+                    color: "#4a5568",
+                    lineHeight: "1.6",
+                    marginBottom: stylingConfig.embedDisplay?.hideTitle
+                      ? "0"
+                      : "24px",
+                  }}
+                >
+                  {selectedContent.description}
+                </p>
+              )}
+            <div
+              style={{
+                border: "1px solid #e2e8f0",
+                borderRadius: "8px",
+                backgroundColor: "white",
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+                overflow: "auto",
+              }}
+            >
+              <ThoughtSpotEmbed
+                content={selectedContent}
+                width="100%"
+                height="100%"
+                onLoad={() => {}}
+                onError={(error) =>
+                  console.error(
+                    "Content load error for",
+                    selectedContent.name,
+                    ":",
+                    error
+                  )
+                }
+              />
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "auto",
+              minHeight: 0,
+            }}
+          >
+            <ThoughtSpotEmbed
+              content={selectedContent}
+              width="100%"
+              height="100%"
+              onLoad={() => {}}
+              onError={(error) =>
+                console.error(
+                  "Content load error for",
+                  selectedContent.name,
+                  ":",
+                  error
+                )
+              }
+            />
+          </div>
+        )}
       </div>
     );
   }
