@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useAppContext } from "../../../components/Layout";
 import ContentGrid from "../../../components/ContentGrid";
+import { ThoughtSpotContent } from "../../../types/thoughtspot";
 
 type ContentType = "all" | "answer" | "liveboard";
 
@@ -14,6 +15,9 @@ function CustomMenuPageContent() {
   const [mounted, setMounted] = useState(false);
   const [selectedContentType, setSelectedContentType] =
     useState<ContentType>("all");
+  const [selectedContent, setSelectedContent] =
+    useState<ThoughtSpotContent | null>(null);
+  const [showContentDirectly, setShowContentDirectly] = useState(false);
 
   // Prevent hydration mismatch
   useEffect(() => {
@@ -25,6 +29,16 @@ function CustomMenuPageContent() {
 
   const handleBackClick = () => {
     router.back();
+  };
+
+  const handleContentOpen = (content: ThoughtSpotContent) => {
+    setSelectedContent(content);
+    setShowContentDirectly(true);
+  };
+
+  const handleBackToGrid = () => {
+    setShowContentDirectly(false);
+    setSelectedContent(null);
   };
 
   const getTabLabels = () => [
@@ -115,6 +129,37 @@ function CustomMenuPageContent() {
 
   const contentTypeTabs = getTabLabels();
 
+  // If showing content directly, render the content view without tabs
+  if (showContentDirectly && selectedContent) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+        }}
+      >
+        <ContentGrid
+          title={customMenu?.name || "Content"}
+          subtitle={selectedContent.name}
+          description={selectedContent.description || ""}
+          emptyMessage="No content found."
+          showDirectContent={true}
+          onContentOpen={handleContentOpen}
+          onBackClick={handleBackToGrid}
+          customContent={{
+            ...customMenu,
+            contentSelection: {
+              ...customMenu?.contentSelection,
+            },
+          }}
+          tabContentType={undefined}
+        />
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Content Type Selector Tabs */}
@@ -184,6 +229,7 @@ function CustomMenuPageContent() {
         description={getDynamicDescription()}
         emptyMessage="No content found for this custom menu. Please check the configuration."
         showDirectContent={true}
+        onContentOpen={handleContentOpen}
         onBackClick={handleBackClick}
         customContent={{
           ...customMenu,

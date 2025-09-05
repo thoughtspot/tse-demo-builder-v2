@@ -17,6 +17,7 @@ import CSSVariablesEditor from "./CSSVariablesEditor";
 import CSSRulesEditor from "./CSSRulesEditor";
 import EmbedFlagsEditor from "./EmbedFlagsEditor";
 import DoubleClickEditor from "./DoubleClickEditor";
+import RuntimeFiltersEditor from "./RuntimeFiltersEditor";
 import {
   User,
   UserConfig,
@@ -3469,6 +3470,7 @@ function UserConfigContent({
         },
         customMenus: [],
         hiddenActions: { enabled: false, actions: [] },
+        runtimeFilters: [],
       },
     },
     {
@@ -3488,6 +3490,7 @@ function UserConfigContent({
         },
         customMenus: [],
         hiddenActions: { enabled: false, actions: [] },
+        runtimeFilters: [],
       },
     },
   ];
@@ -3523,6 +3526,13 @@ function UserConfigContent({
             ...allStandardMenus,
             ...currentStandardMenus,
           },
+          // Preserve existing runtime filters and other access properties
+          runtimeFilters: user.access?.runtimeFilters || [],
+          hiddenActions: user.access?.hiddenActions || {
+            enabled: false,
+            actions: [],
+          },
+          customMenus: user.access?.customMenus || [],
         };
 
         return updatedUser;
@@ -3541,18 +3551,21 @@ function UserConfigContent({
         console.log(
           "Migrating users to include missing standard menu permissions"
         );
+        console.log(
+          "Updated users with runtime filters preserved:",
+          updatedUsers.map((u) => ({
+            id: u.id,
+            name: u.name,
+            runtimeFilters: u.access.runtimeFilters,
+          }))
+        );
         updateUserConfig({
           ...userConfig,
           users: updatedUsers,
         });
       }
     }
-  }, [
-    userConfig.users.length,
-    updateUserConfig,
-    defaultUsers,
-    userConfig.users,
-  ]);
+  }, [userConfig.users.length, updateUserConfig, defaultUsers]);
 
   const handleCreateUser = () => {
     const newUser: User = {
@@ -3582,6 +3595,12 @@ function UserConfigContent({
     if (editingUser && editingUser.name.trim()) {
       // Update the user description based on the current access configuration
       const updatedUser = { ...editingUser };
+
+      // Debug: Log the runtime filters before saving
+      console.log(
+        "Saving user with runtime filters:",
+        updatedUser.access.runtimeFilters
+      );
       if (
         updatedUser.access.standardMenus["full-app"] &&
         updatedUser.access.standardMenus["search"]
@@ -4103,6 +4122,41 @@ function UserConfigContent({
                 ))}
               </div>
             )}
+          </div>
+
+          <div style={{ marginBottom: "20px" }}>
+            <h5
+              style={{
+                fontSize: "14px",
+                fontWeight: "600",
+                marginBottom: "12px",
+              }}
+            >
+              Runtime Filters
+            </h5>
+            <p
+              style={{
+                fontSize: "12px",
+                color: "#6b7280",
+                marginBottom: "12px",
+              }}
+            >
+              Configure filters that will be applied to all embedded content for
+              this user.
+            </p>
+            <RuntimeFiltersEditor
+              runtimeFilters={editingUser.access.runtimeFilters || []}
+              onFiltersChange={(filters) => {
+                const updatedUser = {
+                  ...editingUser,
+                  access: {
+                    ...editingUser.access,
+                    runtimeFilters: filters,
+                  },
+                };
+                setEditingUser(updatedUser);
+              }}
+            />
           </div>
 
           <div

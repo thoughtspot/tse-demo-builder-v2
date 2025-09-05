@@ -113,13 +113,7 @@ export default function ThoughtSpotEmbed({
         }, 100);
       }
     },
-    [
-      context.stylingConfig.doubleClickHandling,
-      context.stylingConfig.embedFlags?.liveboardEmbed,
-      context.stylingConfig.embedFlags?.searchEmbed,
-      context.userConfig.currentUserId,
-      context.userConfig.users,
-    ]
+    [context.stylingConfig.doubleClickHandling]
   );
 
   useEffect(() => {
@@ -207,10 +201,12 @@ export default function ThoughtSpotEmbed({
           embedFlags = context.stylingConfig.embedFlags?.spotterEmbed || {};
         }
 
-        // Get hidden actions for current user
+        // Get current user
         const currentUser = context.userConfig.users.find(
           (u) => u.id === context.userConfig.currentUserId
         );
+
+        // Get hidden actions for current user
         const hiddenActions = currentUser?.access.hiddenActions?.enabled
           ? (currentUser.access.hiddenActions.actions as any[]) // eslint-disable-line @typescript-eslint/no-explicit-any
           : [];
@@ -228,6 +224,9 @@ export default function ThoughtSpotEmbed({
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { visibleActions, ...filteredEmbedFlags } = embedFlags;
 
+        // Get runtime filters from current user
+        const runtimeFilters = currentUser?.access.runtimeFilters || [];
+
         // Base embed configuration with customizations
         const baseEmbedConfig: ThoughtSpotBaseEmbedConfig = {
           frameParams: {
@@ -237,6 +236,7 @@ export default function ThoughtSpotEmbed({
           locale: userLocale,
           ...filteredEmbedFlags,
           ...(hiddenActions.length > 0 && { hiddenActions }),
+          ...(runtimeFilters.length > 0 && { runtimeFilters }),
           customizations: {
             content: {
               strings: strings || {},

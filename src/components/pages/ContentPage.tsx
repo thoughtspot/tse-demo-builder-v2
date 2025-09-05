@@ -104,7 +104,16 @@ export default function ContentPage({
   // If showing content directly, render the content view with proper space utilization
   if (showContentDirectly && selectedContent) {
     return (
-      <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+          height: "100%",
+          overflow: "hidden",
+        }}
+      >
         <div style={{ marginBottom: "24px" }}>
           <button
             onClick={handleBackToGrid}
@@ -147,6 +156,8 @@ export default function ContentPage({
               flex: 1,
               display: "flex",
               flexDirection: "column",
+              overflow: "auto",
+              minHeight: 0,
             }}
           >
             {!stylingConfig.embedDisplay?.hideTitle && (
@@ -182,6 +193,8 @@ export default function ContentPage({
                 flex: 1,
                 display: "flex",
                 flexDirection: "column",
+                minHeight: 0,
+                overflow: "auto",
               }}
             >
               <ThoughtSpotEmbed
@@ -206,6 +219,8 @@ export default function ContentPage({
               flex: 1,
               display: "flex",
               flexDirection: "column",
+              overflow: "auto",
+              minHeight: 0,
             }}
           >
             <ThoughtSpotEmbed
@@ -325,7 +340,14 @@ export default function ContentPage({
   };
 
   return (
-    <div>
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+      }}
+    >
       {/* Content Type Selector Tabs */}
       <div style={{ marginBottom: "24px" }}>
         <div

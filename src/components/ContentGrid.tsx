@@ -359,7 +359,15 @@ export default function ContentGrid({
   // If showing content directly, render the content view
   if (showDirectContent && showContentDirectly && selectedContent) {
     return (
-      <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+          overflow: "hidden",
+        }}
+      >
         <div style={{ marginBottom: "24px" }}>
           <button
             onClick={handleBackToGrid}
@@ -403,6 +411,8 @@ export default function ContentGrid({
               flex: 1,
               display: "flex",
               flexDirection: "column",
+              overflow: "auto",
+              minHeight: 0,
             }}
           >
             {!context.stylingConfig.embedDisplay?.hideTitle && (
@@ -438,6 +448,8 @@ export default function ContentGrid({
                 flex: 1,
                 display: "flex",
                 flexDirection: "column",
+                minHeight: 0,
+                overflow: "auto",
               }}
             >
               <ThoughtSpotEmbed
@@ -462,6 +474,8 @@ export default function ContentGrid({
               flex: 1,
               display: "flex",
               flexDirection: "column",
+              overflow: "auto",
+              minHeight: 0,
             }}
           >
             <ThoughtSpotEmbed
@@ -600,7 +614,14 @@ export default function ContentGrid({
   }
 
   return (
-    <div>
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+      }}
+    >
       <div
         style={{
           backgroundColor:

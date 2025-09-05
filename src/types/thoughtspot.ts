@@ -42,6 +42,7 @@ export interface ThoughtSpotEmbedConfig {
     searchQuery: string;
   };
   hiddenActions?: string[];
+  runtimeFilters?: RuntimeFilter[];
   customizations?: {
     content: {
       strings: Record<string, string>;
@@ -69,6 +70,7 @@ export interface ThoughtSpotSearchEmbedConfig {
     executeSearch: boolean;
   };
   hiddenActions?: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+  runtimeFilters?: RuntimeFilter[];
   customizations?: {
     content: {
       strings: Record<string, string>;
@@ -91,6 +93,7 @@ export interface ThoughtSpotBaseEmbedConfig {
     height: string;
   };
   locale?: string; // User locale preference
+  runtimeFilters?: RuntimeFilter[];
   customizations: {
     content: {
       strings: Record<string, string>;
@@ -222,6 +225,7 @@ export interface UserAccess {
   };
   customMenus: string[]; // Array of custom menu IDs that the user can access
   hiddenActions?: HiddenActionsConfig; // Configuration for hidden actions
+  runtimeFilters?: RuntimeFilter[]; // User-specific runtime filters
 }
 
 export interface User {
@@ -327,6 +331,76 @@ export interface DoubleClickHandlingConfig {
   showDefaultModal: boolean;
   customJavaScript?: string;
   modalTitle?: string;
+}
+
+// Runtime filter types
+export enum RuntimeFilterOp {
+  /**
+   * Equals
+   */
+  EQ = "EQ",
+  /**
+   * Does not equal
+   */
+  NE = "NE",
+  /**
+   * Less than
+   */
+  LT = "LT",
+  /**
+   * Less than or equal to
+   */
+  LE = "LE",
+  /**
+   * Greater than
+   */
+  GT = "GT",
+  /**
+   * Greater than or equal to
+   */
+  GE = "GE",
+  /**
+   * Contains
+   */
+  CONTAINS = "CONTAINS",
+  /**
+   * Begins with
+   */
+  BEGINS_WITH = "BEGINS_WITH",
+  /**
+   * Ends with
+   */
+  ENDS_WITH = "ENDS_WITH",
+  /**
+   * Between, inclusive of higher value
+   */
+  BW_INC_MAX = "BW_INC_MAX",
+  /**
+   * Between, inclusive of lower value
+   */
+  BW_INC_MIN = "BW_INC_MIN",
+  /**
+   * Between, inclusive of both higher and lower value
+   */
+  BW_INC = "BW_INC",
+  /**
+   * Between, non-inclusive
+   */
+  BW = "BW",
+  /**
+   * Is included in this list of values
+   */
+  IN = "IN",
+  /**
+   * Is not included in this list of values
+   */
+  NOT_IN = "NOT_IN",
+}
+
+export interface RuntimeFilter {
+  columnName: string;
+  operator: RuntimeFilterOp;
+  values: (string | number | boolean)[];
 }
 
 // Double-click event data structure

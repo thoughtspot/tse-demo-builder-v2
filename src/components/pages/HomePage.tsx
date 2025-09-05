@@ -308,7 +308,7 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
         }
 
         return (
-          <div style={{ height: "100%", position: "relative" }}>
+          <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
             {iframeError ? (
               <div
                 style={{
@@ -415,7 +415,7 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
         };
 
         return (
-          <div style={{ height: "100%", width: "100%" }}>
+          <div style={{ flex: 1, width: "100%", minHeight: 0 }}>
             <ThoughtSpotEmbed
               content={thoughtSpotContent}
               width="100%"
@@ -453,10 +453,11 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
   return (
     <div
       style={{
-        height: "100%",
+        flex: 1,
         width: "100%",
         overflow: "hidden",
         display: "flex",
+        minHeight: 0,
         flexDirection: "column",
       }}
     >
