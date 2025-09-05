@@ -45,6 +45,7 @@ interface SearchParams {
   includeStats?: boolean;
   tagIdentifiers?: string[];
   metadataIds?: string[];
+  metadataWithTypes?: Array<{ identifier: string; type: string }>;
   userName?: string;
   isFavorite?: boolean;
   recordOffset?: number;
@@ -76,6 +77,7 @@ async function searchMetadata(
     includeStats = false,
     tagIdentifiers = [],
     metadataIds = [],
+    metadataWithTypes = [],
     userName,
     isFavorite = false,
     recordOffset = 0,
@@ -94,11 +96,19 @@ async function searchMetadata(
   };
 
   // Add metadata types and/or IDs
-  if (metadataTypes.length > 0 || metadataIds.length > 0) {
+  if (
+    metadataTypes.length > 0 ||
+    metadataIds.length > 0 ||
+    metadataWithTypes.length > 0
+  ) {
     const metadataArray: Array<{ type?: string; identifier?: string }> = [];
 
+    // If we have metadata with types, use those directly (highest priority)
+    if (metadataWithTypes.length > 0) {
+      metadataArray.push(...metadataWithTypes);
+    }
     // If we have specific IDs, create objects with both identifier and type
-    if (metadataIds.length > 0) {
+    else if (metadataIds.length > 0) {
       // For specific IDs, we include both identifier and type (if types are provided)
       metadataIds.forEach((id) => {
         const metadataObj: { identifier: string; type?: string } = {
@@ -928,18 +938,31 @@ export async function fetchContentByIds(
 }> {
   try {
     const allIds = [...liveboardIds, ...answerIds];
+
     if (allIds.length === 0) {
       return { liveboards: [], answers: [] };
     }
 
+    // Create metadata objects with proper types for each ID
+    const metadataWithTypes: Array<{ identifier: string; type: string }> = [];
+
+    // Add liveboards with LIVEBOARD type
+    liveboardIds.forEach((id) => {
+      metadataWithTypes.push({ identifier: id, type: "LIVEBOARD" });
+    });
+
+    // Add answers with ANSWER type
+    answerIds.forEach((id) => {
+      metadataWithTypes.push({ identifier: id, type: "ANSWER" });
+    });
+
     const response = await searchMetadata({
       metadataTypes: ["LIVEBOARD", "ANSWER"],
       includeStats: true,
-      metadataIds: allIds,
+      metadataWithTypes: metadataWithTypes,
     });
 
     if (!response || !Array.isArray(response)) {
-      console.warn("No metadata array in response, returning empty arrays");
       return { liveboards: [], answers: [] };
     }
 

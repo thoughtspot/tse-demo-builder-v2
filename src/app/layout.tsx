@@ -18,7 +18,12 @@ export const metadata: Metadata = {
   title: "TSE Demo Builder",
   description: "TSE Demo Builder Application",
   icons: {
-    icon: "/ts.png",
+    icon: [
+      {
+        url: "/ts.png",
+        type: "image/png",
+      },
+    ],
   },
 };
 
@@ -29,9 +34,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="icon" href="/ts.png" id="favicon" />
-      </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <HydrationFix />
         <Layout>{children}</Layout>

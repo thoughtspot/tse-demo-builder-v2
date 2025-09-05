@@ -169,6 +169,7 @@ export default function SideNav({
             spotter: "/spotter",
             search: "/search",
             "full-app": "/full-app",
+            "all-content": "/all-content",
           };
 
           orderedItems.push({
@@ -194,6 +195,7 @@ export default function SideNav({
             spotter: "/spotter",
             search: "/search",
             "full-app": "/full-app",
+            "all-content": "/all-content",
           };
 
           return {
@@ -229,17 +231,26 @@ export default function SideNav({
   };
 
   const navItems = createNavItems();
-  
+
   // Debug logging for nav items (only in development)
-  if (process.env.NODE_ENV === "development") {
-    console.log("SideNav debug:", {
-      standardMenus: standardMenus.map(m => ({ id: m.id, enabled: m.enabled })),
-      customMenus: customMenus.map(m => ({ id: m.id, enabled: m.enabled })),
-      menuOrder,
-      navItems: navItems.map(item => ({ id: item.id, name: item.name, isCustom: item.isCustom })),
-      fullAppInNavItems: navItems.find(item => item.id === "full-app")
-    });
-  }
+  // Disabled to reduce console spam
+  // if (process.env.NODE_ENV === "development") {
+  //   console.log("SideNav debug:", {
+  //     standardMenus: standardMenus.map((m) => ({
+  //       id: m.id,
+  //       enabled: m.enabled,
+  //     })),
+  //     customMenus: customMenus.map((m) => ({ id: m.id, enabled: m.enabled })),
+  //     menuOrder,
+  //     navItems: navItems.map((item) => ({
+  //       id: item.id,
+  //       name: item.name,
+  //       isCustom: item.isCustom,
+  //     })),
+  //     fullAppInNavItems: navItems.find((item) => item.id === "full-app"),
+  //     allContentInNavItems: navItems.find((item) => item.id === "all-content"),
+  //   });
+  // }
 
   const handleNavClick = (route: string) => {
     router.push(route);

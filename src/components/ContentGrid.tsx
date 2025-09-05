@@ -15,15 +15,20 @@ interface ContentGridProps {
   onContentOpen?: (content: ThoughtSpotContent) => void;
   fetchFavorites?: boolean;
   fetchUserContent?: boolean;
+  fetchAllContent?: boolean;
   favoritesConfig?: {
-    contentType?: "Answer" | "Liveboard";
+    contentType?: "answer" | "liveboard";
     namePattern?: string;
     tagFilter?: string;
   };
   userContentConfig?: {
-    contentType?: "Answer" | "Liveboard";
+    contentType?: "answer" | "liveboard";
     namePattern?: string;
     tagFilter?: string;
+  };
+  allContentConfig?: {
+    contentType?: "answer" | "liveboard";
+    excludeSystemContent?: boolean;
   };
   showDirectContent?: boolean;
   onBackClick?: () => void;
@@ -35,8 +40,11 @@ interface ContentGridProps {
         answers: string[];
       };
       tagIdentifiers?: string[];
+      contentType?: "answer" | "liveboard";
     };
   };
+  // For tab-based filtering in custom menus
+  tabContentType?: "answer" | "liveboard";
 }
 
 export default function ContentGrid({
@@ -47,11 +55,14 @@ export default function ContentGrid({
   onContentOpen,
   fetchFavorites = false,
   fetchUserContent = false,
+  fetchAllContent = false,
   favoritesConfig,
   userContentConfig,
+  allContentConfig,
   showDirectContent = false,
   onBackClick,
   customContent,
+  tabContentType,
 }: ContentGridProps) {
   const context = useAppContext();
   const [content, setContent] = useState<ThoughtSpotContent[]>([]);
@@ -104,6 +115,10 @@ export default function ContentGrid({
             liveboards = specificContent.liveboards;
             answers = specificContent.answers;
           }
+        } else if (fetchAllContent) {
+          const allContent = await fetchAllThoughtSpotContentWithStats();
+          liveboards = allContent.liveboards;
+          answers = allContent.answers;
         } else if (fetchUserContent) {
           // Check if we need to filter by tags
           if (
@@ -145,14 +160,36 @@ export default function ContentGrid({
         // Combine liveboards and answers, excluding models
         let allContent = [...liveboards, ...answers];
 
+        // Apply custom content filtering if provided
+        if (customContent && customContent.contentSelection.contentType) {
+          allContent = allContent.filter((item) => {
+            if (customContent.contentSelection.contentType === "answer")
+              return item.type === "answer";
+            if (customContent.contentSelection.contentType === "liveboard")
+              return item.type === "liveboard";
+            return true;
+          });
+        }
+
+        // Apply tab-based filtering if provided (for custom menus)
+        if (tabContentType) {
+          allContent = allContent.filter((item) => {
+            if (tabContentType === "answer") return item.type === "answer";
+            if (tabContentType === "liveboard")
+              return item.type === "liveboard";
+            return true;
+          });
+        }
+
         // Apply favorites configuration filtering if provided
         if (fetchFavorites && favoritesConfig) {
           // Filter by content type if specified
           if (favoritesConfig.contentType) {
-            const contentType = favoritesConfig.contentType.toLowerCase();
             allContent = allContent.filter((item) => {
-              if (contentType === "answer") return item.type === "answer";
-              if (contentType === "liveboard") return item.type === "liveboard";
+              if (favoritesConfig.contentType === "answer")
+                return item.type === "answer";
+              if (favoritesConfig.contentType === "liveboard")
+                return item.type === "liveboard";
               return true;
             });
           }
@@ -169,14 +206,96 @@ export default function ContentGrid({
           }
         }
 
+        // Apply all content configuration filtering if provided
+        if (fetchAllContent && allContentConfig) {
+          console.log("All content config received:", allContentConfig);
+          console.log(
+            "Exclude system content setting:",
+            allContentConfig.excludeSystemContent
+          );
+          // Filter by content type if specified
+          if (allContentConfig.contentType) {
+            console.log(
+              "Filtering by content type:",
+              allContentConfig.contentType
+            );
+            console.log(
+              "Total items before content type filtering:",
+              allContent.length
+            );
+            console.log(
+              "Sample items before filtering:",
+              allContent.slice(0, 3).map((item) => ({
+                id: item.id,
+                name: item.name,
+                type: item.type,
+              }))
+            );
+
+            allContent = allContent.filter((item) => {
+              if (allContentConfig.contentType === "answer")
+                return item.type === "answer";
+              if (allContentConfig.contentType === "liveboard")
+                return item.type === "liveboard";
+              return true;
+            });
+
+            console.log(
+              "Total items after content type filtering:",
+              allContent.length
+            );
+            console.log(
+              "Sample items after filtering:",
+              allContent.slice(0, 3).map((item) => ({
+                id: item.id,
+                name: item.name,
+                type: item.type,
+              }))
+            );
+          }
+
+          // Filter out system content if specified
+          if (allContentConfig.excludeSystemContent) {
+            console.log(
+              "Filtering system content. Total items before filtering:",
+              allContent.length
+            );
+            console.log(
+              "Sample items with authorName:",
+              allContent.slice(0, 3).map((item) => ({
+                id: item.id,
+                name: item.name,
+                type: item.type,
+                authorName: item.authorName,
+                hasAuthorName: "authorName" in item,
+              }))
+            );
+
+            allContent = allContent.filter((item) => {
+              // Check if the item has authorName and exclude if it's "system"
+              if (item.authorName === "system") {
+                console.log("Excluding system content:", item.name, item.id);
+                return false;
+              }
+              return true;
+            });
+
+            console.log(
+              "Items after filtering system content:",
+              allContent.length
+            );
+          }
+        }
+
         // Apply user content configuration filtering if provided
         if (fetchUserContent && userContentConfig) {
           // Filter by content type if specified
           if (userContentConfig.contentType) {
-            const contentType = userContentConfig.contentType.toLowerCase();
             allContent = allContent.filter((item) => {
-              if (contentType === "answer") return item.type === "answer";
-              if (contentType === "liveboard") return item.type === "liveboard";
+              if (userContentConfig.contentType === "answer")
+                return item.type === "answer";
+              if (userContentConfig.contentType === "liveboard")
+                return item.type === "liveboard";
               return true;
             });
           }
@@ -206,8 +325,10 @@ export default function ContentGrid({
   }, [
     fetchFavorites,
     fetchUserContent,
+    fetchAllContent,
     favoritesConfig,
     userContentConfig,
+    allContentConfig,
     customContent,
   ]);
 
@@ -366,21 +487,6 @@ export default function ContentGrid({
   if (loading) {
     return (
       <div>
-        {title && (
-          <h1
-            style={{
-              fontSize: "32px",
-              fontWeight: "bold",
-              marginBottom: "24px",
-              color:
-                context.stylingConfig.application.typography?.primaryColor ||
-                "#1f2937",
-            }}
-          >
-            {title}
-          </h1>
-        )}
-
         <div
           style={{
             backgroundColor:
@@ -438,21 +544,6 @@ export default function ContentGrid({
   if (error) {
     return (
       <div>
-        {title && (
-          <h1
-            style={{
-              fontSize: "32px",
-              fontWeight: "bold",
-              marginBottom: "24px",
-              color:
-                context.stylingConfig.application.typography?.primaryColor ||
-                "#1f2937",
-            }}
-          >
-            {title}
-          </h1>
-        )}
-
         <div
           style={{
             backgroundColor:
@@ -510,21 +601,6 @@ export default function ContentGrid({
 
   return (
     <div>
-      {title && (
-        <h1
-          style={{
-            fontSize: "32px",
-            fontWeight: "bold",
-            marginBottom: "24px",
-            color:
-              context.stylingConfig.application.typography?.primaryColor ||
-              "#1f2937",
-          }}
-        >
-          {title}
-        </h1>
-      )}
-
       <div
         style={{
           backgroundColor:

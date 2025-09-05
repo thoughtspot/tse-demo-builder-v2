@@ -44,10 +44,12 @@ import {
   saveConfigurationToStorage,
   setIsImportingConfiguration,
   redirectFromCustomMenu,
+  DEFAULT_CONFIG,
 } from "../services/configurationService";
 import LoadingDialog from "./LoadingDialog";
 import ConfigurationLoader from "./ConfigurationLoader";
 import StylingProvider from "./StylingProvider";
+import { getImageFromIndexedDB } from "./ImageUpload";
 
 // Configuration interfaces for compatibility
 interface ConfigurationData {
@@ -89,7 +91,7 @@ interface AppContextType {
   updateUserConfig: (config: UserConfig) => void;
   clearAllConfigurations: () => void;
   openSettingsWithTab: (tab?: string, subTab?: string) => void;
-  exportConfiguration: (customName?: string) => void;
+  exportConfiguration: (customName?: string) => Promise<void>;
   lastClusterChangeTime: number;
   configVersion: number;
 }
@@ -102,150 +104,6 @@ export const useAppContext = () => {
     throw new Error("useAppContext must be used within an AppProvider");
   }
   return context;
-};
-
-// Default configuration values
-const DEFAULT_CONFIG = {
-  standardMenus: [
-    {
-      id: "home",
-      icon: "home",
-      name: "Home",
-      enabled: true,
-      homePageType: "html" as const,
-      homePageValue:
-        "<div style='padding: 20px; text-align: center;'><h1>Welcome to TSE Demo Builder</h1><p>Configure your home page content in the settings.</p></div>",
-    },
-    {
-      id: "favorites",
-      icon: "favorites",
-      name: "Favorites",
-      enabled: true,
-    },
-    {
-      id: "my-reports",
-      icon: "my-reports",
-      name: "My Reports",
-      enabled: true,
-    },
-    {
-      id: "spotter",
-      icon: "spotter-custom.svg",
-      name: "Spotter",
-      enabled: true,
-      spotterModelId: "",
-      spotterSearchQuery: "",
-    },
-    {
-      id: "search",
-      icon: "search",
-      name: "Search",
-      enabled: true,
-      searchDataSource: "",
-      searchTokenString: "",
-      runSearch: false,
-    },
-    {
-      id: "full-app",
-      icon: "full-app",
-      name: "Full App",
-      enabled: true,
-    },
-  ] as StandardMenu[],
-  customMenus: [] as CustomMenu[],
-  menuOrder: [
-    "home",
-    "favorites",
-    "my-reports",
-    "spotter",
-    "search",
-    "full-app",
-  ] as string[],
-  homePageConfig: {
-    type: "html" as const,
-    value:
-      "<div style='padding: 20px; text-align: center;'><h1>Welcome to TSE Demo Builder</h1><p>Configure your home page content in the settings.</p></div>",
-  } as HomePageConfig,
-  appConfig: {
-    thoughtspotUrl: "https://se-thoughtspot-cloud.thoughtspot.cloud/",
-    applicationName: "TSE Demo Builder",
-    logo: "",
-    earlyAccessFlags: "",
-    favicon: "/ts.png",
-    showFooter: true,
-  } as AppConfig,
-  fullAppConfig: {
-    showPrimaryNavbar: false,
-    hideHomepageLeftNav: false,
-  } as FullAppConfig,
-  stylingConfig: {
-    application: {
-      topBar: {
-        backgroundColor: "#ffffff",
-        foregroundColor: "#333333",
-        logoUrl: "/ts.png",
-      },
-      sidebar: {
-        backgroundColor: "#f5f5f5",
-        foregroundColor: "#333333",
-      },
-      footer: {
-        backgroundColor: "#ffffff",
-        foregroundColor: "#333333",
-      },
-      dialogs: {
-        backgroundColor: "#ffffff",
-        foregroundColor: "#333333",
-      },
-      buttons: {
-        primary: {
-          backgroundColor: "#3182ce",
-          foregroundColor: "#ffffff",
-          borderColor: "#3182ce",
-          hoverBackgroundColor: "#2c5aa0",
-          hoverForegroundColor: "#ffffff",
-        },
-        secondary: {
-          backgroundColor: "#ffffff",
-          foregroundColor: "#374151",
-          borderColor: "#d1d5db",
-          hoverBackgroundColor: "#f9fafb",
-          hoverForegroundColor: "#374151",
-        },
-      },
-      backgrounds: {
-        mainBackground: "#f7fafc",
-        contentBackground: "#ffffff",
-        cardBackground: "#ffffff",
-        borderColor: "#e2e8f0",
-      },
-      typography: {
-        primaryColor: "#1f2937",
-        secondaryColor: "#6b7280",
-        linkColor: "#3182ce",
-        linkHoverColor: "#2c5aa0",
-      },
-      selectedTheme: "default",
-    },
-    embeddedContent: {
-      strings: {},
-      stringIDs: {},
-      cssUrl: "",
-      customCSS: {
-        variables: {},
-        rules_UNSTABLE: {},
-      },
-    },
-    embedFlags: {},
-    embedDisplay: {
-      hideTitle: false,
-      hideDescription: false,
-    },
-  } as StylingConfig,
-  userConfig: {
-    users: [],
-    currentUserId: undefined,
-  } as UserConfig,
 };
 
 // Migration function to convert emoji icons and legacy file paths to Material Icon names
@@ -533,9 +391,22 @@ export default function Layout({ children }: LayoutProps) {
   );
 
   // Load initial state from configurationService
-  const [standardMenus, setStandardMenus] = useState<StandardMenu[]>(
-    DEFAULT_CONFIG.standardMenus
-  );
+  const [standardMenus, setStandardMenus] = useState<StandardMenu[]>(() => {
+    // Ensure all-content menu is always present
+    const initialMenus = [...DEFAULT_CONFIG.standardMenus];
+    const allContentMenu = initialMenus.find((m) => m.id === "all-content");
+    if (!allContentMenu) {
+      console.warn("all-content menu not found in DEFAULT_CONFIG, adding it");
+      initialMenus.push({
+        id: "all-content",
+        icon: "📚",
+        name: "All Content",
+        enabled: true,
+        excludeSystemContent: true,
+      });
+    }
+    return initialMenus;
+  });
   const [customMenus, setCustomMenus] = useState<CustomMenu[]>(
     DEFAULT_CONFIG.customMenus
   );
@@ -554,64 +425,84 @@ export default function Layout({ children }: LayoutProps) {
   const [stylingConfig, setStylingConfig] = useState<StylingConfig>(
     DEFAULT_CONFIG.stylingConfig
   );
-  const [userConfig, setUserConfig] = useState<UserConfig>(
-    DEFAULT_CONFIG.userConfig
-  );
+  const [userConfig, setUserConfig] = useState<UserConfig>(() => {
+    // Initialize with default users instead of empty array
+    const defaultUsers = [
+      {
+        id: "power-user",
+        name: "Power User",
+        description:
+          "Full access - can access all features including Search and Full App",
+        locale: "en",
+        access: {
+          standardMenus: {
+            home: true,
+            favorites: true,
+            "my-reports": true,
+            spotter: true,
+            search: true,
+            "full-app": true,
+            "all-content": true,
+          },
+          customMenus: [],
+          hiddenActions: { enabled: false, actions: [] },
+        },
+      },
+      {
+        id: "basic-user",
+        name: "Basic User",
+        description: "Limited access - cannot access Search and Full App",
+        locale: "en",
+        access: {
+          standardMenus: {
+            home: true,
+            favorites: true,
+            "my-reports": true,
+            spotter: true,
+            search: false,
+            "full-app": false,
+            "all-content": true,
+          },
+          customMenus: [],
+          hiddenActions: { enabled: false, actions: [] },
+        },
+      },
+    ];
+
+    // Try to get the stored currentUserId from localStorage
+    let storedCurrentUserId = defaultUsers[0].id;
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("tse-demo-builder-config");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.userConfig && parsed.userConfig.currentUserId) {
+            // Check if the stored currentUserId exists in our default users
+            if (
+              defaultUsers.some(
+                (user) => user.id === parsed.userConfig.currentUserId
+              )
+            ) {
+              storedCurrentUserId = parsed.userConfig.currentUserId;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to load stored currentUserId:", error);
+      }
+    }
+
+    return {
+      users: defaultUsers,
+      currentUserId: storedCurrentUserId,
+    };
+  });
 
   // Load configuration asynchronously on mount
   useEffect(() => {
     // Prevent multiple loads
     if (isImportingConfiguration || hasInitialLoadCompleted) {
       return;
-    }
-
-    // Ensure default users exist if userConfig is empty
-    if (userConfig.users.length === 0) {
-      console.log("No users found, creating default users");
-      const defaultUsers = [
-        {
-          id: "power-user",
-          name: "Power User",
-          description:
-            "Full access - can access all features including Search and Full App",
-          locale: "en",
-          access: {
-            standardMenus: {
-              home: true,
-              favorites: true,
-              "my-reports": true,
-              spotter: true,
-              search: true,
-              "full-app": true,
-            },
-            customMenus: [],
-            hiddenActions: { enabled: false, actions: [] },
-          },
-        },
-        {
-          id: "basic-user",
-          name: "Basic User",
-          description: "Limited access - cannot access Search and Full App",
-          locale: "en",
-          access: {
-            standardMenus: {
-              home: true,
-              favorites: true,
-              "my-reports": true,
-              spotter: true,
-              search: false,
-              "full-app": false,
-            },
-            customMenus: [],
-            hiddenActions: { enabled: false, actions: [] },
-          },
-        },
-      ];
-
-      setUserConfig({
-        users: defaultUsers,
-        currentUserId: defaultUsers[0].id,
-      });
     }
 
     const loadConfiguration = async () => {
@@ -628,6 +519,24 @@ export default function Layout({ children }: LayoutProps) {
           const loadedMenus = configs.standardMenus;
           if (Array.isArray(loadedMenus)) {
             const migratedMenus = migrateStandardMenus(loadedMenus);
+
+            // Ensure all-content menu is always present
+            const allContentMenu = migratedMenus.find(
+              (m) => m.id === "all-content"
+            );
+            if (!allContentMenu) {
+              console.warn(
+                "all-content menu not found in loaded menus, adding it"
+              );
+              migratedMenus.push({
+                id: "all-content",
+                icon: "📚",
+                name: "All Content",
+                enabled: true,
+                excludeSystemContent: true,
+              });
+            }
+
             setStandardMenus(migratedMenus);
           } else {
             console.error(
@@ -717,7 +626,81 @@ export default function Layout({ children }: LayoutProps) {
           setAppConfig(configs.appConfig);
           setFullAppConfig(configs.fullAppConfig);
           setStylingConfig(configs.stylingConfig);
-          setUserConfig(configs.userConfig);
+
+          // Ensure default users exist if the loaded configuration doesn't have any users
+          console.log("Loaded userConfig:", configs.userConfig);
+          console.log(
+            "Loaded currentUserId:",
+            configs.userConfig.currentUserId
+          );
+          if (
+            !configs.userConfig.users ||
+            configs.userConfig.users.length === 0
+          ) {
+            console.log(
+              "No users found in loaded configuration, creating default users"
+            );
+            const defaultUsers = [
+              {
+                id: "power-user",
+                name: "Power User",
+                description:
+                  "Full access - can access all features including Search and Full App",
+                locale: "en",
+                access: {
+                  standardMenus: {
+                    home: true,
+                    favorites: true,
+                    "my-reports": true,
+                    spotter: true,
+                    search: true,
+                    "full-app": true,
+                    "all-content": true,
+                  },
+                  customMenus: [],
+                  hiddenActions: { enabled: false, actions: [] },
+                },
+              },
+              {
+                id: "basic-user",
+                name: "Basic User",
+                description:
+                  "Limited access - cannot access Search and Full App",
+                locale: "en",
+                access: {
+                  standardMenus: {
+                    home: true,
+                    favorites: true,
+                    "my-reports": true,
+                    spotter: true,
+                    search: false,
+                    "full-app": false,
+                    "all-content": true,
+                  },
+                  customMenus: [],
+                  hiddenActions: { enabled: false, actions: [] },
+                },
+              },
+            ];
+
+            const userConfigWithDefaults = {
+              users: defaultUsers,
+              currentUserId:
+                configs.userConfig.currentUserId || defaultUsers[0].id,
+            };
+
+            console.log(
+              "Setting userConfig with defaults, currentUserId:",
+              userConfigWithDefaults.currentUserId
+            );
+            setUserConfig(userConfigWithDefaults);
+          } else {
+            console.log(
+              "Setting userConfig from loaded config, currentUserId:",
+              configs.userConfig.currentUserId
+            );
+            setUserConfig(configs.userConfig);
+          }
         });
 
         console.log("Configuration loaded successfully");
@@ -952,13 +935,32 @@ export default function Layout({ children }: LayoutProps) {
 
   // Utility function to convert icon identifiers to image paths
   const getIconImagePath = (icon: string): string => {
+    // Handle empty or invalid icons
+    if (!icon || typeof icon !== "string") {
+      return "/ts.png";
+    }
+
+    // Clean up the icon string - remove any whitespace or invalid characters
+    const cleanIcon = icon.trim();
+    if (!cleanIcon) {
+      return "/ts.png";
+    }
+
     // If it's already a valid image path or URL, return as is
     if (
-      icon.startsWith("http") ||
-      icon.startsWith("data:") ||
-      icon.startsWith("/")
+      cleanIcon.startsWith("http") ||
+      cleanIcon.startsWith("data:") ||
+      cleanIcon.startsWith("/") ||
+      cleanIcon.startsWith("blob:")
     ) {
-      return icon;
+      return cleanIcon;
+    }
+
+    // Handle IndexedDB references - these need to be converted to actual image data
+    if (cleanIcon.startsWith("indexeddb://")) {
+      // For now, return default since we can't convert IndexedDB refs to URLs in this context
+      // The actual conversion will happen in the favicon update effect
+      return cleanIcon;
     }
 
     // Map icon identifiers to their corresponding image paths
@@ -972,18 +974,137 @@ export default function Layout({ children }: LayoutProps) {
     };
 
     // Return the mapped path or fallback to default
-    return iconPathMap[icon] || "/ts.png";
+    return iconPathMap[cleanIcon] || "/ts.png";
   };
+
+  // Auto-sync favicon with logo when favicon sync is enabled
+  useEffect(() => {
+    if (
+      appConfig.faviconSyncEnabled &&
+      stylingConfig.application.topBar.logoUrl &&
+      stylingConfig.application.topBar.logoUrl !== "/ts.png"
+    ) {
+      console.log(
+        "[Layout] Auto-syncing favicon with logo:",
+        stylingConfig.application.topBar.logoUrl
+      );
+      // Update favicon directly in DOM to avoid infinite loops
+      const faviconElement = document.getElementById(
+        "favicon"
+      ) as HTMLLinkElement;
+      if (faviconElement) {
+        faviconElement.href = stylingConfig.application.topBar.logoUrl;
+      }
+      // Update favicon in DOM only, don't modify React state to avoid loops
+    } else if (
+      !appConfig.faviconSyncEnabled &&
+      appConfig.favicon !== "/ts.png"
+    ) {
+      // Reset favicon to default when sync is disabled
+      const faviconElement = document.getElementById(
+        "favicon"
+      ) as HTMLLinkElement;
+      if (faviconElement) {
+        faviconElement.href = "/ts.png";
+      }
+      // Update favicon in DOM only, don't modify React state to avoid loops
+    }
+  }, [
+    stylingConfig.application.topBar.logoUrl,
+    appConfig.faviconSyncEnabled,
+    appConfig.favicon,
+  ]);
 
   // Update favicon when app config changes
   useEffect(() => {
-    const favicon = getIconImagePath(appConfig.favicon || "/ts.png");
-    const faviconElement = document.getElementById(
-      "favicon"
-    ) as HTMLLinkElement;
-    if (faviconElement) {
-      faviconElement.href = favicon;
-    }
+    const updateFavicon = async () => {
+      try {
+        // Ensure we have a valid favicon value
+        const faviconValue = appConfig.favicon;
+
+        if (
+          !faviconValue ||
+          faviconValue === "undefined" ||
+          faviconValue === "null"
+        ) {
+          console.log(
+            "[Layout] Favicon value is invalid, resetting to default"
+          );
+          // Reset to default if favicon is invalid
+          const faviconElement = document.getElementById(
+            "favicon"
+          ) as HTMLLinkElement;
+          if (faviconElement) {
+            faviconElement.href = "/ts.png";
+          }
+          return;
+        }
+
+        let favicon = getIconImagePath(faviconValue);
+
+        // Handle IndexedDB references by converting them to actual image data
+        if (favicon.startsWith("indexeddb://")) {
+          try {
+            const imageId = favicon.replace("indexeddb://", "");
+            const imageData = await getImageFromIndexedDB(imageId);
+            if (imageData) {
+              favicon = imageData;
+            } else {
+              console.warn(
+                "[Layout] Failed to get image data from IndexedDB, using default"
+              );
+              favicon = "/ts.png";
+            }
+          } catch (indexedDBError) {
+            console.error(
+              "[Layout] Error getting image from IndexedDB:",
+              indexedDBError
+            );
+            favicon = "/ts.png";
+          }
+        }
+
+        const faviconElement = document.getElementById(
+          "favicon"
+        ) as HTMLLinkElement;
+
+        if (faviconElement && favicon) {
+          // Validate the favicon URL before setting it
+          try {
+            // For blob URLs and data URLs, we can't use the URL constructor
+            if (favicon.startsWith("blob:") || favicon.startsWith("data:")) {
+              faviconElement.href = favicon;
+            } else if (favicon.startsWith("/")) {
+              // For relative paths, validate against origin
+              new URL(favicon, window.location.origin);
+              faviconElement.href = favicon;
+            } else if (favicon.startsWith("http")) {
+              // For absolute URLs, validate directly
+              new URL(favicon);
+              faviconElement.href = favicon;
+            } else {
+              // For icon identifiers, use the mapped path
+              faviconElement.href = favicon;
+            }
+          } catch (urlError) {
+            console.warn("Invalid favicon URL:", favicon, urlError);
+            // Fallback to default favicon
+            faviconElement.href = "/ts.png";
+          }
+        }
+      } catch (error) {
+        console.error("Error updating favicon:", error);
+        // Fallback to default favicon
+        const faviconElement = document.getElementById(
+          "favicon"
+        ) as HTMLLinkElement;
+        if (faviconElement) {
+          faviconElement.href = "/ts.png";
+        }
+      }
+    };
+
+    updateFavicon();
   }, [appConfig.favicon]);
 
   // Parse early access flags from configuration string
@@ -1015,23 +1136,13 @@ export default function Layout({ children }: LayoutProps) {
 
   // ThoughtSpot initialization
   useEffect(() => {
-    console.log("[Layout] ThoughtSpot initialization useEffect triggered");
-    console.log("[Layout] appConfig.thoughtspotUrl:", appConfig.thoughtspotUrl);
-    console.log("[Layout] isInitialLoadInProgress:", isInitialLoadInProgress);
-
     // Prevent initialization if no URL is configured
     if (!appConfig.thoughtspotUrl) {
-      console.log(
-        "[Layout] No ThoughtSpot URL configured, skipping initialization"
-      );
       return;
     }
 
     // Prevent initialization during initial load
     if (isInitialLoadInProgress) {
-      console.log(
-        "[Layout] Initial load in progress, skipping ThoughtSpot initialization"
-      );
       return;
     }
 
@@ -1045,13 +1156,10 @@ export default function Layout({ children }: LayoutProps) {
         (window as { __thoughtspotInitializing?: boolean })
           .__thoughtspotInitializing
       ) {
-        console.log(
-          "[Layout] ThoughtSpot initialization already in progress, skipping"
-        );
         return;
       }
 
-      console.log("[Layout] Setting ThoughtSpot initialization flag to true");
+      // Set ThoughtSpot initialization flag
       (
         window as { __thoughtspotInitializing?: boolean }
       ).__thoughtspotInitializing = true;
@@ -1066,12 +1174,7 @@ export default function Layout({ children }: LayoutProps) {
           previousThoughtspotUrl &&
           previousThoughtspotUrl !== appConfig.thoughtspotUrl
         ) {
-          console.log(
-            "[Layout] Cluster URL changed from",
-            previousThoughtspotUrl,
-            "to",
-            appConfig.thoughtspotUrl
-          );
+          // Cluster URL changed
 
           // Clear any cached data or state that might be cluster-specific
           if (typeof window !== "undefined") {
@@ -1195,17 +1298,12 @@ export default function Layout({ children }: LayoutProps) {
           },
         };
 
-        console.log(
-          "[Layout] Calling ThoughtSpot init with host:",
-          initConfig.thoughtSpotHost
-        );
         init(initConfig);
-        console.log("[Layout] ThoughtSpot init completed successfully");
+        // ThoughtSpot init completed successfully
       } catch (error) {
         console.error("Failed to initialize ThoughtSpot:", error);
       } finally {
         // Reset the initialization flag
-        console.log("[Layout] Resetting ThoughtSpot initialization flag to false");
         (
           window as { __thoughtspotInitializing?: boolean }
         ).__thoughtspotInitializing = false;
@@ -1268,16 +1366,15 @@ export default function Layout({ children }: LayoutProps) {
   // Force re-initialization when app config changes (including cluster URL changes)
   useEffect(() => {
     if (appConfig.thoughtspotUrl && !isInitialLoadInProgress) {
-      console.log(
-        "[Layout] App config changed, forcing ThoughtSpot re-initialization"
-      );
-      
+      // App config changed, forcing ThoughtSpot re-initialization
+
       // Clear the initialization flag to allow re-initialization
       if (typeof window !== "undefined") {
-        console.log("[Layout] Clearing ThoughtSpot initialization flag to allow re-initialization");
-        (window as { __thoughtspotInitializing?: boolean }).__thoughtspotInitializing = false;
+        (
+          window as { __thoughtspotInitializing?: boolean }
+        ).__thoughtspotInitializing = false;
       }
-      
+
       // Increment config version to force re-initialization
       const newVersion = configVersion + 1;
       setConfigVersion(newVersion);
@@ -1342,13 +1439,60 @@ export default function Layout({ children }: LayoutProps) {
           setHomePageConfig(DEFAULT_CONFIG.homePageConfig);
           setFullAppConfig(DEFAULT_CONFIG.fullAppConfig);
           setStylingConfig(DEFAULT_CONFIG.stylingConfig);
-          setUserConfig(DEFAULT_CONFIG.userConfig);
+
+          // Create default users instead of using empty DEFAULT_CONFIG.userConfig
+          const defaultUsers = [
+            {
+              id: "power-user",
+              name: "Power User",
+              description:
+                "Full access - can access all features including Search and Full App",
+              locale: "en",
+              access: {
+                standardMenus: {
+                  home: true,
+                  favorites: true,
+                  "my-reports": true,
+                  spotter: true,
+                  search: true,
+                  "full-app": true,
+                  "all-content": true,
+                },
+                customMenus: [],
+                hiddenActions: { enabled: false, actions: [] },
+              },
+            },
+            {
+              id: "basic-user",
+              name: "Basic User",
+              description: "Limited access - cannot access Search and Full App",
+              locale: "en",
+              access: {
+                standardMenus: {
+                  home: true,
+                  favorites: true,
+                  "my-reports": true,
+                  spotter: true,
+                  search: false,
+                  "full-app": false,
+                  "all-content": true,
+                },
+                customMenus: [],
+                hiddenActions: { enabled: false, actions: [] },
+              },
+            },
+          ];
+
+          setUserConfig({
+            users: defaultUsers,
+            currentUserId: defaultUsers[0].id,
+          });
 
           // Update app config last to ensure proper state propagation
           setAppConfig(newAppConfig);
 
           // Save the new app config AFTER clearing storage to ensure it's the only config
-          console.log("[Layout] About to save new app config:", newAppConfig);
+          // About to save new app config
           await saveAppConfig(newAppConfig, (errorMessage) => {
             console.error(
               `[Layout] Failed to save new cluster config: ${errorMessage}`
@@ -1356,7 +1500,7 @@ export default function Layout({ children }: LayoutProps) {
           });
 
           // Verify the config was saved correctly
-          console.log("[Layout] New app config saved, verifying storage...");
+          // New app config saved, verifying storage...
           try {
             const savedConfig = await loadAllConfigurations();
             console.log(
@@ -1386,8 +1530,7 @@ export default function Layout({ children }: LayoutProps) {
             "[Layout] Cluster change completed successfully to:",
             newAppConfig.thoughtspotUrl
           );
-          console.log("[Layout] Current appConfig state:", appConfig);
-          console.log("[Layout] New appConfig:", newAppConfig);
+          // State comparison logging removed
           console.log(
             "[Layout] Page will not reload - state changes will propagate naturally"
           );
@@ -1513,6 +1656,40 @@ export default function Layout({ children }: LayoutProps) {
       return; // Don't update yet, wait for user confirmation
     }
 
+    // Always save to storage immediately for all app config changes
+
+    // Check storage health before saving
+    const checkHealth = async () => {
+      try {
+        const storageHealth = await checkStorageHealth();
+        if (!storageHealth.healthy) {
+          // Try to clear storage and retry
+          const clearResult = await clearStorageAndReloadDefaults();
+          if (!clearResult.success) {
+            console.error(
+              `[Layout] Failed to clear storage: ${clearResult.message}`
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Error checking storage health:", error);
+      }
+    };
+
+    checkHealth();
+
+    // Calling saveAppConfig
+    saveAppConfig(config, (errorMessage) => {
+      console.error(`[Layout] Failed to save app config: ${errorMessage}`);
+      // Show user-friendly error message
+      alert(
+        `Failed to save configuration: ${errorMessage}. Please try clearing your browser storage or contact support.`
+      );
+    }).catch((error) => {
+      console.error("Failed to save app config:", error);
+    });
+
+    // Update state after saving to storage
     setAppConfig(config);
 
     // Only increment config version if ThoughtSpot URL is actually changing
@@ -1525,39 +1702,6 @@ export default function Layout({ children }: LayoutProps) {
           newVersion.toString()
         );
       }
-    }
-
-    // Save to localStorage immediately when bypassing cluster warning (loading from config)
-    if (bypassClusterWarning) {
-      // Check storage health before saving
-      const checkHealth = async () => {
-        try {
-          const storageHealth = await checkStorageHealth();
-          if (!storageHealth.healthy) {
-            // Try to clear storage and retry
-            const clearResult = await clearStorageAndReloadDefaults();
-            if (!clearResult.success) {
-              console.error(
-                `[Layout] Failed to clear storage: ${clearResult.message}`
-              );
-            }
-          }
-        } catch (error) {
-          console.error("Error checking storage health:", error);
-        }
-      };
-
-      checkHealth();
-
-      saveAppConfig(config, (errorMessage) => {
-        console.error(`[Layout] Failed to save app config: ${errorMessage}`);
-        // Show user-friendly error message
-        alert(
-          `Failed to save configuration: ${errorMessage}. Please try clearing your browser storage or contact support.`
-        );
-      }).catch((error) => {
-        console.error("Failed to save app config:", error);
-      });
     }
   };
 
@@ -1733,7 +1877,54 @@ export default function Layout({ children }: LayoutProps) {
       setAppConfig(DEFAULT_CONFIG.appConfig);
       setFullAppConfig(DEFAULT_CONFIG.fullAppConfig);
       setStylingConfig(DEFAULT_CONFIG.stylingConfig);
-      setUserConfig(DEFAULT_CONFIG.userConfig);
+
+      // Create default users instead of using empty DEFAULT_CONFIG.userConfig
+      const defaultUsers = [
+        {
+          id: "power-user",
+          name: "Power User",
+          description:
+            "Full access - can access all features including Search and Full App",
+          locale: "en",
+          access: {
+            standardMenus: {
+              home: true,
+              favorites: true,
+              "my-reports": true,
+              spotter: true,
+              search: true,
+              "full-app": true,
+              "all-content": true,
+            },
+            customMenus: [],
+            hiddenActions: { enabled: false, actions: [] },
+          },
+        },
+        {
+          id: "basic-user",
+          name: "Basic User",
+          description: "Limited access - cannot access Search and Full App",
+          locale: "en",
+          access: {
+            standardMenus: {
+              home: true,
+              favorites: true,
+              "my-reports": true,
+              spotter: true,
+              search: false,
+              "full-app": false,
+              "all-content": true,
+            },
+            customMenus: [],
+            hiddenActions: { enabled: false, actions: [] },
+          },
+        },
+      ];
+
+      setUserConfig({
+        users: defaultUsers,
+        currentUserId: defaultUsers[0].id,
+      });
     } catch (error) {
       console.error("Failed to clear configurations:", error);
     }
@@ -1872,20 +2063,24 @@ export default function Layout({ children }: LayoutProps) {
     ).checkMenuOrder = checkMenuOrder;
   }
 
-  const handleExportConfiguration = (customName?: string) => {
-    exportConfigurationService(
-      {
-        standardMenus,
-        customMenus,
-        menuOrder,
-        homePageConfig,
-        appConfig,
-        fullAppConfig,
-        stylingConfig,
-        userConfig,
-      },
-      customName
-    );
+  const handleExportConfiguration = async (customName?: string) => {
+    try {
+      await exportConfigurationService(
+        {
+          standardMenus,
+          customMenus,
+          menuOrder,
+          homePageConfig,
+          appConfig,
+          fullAppConfig,
+          stylingConfig,
+          userConfig,
+        },
+        customName
+      );
+    } catch (error) {
+      console.error("Failed to export configuration:", error);
+    }
   };
 
   // File import functionality moved to SettingsModal
@@ -1896,19 +2091,20 @@ export default function Layout({ children }: LayoutProps) {
   const allCustomMenus = customMenus; // These are already all custom menus
 
   // Debug logging for user configuration (only in development)
-  if (process.env.NODE_ENV === "development") {
-    const currentUser = userConfig.users.find(
-      (u) => u.id === userConfig.currentUserId
-    );
-    console.log("User configuration debug:", {
-      userConfig,
-      currentUserId: userConfig.currentUserId,
-      users: userConfig.users,
-      currentUser,
-      currentUserAccess: currentUser?.access,
-      fullAppAccess: currentUser?.access?.standardMenus?.["full-app"],
-    });
-  }
+  // Disabled to reduce console spam
+  // if (process.env.NODE_ENV === "development") {
+  //   const currentUser = userConfig.users.find(
+  //     (u) => u.id === userConfig.currentUserId
+  //   );
+  //   console.log("User configuration debug:", {
+  //     userConfig,
+  //     currentUserId: userConfig.currentUserId,
+  //     users: userConfig.users,
+  //     currentUser,
+  //     currentUserAccess: currentUser?.access,
+  //     fullAppAccess: currentUser?.access?.standardMenus?.["full-app"],
+  //   });
+  // }
 
   // Filter menus based on current user access for navigation
   const accessibleStandardMenus = standardMenus.filter((menu) => {
@@ -1956,6 +2152,7 @@ export default function Layout({ children }: LayoutProps) {
             spotter: true,
             search: true,
             "full-app": true,
+            "all-content": true,
           },
         },
       };
@@ -2014,22 +2211,49 @@ export default function Layout({ children }: LayoutProps) {
     const fullAppAccessible = accessibleStandardMenus.find(
       (m) => m.id === "full-app"
     );
-    console.log("Full App menu debug:", {
-      fullAppMenu,
-      fullAppEnabled: fullAppMenu?.enabled,
-      fullAppInStandardMenus: standardMenus.map((m) => ({
-        id: m.id,
-        enabled: m.enabled,
-      })),
-      fullAppInAccessibleMenus: accessibleStandardMenus.map((m) => ({
-        id: m.id,
-        enabled: m.enabled,
-      })),
-      fullAppAccessible,
-      accessibleMenusCount: accessibleStandardMenus.length,
-      totalMenusCount: standardMenus.length,
-    });
+    const allContentMenu = standardMenus.find((m) => m.id === "all-content");
+    const allContentAccessible = accessibleStandardMenus.find(
+      (m) => m.id === "all-content"
+    );
+    // Disabled to reduce console spam
+    // console.log("Menu access debug:", {
+    //   fullAppMenu,
+    //   fullAppEnabled: fullAppMenu?.enabled,
+    //   fullAppInStandardMenus: standardMenus.map((m) => ({
+    //     id: m.id,
+    //     enabled: m.enabled,
+    //   })),
+    //   fullAppInStandardMenus: accessibleStandardMenus.map((m) => ({
+    //     id: m.id,
+    //     enabled: m.enabled,
+    //   })),
+    //   fullAppAccessible,
+    //   allContentMenu,
+    //   allContentEnabled: allContentMenu?.enabled,
+    //   allContentAccessible,
+    //   accessibleMenusCount: accessibleStandardMenus.length,
+    //   totalMenusCount: standardMenus.length,
+    // });
   }
+
+  // Debug logging for user configuration
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      console.log("TopBar users:", userConfig.users);
+      console.log("Current user ID:", userConfig.currentUserId);
+    }
+  }, [userConfig.users, userConfig.currentUserId]);
+
+  // Debug menu order specifically
+  // Disabled to reduce console spam
+  // if (process.env.NODE_ENV === "development") {
+  //   console.log("Menu order debug in Layout:", {
+  //     menuOrder,
+  //     allContentInMenuOrder: menuOrder?.includes("all-content"),
+  //     allContentIndex: menuOrder?.indexOf("all-content"),
+  //     menuOrderLength: menuOrder?.length,
+  //   });
+  // }
 
   const accessibleCustomMenus = customMenus.filter((menu) => {
     const currentUser = userConfig.users.find(
@@ -2064,6 +2288,8 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <AppContext.Provider value={contextValue}>
+      {/* Dynamic favicon */}
+      <link rel="icon" href="/ts.png" id="favicon" />
       <StylingProvider stylingConfig={stylingConfig}>
         <SessionChecker
           thoughtspotUrl={appConfig.thoughtspotUrl}

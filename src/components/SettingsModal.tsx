@@ -7,6 +7,7 @@ import MyReportsPage from "./pages/MyReportsPage";
 import SpotterPage from "./pages/SpotterPage";
 import SearchPage from "./pages/SearchPage";
 import FullAppPage from "./pages/FullAppPage";
+import AllContentPage from "./pages/AllContentPage";
 import IconPicker from "./IconPicker";
 import MaterialIcon from "./MaterialIcon";
 import ColorPicker from "./ColorPicker";
@@ -84,7 +85,7 @@ interface SettingsModalProps {
   updateUserConfig: (config: UserConfig) => void;
   setMenuOrder?: (order: string[]) => void;
   clearAllConfigurations?: () => void;
-  exportConfiguration?: (customName?: string) => void;
+  exportConfiguration?: (customName?: string) => Promise<void>;
   storageError?: string | null;
   setStorageError?: (error: string | null) => void;
   loadConfigurationSynchronously?: (
@@ -271,6 +272,7 @@ function StandardMenusContent({
       "spotter",
       "search",
       "full-app",
+      "all-content",
     ];
     if (!validSubTabs.includes(activeSubTab)) {
       setActiveSubTab("home");
@@ -473,6 +475,8 @@ function StandardMenusContent({
         );
       case "full-app":
         return <FullAppPage />;
+      case "all-content":
+        return <AllContentPage />;
       default:
         return <div>Page not found</div>;
     }
@@ -508,6 +512,11 @@ function StandardMenusContent({
       id: "full-app",
       name: "Full App",
       icon: standardMenus.find((m) => m.id === "full-app")?.icon || "🌐",
+    },
+    {
+      id: "all-content",
+      name: "All Content",
+      icon: standardMenus.find((m) => m.id === "all-content")?.icon || "📚",
     },
   ];
 
@@ -755,8 +764,31 @@ function StandardMenusContent({
               }}
             >
               {(() => {
+                console.log("SettingsModal Debug:", {
+                  activeSubTab,
+                  standardMenusCount: standardMenus.length,
+                  standardMenus: standardMenus.map((m) => ({
+                    id: m.id,
+                    name: m.name,
+                    enabled: m.enabled,
+                  })),
+                  allContentMenu: standardMenus.find(
+                    (m) => m.id === "all-content"
+                  ),
+                });
+
                 const menu = standardMenus.find((m) => m.id === activeSubTab);
-                if (!menu) return null;
+                if (!menu) {
+                  console.error(
+                    "Menu not found for activeSubTab:",
+                    activeSubTab,
+                    "Available menus:",
+                    standardMenus.map((m) => m.id)
+                  );
+                  return (
+                    <div>Menu configuration not found for: {activeSubTab}</div>
+                  );
+                }
 
                 return (
                   <>
@@ -840,44 +872,10 @@ function StandardMenusContent({
                         <div
                           style={{
                             display: "grid",
-                            gridTemplateColumns: "1fr 1fr",
+                            gridTemplateColumns: "1fr",
                             gap: "16px",
                           }}
                         >
-                          <div>
-                            <label
-                              style={{
-                                display: "block",
-                                marginBottom: "4px",
-                                fontWeight: "500",
-                                fontSize: "14px",
-                              }}
-                            >
-                              Content Type
-                            </label>
-                            <select
-                              value={menu.contentType || ""}
-                              onChange={(e) =>
-                                updateStandardMenu(
-                                  menu.id,
-                                  "contentType",
-                                  e.target.value
-                                )
-                              }
-                              style={{
-                                width: "100%",
-                                padding: "8px 12px",
-                                border: "1px solid #d1d5db",
-                                borderRadius: "4px",
-                                fontSize: "14px",
-                              }}
-                            >
-                              <option value="">All Types</option>
-                              <option value="Answer">Answer</option>
-                              <option value="Liveboard">Liveboard</option>
-                            </select>
-                          </div>
-
                           <div>
                             <label
                               style={{
@@ -940,44 +938,10 @@ function StandardMenusContent({
                         <div
                           style={{
                             display: "grid",
-                            gridTemplateColumns: "1fr 1fr",
+                            gridTemplateColumns: "1fr",
                             gap: "16px",
                           }}
                         >
-                          <div>
-                            <label
-                              style={{
-                                display: "block",
-                                marginBottom: "4px",
-                                fontWeight: "500",
-                                fontSize: "14px",
-                              }}
-                            >
-                              Content Type
-                            </label>
-                            <select
-                              value={menu.contentType || ""}
-                              onChange={(e) =>
-                                updateStandardMenu(
-                                  menu.id,
-                                  "contentType",
-                                  e.target.value
-                                )
-                              }
-                              style={{
-                                width: "100%",
-                                padding: "8px 12px",
-                                border: "1px solid #d1d5db",
-                                borderRadius: "4px",
-                                fontSize: "14px",
-                              }}
-                            >
-                              <option value="">All Types</option>
-                              <option value="Answer">Answer</option>
-                              <option value="Liveboard">Liveboard</option>
-                            </select>
-                          </div>
-
                           <div>
                             <label
                               style={{
@@ -1031,6 +995,53 @@ function StandardMenusContent({
                           label="Tag Filter"
                           description="Filter reports by tag"
                         />
+                      </div>
+                    )}
+
+                    {menu.id === "all-content" && (
+                      <div style={{ marginBottom: "16px" }}>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: "16px",
+                          }}
+                        >
+                          <div>
+                            <label
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={menu.excludeSystemContent || false}
+                                onChange={(e) =>
+                                  updateStandardMenu(
+                                    menu.id,
+                                    "excludeSystemContent",
+                                    e.target.checked
+                                  )
+                                }
+                                style={{ transform: "scale(1.2)" }}
+                              />
+                              <span style={{ fontSize: "14px" }}>
+                                Exclude System Content
+                              </span>
+                            </label>
+                            <p
+                              style={{
+                                margin: "4px 0 0 0",
+                                fontSize: "12px",
+                                color: "#6b7280",
+                              }}
+                            >
+                              Hide content with author &quot;system&quot;
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     )}
 
@@ -3454,6 +3465,7 @@ function UserConfigContent({
           spotter: true,
           search: true,
           "full-app": true,
+          "all-content": true,
         },
         customMenus: [],
         hiddenActions: { enabled: false, actions: [] },
@@ -3472,6 +3484,7 @@ function UserConfigContent({
           spotter: true,
           search: false,
           "full-app": false,
+          "all-content": true,
         },
         customMenus: [],
         hiddenActions: { enabled: false, actions: [] },
@@ -3479,15 +3492,67 @@ function UserConfigContent({
     },
   ];
 
-  // Initialize with default users if none exist
+  // Initialize with default users if none exist and migrate existing users
   useEffect(() => {
     if (userConfig.users.length === 0) {
       updateUserConfig({
         users: defaultUsers,
         currentUserId: defaultUsers[0].id,
       });
+    } else {
+      // Migrate existing users to include any missing standard menu permissions
+      const updatedUsers = userConfig.users.map((user) => {
+        const updatedUser = { ...user };
+        const currentStandardMenus = user.access?.standardMenus || {};
+
+        // Ensure all standard menus are present with default values
+        const allStandardMenus = {
+          home: true,
+          favorites: true,
+          "my-reports": true,
+          spotter: true,
+          search: true,
+          "full-app": true,
+          "all-content": true,
+        };
+
+        // Merge existing permissions with missing ones (keeping existing values)
+        updatedUser.access = {
+          ...user.access,
+          standardMenus: {
+            ...allStandardMenus,
+            ...currentStandardMenus,
+          },
+        };
+
+        return updatedUser;
+      });
+
+      // Only update if there were changes
+      const hasChanges = updatedUsers.some((updatedUser, index) => {
+        const originalUser = userConfig.users[index];
+        return (
+          JSON.stringify(updatedUser.access.standardMenus) !==
+          JSON.stringify(originalUser.access.standardMenus)
+        );
+      });
+
+      if (hasChanges) {
+        console.log(
+          "Migrating users to include missing standard menu permissions"
+        );
+        updateUserConfig({
+          ...userConfig,
+          users: updatedUsers,
+        });
+      }
     }
-  }, [userConfig.users.length, updateUserConfig, defaultUsers]);
+  }, [
+    userConfig.users.length,
+    updateUserConfig,
+    defaultUsers,
+    userConfig.users,
+  ]);
 
   const handleCreateUser = () => {
     const newUser: User = {
@@ -3503,6 +3568,7 @@ function UserConfigContent({
           spotter: true,
           search: true,
           "full-app": true,
+          "all-content": true,
         },
         customMenus: [],
         hiddenActions: { enabled: false, actions: [] },
@@ -4247,7 +4313,7 @@ function ConfigurationContent({
   stylingConfig: StylingConfig;
   updateStylingConfig: (config: StylingConfig) => void;
   clearAllConfigurations?: () => void;
-  exportConfiguration?: (customName?: string) => void;
+  exportConfiguration?: (customName?: string) => Promise<void>;
   updateStandardMenu?: (
     id: string,
     field: string,
@@ -4269,6 +4335,8 @@ function ConfigurationContent({
   }>({ message: "", type: null });
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportFileName, setExportFileName] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   // GitHub configuration loading state
   const [savedConfigurations, setSavedConfigurations] = useState<
@@ -4387,7 +4455,10 @@ function ConfigurationContent({
             >
               <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
                 <button
-                  onClick={() => setShowExportDialog(true)}
+                  onClick={() => {
+                    setShowExportDialog(true);
+                    setExportError(null);
+                  }}
                   style={{
                     padding: "10px 20px",
                     backgroundColor: "#059669",
@@ -4574,7 +4645,8 @@ function ConfigurationContent({
                 <div style={{ marginBottom: "24px" }}>
                   <ImageUpload
                     value={stylingConfig.application.topBar.logoUrl}
-                    onChange={(url) =>
+                    onChange={(url) => {
+                      // Update both the TopBar logo and the appConfig logo to keep them synchronized
                       updateStylingConfig({
                         ...stylingConfig,
                         application: {
@@ -4584,8 +4656,14 @@ function ConfigurationContent({
                             logoUrl: url,
                           },
                         },
-                      })
-                    }
+                      });
+
+                      // Also update the appConfig logo to ensure consistency
+                      updateAppConfig({
+                        ...appConfig,
+                        logo: url,
+                      });
+                    }}
                     label="Application Logo"
                     placeholder="https://example.com/logo.png"
                     accept="image/*"
@@ -4604,96 +4682,6 @@ function ConfigurationContent({
                     Upload an image or provide a URL for your application logo.
                     This logo will be displayed in the top bar.
                   </p>
-
-                  {/* Logo Preview */}
-                  {stylingConfig.application.topBar.logoUrl && (
-                    <div style={{ marginTop: "16px" }}>
-                      <label
-                        style={{
-                          display: "block",
-                          marginBottom: "8px",
-                          fontWeight: "500",
-                          fontSize: "14px",
-                        }}
-                      >
-                        Logo Preview
-                      </label>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "16px",
-                          padding: "16px",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: "8px",
-                          backgroundColor: "#f9fafb",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: "120px",
-                            height: "48px",
-                            border: "1px solid #d1d5db",
-                            borderRadius: "4px",
-                            overflow: "hidden",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            backgroundColor: "white",
-                          }}
-                        >
-                          <img
-                            src={stylingConfig.application.topBar.logoUrl}
-                            alt="Logo Preview"
-                            style={{
-                              maxWidth: "100%",
-                              maxHeight: "100%",
-                              objectFit: "contain",
-                            }}
-                            onError={(e) => {
-                              e.currentTarget.style.display = "none";
-                              const nextElement = e.currentTarget
-                                .nextElementSibling as HTMLElement;
-                              if (nextElement) {
-                                nextElement.style.display = "flex";
-                              }
-                            }}
-                          />
-                          <span
-                            style={{
-                              display: "none",
-                              fontSize: "12px",
-                              color: "#6b7280",
-                              textAlign: "center",
-                            }}
-                          >
-                            Invalid Image
-                          </span>
-                        </div>
-                        <div>
-                          <p
-                            style={{
-                              margin: "0 0 4px 0",
-                              fontSize: "14px",
-                              fontWeight: "500",
-                            }}
-                          >
-                            Top Bar Display
-                          </p>
-                          <p
-                            style={{
-                              margin: "0",
-                              fontSize: "12px",
-                              color: "#6b7280",
-                            }}
-                          >
-                            This is how your logo will appear in the application
-                            header
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 <div style={{ marginBottom: "24px" }}>
@@ -4736,88 +4724,44 @@ function ConfigurationContent({
                     >
                       <input
                         type="checkbox"
-                        checked={
-                          appConfig.favicon ===
-                            (standardMenus?.find((m) => m.id === "home")
-                              ?.icon || "") &&
-                          appConfig.logo ===
-                            (standardMenus?.find((m) => m.id === "home")
-                              ?.icon || "") &&
-                          stylingConfig.application.topBar.logoUrl ===
-                            (standardMenus?.find((m) => m.id === "home")
-                              ?.icon || "")
+                        checked={appConfig.faviconSyncEnabled ?? false}
+                        disabled={
+                          !stylingConfig.application.topBar.logoUrl ||
+                          stylingConfig.application.topBar.logoUrl === "/ts.png"
                         }
                         onChange={(e) => {
-                          if (e.target.checked) {
-                            const homeMenu = standardMenus?.find(
-                              (m) => m.id === "home"
-                            );
-                            if (homeMenu) {
-                              // Update both favicon and TopBar logo
-                              updateAppConfig({
-                                ...appConfig,
-                                favicon: homeMenu.icon,
-                                logo: homeMenu.icon,
-                              });
-                              // Also update the TopBar logo in styling config
-                              updateStylingConfig({
-                                ...stylingConfig,
-                                application: {
-                                  ...stylingConfig.application,
-                                  topBar: {
-                                    ...stylingConfig.application.topBar,
-                                    logoUrl: homeMenu.icon,
-                                  },
-                                },
-                              });
+                          const isChecked = e.target.checked;
+                          console.log(
+                            "[SettingsModal] Favicon sync checkbox changed:",
+                            {
+                              checked: isChecked,
+                              currentFavicon: appConfig.favicon,
+                              currentLogo:
+                                stylingConfig.application.topBar.logoUrl,
                             }
-                          }
-                        }}
-                        style={{ cursor: "pointer" }}
-                      />
-                      <span>Sync with Home menu icon</span>
-                    </label>
-                    <p
-                      style={{
-                        margin: "4px 0 0 0",
-                        fontSize: "12px",
-                        color: "#6b7280",
-                      }}
-                    >
-                      When checked, the favicon will automatically match the
-                      Home menu icon
-                    </p>
-                  </div>
+                          );
 
-                  <div style={{ marginTop: "8px" }}>
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        cursor: "pointer",
-                        fontSize: "14px",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={
-                          appConfig.logo ===
-                          stylingConfig.application.topBar.logoUrl
-                        }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            // Sync main logo with styling logo
+                          if (isChecked) {
+                            // Enable favicon sync and set favicon to match logo
                             updateAppConfig({
                               ...appConfig,
-                              logo:
-                                stylingConfig.application.topBar.logoUrl || "",
+                              faviconSyncEnabled: true,
+                              favicon:
+                                stylingConfig.application.topBar.logoUrl ||
+                                "/ts.png",
+                            });
+                          } else {
+                            // Disable favicon sync and reset favicon to default
+                            updateAppConfig({
+                              ...appConfig,
+                              faviconSyncEnabled: false,
+                              favicon: "/ts.png",
                             });
                           }
                         }}
                         style={{ cursor: "pointer" }}
                       />
-                      <span>Sync main logo with styling logo</span>
+                      <span>Sync favicon with application logo</span>
                     </label>
                     <p
                       style={{
@@ -4826,55 +4770,17 @@ function ConfigurationContent({
                         color: "#6b7280",
                       }}
                     >
-                      When checked, the main application logo will automatically
-                      match the styling logo
-                    </p>
-                  </div>
-
-                  <div style={{ marginTop: "8px" }}>
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        cursor: "pointer",
-                        fontSize: "14px",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={
-                          stylingConfig.application.topBar.logoUrl ===
-                          appConfig.logo
-                        }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            // Sync styling logo with main logo
-                            updateStylingConfig({
-                              ...stylingConfig,
-                              application: {
-                                ...stylingConfig.application,
-                                topBar: {
-                                  ...stylingConfig.application.topBar,
-                                  logoUrl: appConfig.logo,
-                                },
-                              },
-                            });
-                          }
-                        }}
-                        style={{ cursor: "pointer" }}
-                      />
-                      <span>Sync styling logo with main logo</span>
-                    </label>
-                    <p
-                      style={{
-                        margin: "4px 0 0 0",
-                        fontSize: "12px",
-                        color: "#6b7280",
-                      }}
-                    >
-                      When checked, the styling logo will automatically match
-                      the main application logo
+                      When checked, the favicon will automatically match your
+                      application logo. Uncheck to set them independently.
+                      {(!Boolean(stylingConfig.application.topBar.logoUrl) ||
+                        stylingConfig.application.topBar.logoUrl ===
+                          "/ts.png") && (
+                        <span style={{ color: "#ef4444", fontWeight: "500" }}>
+                          {" "}
+                          First set an application logo above to enable this
+                          option.
+                        </span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -4936,6 +4842,53 @@ function ConfigurationContent({
                 }}
               >
                 {importStatus.message}
+              </div>
+            )}
+
+            {/* Export Status Message */}
+            {isExporting && (
+              <div
+                style={{
+                  marginTop: "16px",
+                  padding: "12px 16px",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  backgroundColor: "#dbeafe",
+                  color: "#1e40af",
+                  border: "1px solid #93c5fd",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <div
+                  style={{
+                    width: "16px",
+                    height: "16px",
+                    border: "2px solid transparent",
+                    borderTop: "2px solid #1e40af",
+                    borderRadius: "50%",
+                    animation: "spin 1s linear infinite",
+                  }}
+                />
+                Converting images and preparing configuration for export...
+              </div>
+            )}
+
+            {/* Export Error Message */}
+            {exportError && (
+              <div
+                style={{
+                  marginTop: "16px",
+                  padding: "12px 16px",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  backgroundColor: "#fee2e2",
+                  color: "#991b1b",
+                  border: "1px solid #fecaca",
+                }}
+              >
+                {exportError}
               </div>
             )}
 
@@ -5008,6 +4961,7 @@ function ConfigurationContent({
                       onClick={() => {
                         setShowExportDialog(false);
                         setExportFileName("");
+                        setExportError(null);
                       }}
                       style={{
                         padding: "8px 16px",
@@ -5023,34 +4977,77 @@ function ConfigurationContent({
                       Cancel
                     </button>
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         const fileName = exportFileName.trim();
                         // Validate filename - only allow alphanumeric, hyphens, underscores, and spaces
                         const validFileName = fileName.replace(
                           /[^a-zA-Z0-9\s\-_]/g,
                           ""
                         );
-                        exportConfiguration?.(validFileName || undefined);
-                        setShowExportDialog(false);
-                        setExportFileName("");
+                        try {
+                          setIsExporting(true);
+                          setExportError(null);
+                          await exportConfiguration?.(
+                            validFileName || undefined
+                          );
+                          setShowExportDialog(false);
+                          setExportFileName("");
+                        } catch (error) {
+                          console.error(
+                            "Failed to export configuration:",
+                            error
+                          );
+                          setExportError(
+                            "Failed to export configuration. Please try again."
+                          );
+                        } finally {
+                          setIsExporting(false);
+                        }
                       }}
+                      disabled={isExporting}
                       style={{
                         padding: "8px 16px",
-                        backgroundColor: "#059669",
+                        backgroundColor: isExporting ? "#6b7280" : "#059669",
                         color: "white",
                         border: "none",
                         borderRadius: "6px",
-                        cursor: "pointer",
+                        cursor: isExporting ? "not-allowed" : "pointer",
                         fontSize: "14px",
                         fontWeight: "500",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
                       }}
                     >
-                      Export
+                      {isExporting && (
+                        <div
+                          style={{
+                            width: "16px",
+                            height: "16px",
+                            border: "2px solid transparent",
+                            borderTop: "2px solid white",
+                            borderRadius: "50%",
+                            animation: "spin 1s linear infinite",
+                          }}
+                        />
+                      )}
+                      {isExporting ? "Exporting..." : "Export"}
                     </button>
                   </div>
                 </div>
               </div>
             )}
+
+            <style jsx>{`
+              @keyframes spin {
+                0% {
+                  transform: rotate(0deg);
+                }
+                100% {
+                  transform: rotate(360deg);
+                }
+              }
+            `}</style>
 
             {/* GitHub Configuration Dialog */}
             {showGitHubDialog && (

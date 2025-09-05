@@ -5,11 +5,15 @@ import { useState, useEffect } from "react";
 import { useAppContext } from "../../../components/Layout";
 import ContentGrid from "../../../components/ContentGrid";
 
+type ContentType = "all" | "answer" | "liveboard";
+
 function CustomMenuPageContent() {
   const params = useParams();
   const router = useRouter();
   const { customMenus } = useAppContext();
   const [mounted, setMounted] = useState(false);
+  const [selectedContentType, setSelectedContentType] =
+    useState<ContentType>("all");
 
   // Prevent hydration mismatch
   useEffect(() => {
@@ -21,6 +25,32 @@ function CustomMenuPageContent() {
 
   const handleBackClick = () => {
     router.back();
+  };
+
+  const getTabLabels = () => [
+    { id: "all" as ContentType, label: "All", count: null },
+    { id: "answer" as ContentType, label: "Answers", count: null },
+    { id: "liveboard" as ContentType, label: "Liveboards", count: null },
+  ];
+
+  const getDynamicSubtitle = () => {
+    if (selectedContentType === "all") {
+      return "Liveboards and Answers";
+    } else if (selectedContentType === "answer") {
+      return "Answers Only";
+    } else {
+      return "Liveboards Only";
+    }
+  };
+
+  const getDynamicDescription = () => {
+    if (selectedContentType === "all") {
+      return "Content selected for this custom menu.";
+    } else if (selectedContentType === "answer") {
+      return "Answers selected for this custom menu.";
+    } else {
+      return "Liveboards selected for this custom menu.";
+    }
   };
 
   // Show loading state until component is mounted to prevent hydration mismatch
@@ -83,18 +113,91 @@ function CustomMenuPageContent() {
     );
   }
 
+  const contentTypeTabs = getTabLabels();
+
   return (
-    <ContentGrid
-      title={customMenu.name}
-      subtitle=""
-      description={
-        customMenu.description || "Content selected for this custom menu."
-      }
-      emptyMessage="No content found for this custom menu. Please check the configuration."
-      showDirectContent={true}
-      onBackClick={handleBackClick}
-      customContent={customMenu}
-    />
+    <div>
+      {/* Content Type Selector Tabs */}
+      <div style={{ marginBottom: "24px" }}>
+        <div
+          style={{
+            display: "flex",
+            borderBottom: "1px solid #e5e7eb",
+            gap: "0",
+          }}
+        >
+          {contentTypeTabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedContentType(tab.id)}
+              style={{
+                padding: "12px 24px",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "500",
+                color: selectedContentType === tab.id ? "#1f2937" : "#6b7280",
+                borderBottom:
+                  selectedContentType === tab.id
+                    ? "2px solid #3b82f6"
+                    : "2px solid transparent",
+                transition: "all 0.2s ease",
+                position: "relative",
+              }}
+              onMouseEnter={(e) => {
+                if (selectedContentType !== tab.id) {
+                  e.currentTarget.style.color = "#374151";
+                  e.currentTarget.style.borderBottomColor = "#d1d5db";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (selectedContentType !== tab.id) {
+                  e.currentTarget.style.color = "#6b7280";
+                  e.currentTarget.style.borderBottomColor = "transparent";
+                }
+              }}
+            >
+              {tab.label}
+              {tab.count !== null && (
+                <span
+                  style={{
+                    marginLeft: "8px",
+                    padding: "2px 8px",
+                    backgroundColor: "#f3f4f6",
+                    borderRadius: "12px",
+                    fontSize: "12px",
+                    color: "#6b7280",
+                  }}
+                >
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <ContentGrid
+        title={customMenu.name}
+        subtitle={getDynamicSubtitle()}
+        description={getDynamicDescription()}
+        emptyMessage="No content found for this custom menu. Please check the configuration."
+        showDirectContent={true}
+        onBackClick={handleBackClick}
+        customContent={{
+          ...customMenu,
+          contentSelection: {
+            ...customMenu.contentSelection,
+            // Don't apply content type filtering here - let the custom menu's content selection work
+            // The tabs will filter the content that's already fetched
+          },
+        }}
+        tabContentType={
+          selectedContentType === "all" ? undefined : selectedContentType
+        }
+      />
+    </div>
   );
 }
 

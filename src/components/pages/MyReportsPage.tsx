@@ -1,39 +1,15 @@
 "use client";
 
-import ContentGrid from "../ContentGrid";
-import { useAppContext } from "../Layout";
-import { ThoughtSpotContent } from "../../types/thoughtspot";
+import ContentPage from "./ContentPage";
 
 export default function MyReportsPage() {
-  const { standardMenus } = useAppContext();
-
-  // Get my-reports configuration from standard menus
-  const myReportsMenu = standardMenus.find((m) => m.id === "my-reports");
-  const myReportsConfig = myReportsMenu
-    ? {
-        contentType: myReportsMenu.contentType as
-          | "Answer"
-          | "Liveboard"
-          | undefined,
-        namePattern: myReportsMenu.namePattern,
-        tagFilter: myReportsMenu.tagFilter,
-      }
-    : undefined;
-
-  const handleContentOpen = (content: ThoughtSpotContent) => {
-    // Handle opening content - could navigate to a dedicated view or show in modal
-  };
-
   return (
-    <ContentGrid
+    <ContentPage
+      pageType="my-reports"
       title="My Reports"
-      subtitle="Your Created Content"
-      description="Access and manage all the reports, liveboards, and answers you've created. Click on any item to open it directly."
+      subtitle="Your Content"
+      description="Access and manage all your content. Organize, share, and maintain your reports and liveboards."
       emptyMessage="You haven't created any content yet. Start building your first report or liveboard."
-      onContentOpen={handleContentOpen}
-      fetchUserContent={true}
-      userContentConfig={myReportsConfig}
-      showDirectContent={true}
     />
   );
 }

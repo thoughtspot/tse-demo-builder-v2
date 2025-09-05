@@ -112,6 +112,9 @@ export interface ThoughtSpotContent {
   name: string;
   type: "liveboard" | "answer" | "model" | "worksheet";
   description?: string;
+  authorName?: string;
+  created?: number;
+  modified?: number;
   lastAccessed?: number;
 }
 
@@ -134,6 +137,7 @@ export interface AppConfig {
   logo: string;
   earlyAccessFlags: string;
   favicon?: string;
+  faviconSyncEnabled?: boolean;
   showFooter: boolean;
 }
 
@@ -152,13 +156,13 @@ export interface StandardMenu {
   tagFilter?: string;
   modelId?: string;
   contentId?: string;
-  contentType?: string;
   namePattern?: string;
   spotterModelId?: string;
   spotterSearchQuery?: string;
   searchDataSource?: string;
   searchTokenString?: string;
   runSearch?: boolean;
+  excludeSystemContent?: boolean;
 }
 
 export interface ConfigurationData {
@@ -190,6 +194,7 @@ export interface CustomMenu {
       answers: string[];
     };
     tagIdentifiers?: string[];
+    contentType?: "answer" | "liveboard";
   };
 }
 
@@ -213,6 +218,7 @@ export interface UserAccess {
     spotter: boolean;
     search: boolean;
     "full-app": boolean;
+    "all-content": boolean;
   };
   customMenus: string[]; // Array of custom menu IDs that the user can access
   hiddenActions?: HiddenActionsConfig; // Configuration for hidden actions

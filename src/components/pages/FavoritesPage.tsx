@@ -1,39 +1,15 @@
 "use client";
 
-import ContentGrid from "../ContentGrid";
-import { useAppContext } from "../Layout";
-import { ThoughtSpotContent } from "../../types/thoughtspot";
+import ContentPage from "./ContentPage";
 
 export default function FavoritesPage() {
-  const { standardMenus } = useAppContext();
-
-  // Get favorites configuration from standard menus
-  const favoritesMenu = standardMenus.find((m) => m.id === "favorites");
-  const favoritesConfig = favoritesMenu
-    ? {
-        contentType: favoritesMenu.contentType as
-          | "Answer"
-          | "Liveboard"
-          | undefined,
-        namePattern: favoritesMenu.namePattern,
-        tagFilter: favoritesMenu.tagFilter,
-      }
-    : undefined;
-
-  const handleContentOpen = (content: ThoughtSpotContent) => {
-    // Handle opening content - could navigate to a dedicated view or show in modal
-  };
-
   return (
-    <ContentGrid
+    <ContentPage
+      pageType="favorites"
       title="Favorites"
-      subtitle="Your Favorite Items"
-      description="Quick access to your most frequently used reports, tools, and resources. Click on any item to open it directly."
+      subtitle="Your Favorite Content"
+      description="Quick access to your favorite liveboards and answers. Click on any item to open it directly."
       emptyMessage="Don't see your favorite items? Start exploring to add them here."
-      onContentOpen={handleContentOpen}
-      fetchFavorites={true}
-      favoritesConfig={favoritesConfig}
-      showDirectContent={true}
     />
   );
 }

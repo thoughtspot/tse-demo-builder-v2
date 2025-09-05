@@ -70,7 +70,16 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
         // Load from IndexedDB
         const loadImageFromIndexedDB = async () => {
           try {
-            const db = await window.indexedDB.open("imageStorage", 1);
+            const db = await window.indexedDB.open("ImageStorage", 1);
+
+            // Handle database upgrade to ensure object store exists
+            db.onupgradeneeded = (event) => {
+              const database = (event.target as IDBOpenDBRequest).result;
+              if (!database.objectStoreNames.contains("images")) {
+                database.createObjectStore("images", { keyPath: "id" });
+              }
+            };
+
             db.onsuccess = (event) => {
               const database = (event.target as IDBOpenDBRequest).result;
               const transaction = database.transaction(["images"], "readonly");
@@ -84,6 +93,10 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
                   setImageSrc(request.result.dataUrl);
                 }
               };
+            };
+
+            db.onerror = () => {
+              console.error("Failed to open ImageStorage database:", db.error);
             };
           } catch (error) {
             console.error("Error loading image from IndexedDB:", error);
@@ -226,7 +239,7 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
                   overflow: "auto",
                 }}
               >
-                {`<h1>Welcome to Your Dashboard</h1>
+                {`<h1>Welcome to Your Liveboard</h1>
 <p>This is a custom HTML section where you can:</p>
 <ul>
   <li>Add company branding</li>

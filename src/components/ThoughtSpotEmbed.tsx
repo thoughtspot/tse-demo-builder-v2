@@ -123,7 +123,17 @@ export default function ThoughtSpotEmbed({
   );
 
   useEffect(() => {
+    let isMounted = true;
+
     const initEmbed = async () => {
+      // Check if component is still mounted
+      if (!isMounted) {
+        console.log(
+          "[ThoughtSpotEmbed] Component unmounted, skipping initialization"
+        );
+        return;
+      }
+
       // Ensure the DOM element is available
       if (!embedRef.current) {
         console.warn(
@@ -131,22 +141,48 @@ export default function ThoughtSpotEmbed({
         );
         // Wait a bit more for the DOM to be ready
         await new Promise((resolve) => setTimeout(resolve, 1000));
-        if (!embedRef.current) {
-          setError("Failed to initialize: DOM element not available");
-          setIsLoading(false);
+        if (!embedRef.current || !isMounted) {
+          if (isMounted) {
+            setError("Failed to initialize: DOM element not available");
+            setIsLoading(false);
+          }
           return;
         }
       }
 
       try {
+        // Check if component is still mounted
+        if (!isMounted) {
+          console.log(
+            "[ThoughtSpotEmbed] Component unmounted during initialization, skipping"
+          );
+          return;
+        }
+
         setIsLoading(true);
         setError(null);
 
         // Add a small delay to ensure ThoughtSpot SDK is properly initialized
         await new Promise((resolve) => setTimeout(resolve, 500));
 
+        // Check again after the delay
+        if (!isMounted) {
+          console.log(
+            "[ThoughtSpotEmbed] Component unmounted after delay, skipping"
+          );
+          return;
+        }
+
         const { LiveboardEmbed, SearchEmbed, SpotterEmbed, EmbedEvent } =
           await import("@thoughtspot/visual-embed-sdk");
+
+        // Check if component is still mounted after SDK import
+        if (!isMounted) {
+          console.log(
+            "[ThoughtSpotEmbed] Component unmounted after SDK import, skipping"
+          );
+          return;
+        }
 
         console.log(
           "[ThoughtSpotEmbed] Initializing embed with cluster URL:",
@@ -247,6 +283,14 @@ export default function ThoughtSpotEmbed({
         }
 
         if (embedInstance) {
+          // Check if component is still mounted before proceeding
+          if (!isMounted) {
+            console.log(
+              "[ThoughtSpotEmbed] Component unmounted before embed setup, skipping"
+            );
+            return;
+          }
+
           embedInstanceRef.current = embedInstance;
 
           // Add double-click event listener if enabled
@@ -259,23 +303,42 @@ export default function ThoughtSpotEmbed({
           }
 
           try {
+            // Check if component is still mounted
+            if (!isMounted) {
+              console.log(
+                "[ThoughtSpotEmbed] Component unmounted during render, skipping"
+              );
+              return;
+            }
+
             // Ensure the DOM element is still available before rendering
             if (!embedRef.current) {
-              throw new Error("DOM element was removed before render");
+              console.warn(
+                "[ThoughtSpotEmbed] DOM element was removed before render, skipping render"
+              );
+              if (isMounted) {
+                setIsLoading(false);
+              }
+              return;
             }
 
             await embedInstance.render();
-            setIsLoading(false);
-            onLoad?.();
+            if (isMounted) {
+              setIsLoading(false);
+              onLoad?.();
+            }
           } catch (renderError) {
             console.error("Failed to render embed:", renderError);
-            throw new Error(
-              `Render failed: ${
-                renderError instanceof Error
-                  ? renderError.message
-                  : "Unknown error"
-              }`
-            );
+            if (isMounted) {
+              setError(
+                `Render failed: ${
+                  renderError instanceof Error
+                    ? renderError.message
+                    : "Unknown error"
+                }`
+              );
+              setIsLoading(false);
+            }
           }
         } else {
           throw new Error(`Failed to create ${content.type} embed instance`);
@@ -287,6 +350,7 @@ export default function ThoughtSpotEmbed({
         setError(errorMessage);
         setIsLoading(false);
         onError?.(errorMessage);
+        // Don't re-throw the error to prevent it from bubbling up
       }
     };
 
@@ -294,6 +358,7 @@ export default function ThoughtSpotEmbed({
 
     // Cleanup function
     return () => {
+      isMounted = false;
       console.log(
         "[ThoughtSpotEmbed] Cleaning up embed instance for:",
         content.id
