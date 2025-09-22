@@ -139,12 +139,10 @@ export default function SpotterPage({
             const spotterConfig = {
               ...embedConfig,
               worksheetId: embedConfig.worksheetId as string,
+              hiddenActions: hiddenActions,
             };
 
-            embedInstance = new SpotterEmbed(
-              embedRef.current,
-              spotterConfig as any
-            ); // eslint-disable-line @typescript-eslint/no-explicit-any
+            embedInstance = new SpotterEmbed(embedRef.current, spotterConfig);
           }
           embedInstanceRef.current = embedInstance;
           await (embedInstance as { render: () => Promise<void> }).render();
