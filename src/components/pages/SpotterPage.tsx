@@ -61,7 +61,9 @@ export default function SpotterPage({
         setIframeError(null);
 
         // Dynamically import ThoughtSpot SDK to avoid SSR issues
-        const { SpotterEmbed } = await import("@thoughtspot/visual-embed-sdk");
+        const { SpotterEmbed, Action } = await import(
+          "@thoughtspot/visual-embed-sdk"
+        );
 
         if (embedRef.current) {
           // Get hidden actions for current user
@@ -72,6 +74,19 @@ export default function SpotterPage({
             ?.enabled
             ? currentUser.access.hiddenActions.actions
             : [];
+
+          // Convert string action values to Action enum values
+          const hiddenActions = hiddenActionsStrings
+            .map((actionString) => {
+              // Find the Action enum value that matches the string
+              const actionKey = Object.keys(Action).find(
+                (key) => Action[key as keyof typeof Action] === actionString
+              );
+              return actionKey
+                ? Action[actionKey as keyof typeof Action]
+                : null;
+            })
+            .filter((action) => action !== null) as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
 
           // Get current user's locale
           const userLocale = currentUser?.locale || "en";
@@ -94,8 +109,8 @@ export default function SpotterPage({
               height: "100%",
             },
             ...filteredEmbedFlags,
-            ...(hiddenActionsStrings.length > 0 && {
-              hiddenActions: hiddenActionsStrings,
+            ...(hiddenActions.length > 0 && {
+              hiddenActions: hiddenActions,
             }),
             customizations: {
               content: {
@@ -126,15 +141,10 @@ export default function SpotterPage({
               worksheetId: embedConfig.worksheetId as string,
             };
 
-            // Remove hiddenActions from the config as we'll handle it separately
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { hiddenActions, ...configWithoutHiddenActions } =
-              spotterConfig;
-
             embedInstance = new SpotterEmbed(
               embedRef.current,
-              configWithoutHiddenActions
-            );
+              spotterConfig as any
+            ); // eslint-disable-line @typescript-eslint/no-explicit-any
           }
           embedInstanceRef.current = embedInstance;
           await (embedInstance as { render: () => Promise<void> }).render();

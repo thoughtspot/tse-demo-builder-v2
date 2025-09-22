@@ -167,8 +167,13 @@ export default function ThoughtSpotEmbed({
           return;
         }
 
-        const { LiveboardEmbed, SearchEmbed, SpotterEmbed, EmbedEvent } =
-          await import("@thoughtspot/visual-embed-sdk");
+        const {
+          LiveboardEmbed,
+          SearchEmbed,
+          SpotterEmbed,
+          EmbedEvent,
+          Action,
+        } = await import("@thoughtspot/visual-embed-sdk");
 
         // Check if component is still mounted after SDK import
         if (!isMounted) {
@@ -207,9 +212,20 @@ export default function ThoughtSpotEmbed({
         );
 
         // Get hidden actions for current user
-        const hiddenActions = currentUser?.access.hiddenActions?.enabled
-          ? (currentUser.access.hiddenActions.actions as any[]) // eslint-disable-line @typescript-eslint/no-explicit-any
+        const hiddenActionsStrings = currentUser?.access.hiddenActions?.enabled
+          ? currentUser.access.hiddenActions.actions
           : [];
+
+        // Convert string action values to Action enum values
+        const hiddenActions = hiddenActionsStrings
+          .map((actionString) => {
+            // Find the Action enum value that matches the string
+            const actionKey = Object.keys(Action).find(
+              (key) => Action[key as keyof typeof Action] === actionString
+            );
+            return actionKey ? Action[actionKey as keyof typeof Action] : null;
+          })
+          .filter((action) => action !== null) as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
 
         // Get user locale
         const userLocale = currentUser?.locale || "en";

@@ -69,16 +69,32 @@ export default function SearchPage({
         setIframeError(null);
 
         // Dynamically import ThoughtSpot SDK to avoid SSR issues
-        const { SearchEmbed } = await import("@thoughtspot/visual-embed-sdk");
+        const { SearchEmbed, Action } = await import(
+          "@thoughtspot/visual-embed-sdk"
+        );
 
         if (embedRef.current) {
           // Get hidden actions for current user
           const currentUser = context.userConfig.users.find(
             (u) => u.id === context.userConfig.currentUserId
           );
-          const hiddenActions = currentUser?.access.hiddenActions?.enabled
-            ? (currentUser.access.hiddenActions.actions as any[]) // eslint-disable-line @typescript-eslint/no-explicit-any
+          const hiddenActionsStrings = currentUser?.access.hiddenActions
+            ?.enabled
+            ? currentUser.access.hiddenActions.actions
             : [];
+
+          // Convert string action values to Action enum values
+          const hiddenActions = hiddenActionsStrings
+            .map((actionString) => {
+              // Find the Action enum value that matches the string
+              const actionKey = Object.keys(Action).find(
+                (key) => Action[key as keyof typeof Action] === actionString
+              );
+              return actionKey
+                ? Action[actionKey as keyof typeof Action]
+                : null;
+            })
+            .filter((action) => action !== null) as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
 
           // Get current user's locale
           const userLocale = currentUser?.locale || "en";
@@ -276,9 +292,9 @@ export default function SearchPage({
             </div>
           ) : (
             <div
-              key={`search-embed-${
-                context.appConfig.thoughtspotUrl
-              }-${context.lastClusterChangeTime}-${JSON.stringify(context.stylingConfig.embeddedContent)}`}
+              key={`search-embed-${context.appConfig.thoughtspotUrl}-${
+                context.lastClusterChangeTime
+              }-${JSON.stringify(context.stylingConfig.embeddedContent)}`}
               ref={embedRef}
               style={{
                 width: "100%",
