@@ -16,6 +16,13 @@ export async function GET() {
         key.includes("SPOTGPT")
       ),
       totalEnvVars: Object.keys(process.env).length,
+      // Additional debugging for Vercel
+      vercelRegion: process.env.VERCEL_REGION,
+      vercelGitCommitSha: process.env.VERCEL_GIT_COMMIT_SHA,
+      // Check if we're in a Vercel environment
+      isVercel: !!process.env.VERCEL,
+      // Show first few environment variables for debugging (without values)
+      sampleEnvVars: Object.keys(process.env).slice(0, 10),
     };
 
     // Test the actual API if key exists

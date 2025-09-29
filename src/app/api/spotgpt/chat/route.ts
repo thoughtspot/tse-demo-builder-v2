@@ -12,6 +12,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Enhanced debugging for Vercel
+    console.log("Chat API Debug Info:", {
+      hasApiKey: !!process.env.SPOTGPT_API_KEY,
+      apiKeyLength: process.env.SPOTGPT_API_KEY?.length || 0,
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV,
+      isVercel: !!process.env.VERCEL,
+      vercelRegion: process.env.VERCEL_REGION,
+      allSpotgptVars: Object.keys(process.env).filter((key) =>
+        key.includes("SPOTGPT")
+      ),
+      totalEnvVars: Object.keys(process.env).length,
+    });
+
     // Check if API key is available
     if (!process.env.SPOTGPT_API_KEY) {
       console.error("SPOTGPT_API_KEY environment variable is not set");
@@ -30,6 +44,9 @@ export async function POST(request: NextRequest) {
             ),
             nodeEnv: process.env.NODE_ENV,
             vercelEnv: process.env.VERCEL_ENV,
+            isVercel: !!process.env.VERCEL,
+            vercelRegion: process.env.VERCEL_REGION,
+            sampleEnvVars: Object.keys(process.env).slice(0, 10),
           },
         },
         { status: 500 }
