@@ -33,11 +33,22 @@ export async function POST(request: NextRequest) {
     // Check if API key is available
     if (!process.env.SPOTGPT_API_KEY) {
       console.error("SPOTGPT_API_KEY environment variable is not set");
+      console.error(
+        "Available environment variables:",
+        Object.keys(process.env).filter((key) => key.includes("SPOTGPT"))
+      );
       return NextResponse.json(
         {
           error:
-            "SpotGPT API key is not configured. Please set SPOTGPT_API_KEY environment variable.",
+            "SpotGPT API key is not configured. Please set SPOTGPT_API_KEY environment variable in your Vercel deployment settings.",
           fallback: true,
+          debug: {
+            availableEnvVars: Object.keys(process.env).filter((key) =>
+              key.includes("SPOTGPT")
+            ),
+            nodeEnv: process.env.NODE_ENV,
+            vercelEnv: process.env.VERCEL_ENV,
+          },
         },
         { status: 500 }
       );
