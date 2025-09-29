@@ -149,14 +149,12 @@ This endpoint will return:
 
 ## Next.js Configuration
 
-The application is configured to properly handle environment variables in `next.config.ts`:
+The application is configured to keep environment variables server-side only. The `next.config.ts` file does NOT expose the API key to the client:
 
 ```typescript
 const nextConfig: NextConfig = {
-  env: {
-    SPOTGPT_API_KEY: process.env.SPOTGPT_API_KEY,
-  },
+  /* config options here */
 };
 ```
 
-This ensures that the environment variable is available in both client and server contexts as needed.
+This ensures that the `SPOTGPT_API_KEY` environment variable is only accessible on the server-side (API routes), never exposed to the browser, which is the correct and secure approach.
