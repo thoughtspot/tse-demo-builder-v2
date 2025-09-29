@@ -1,3 +1,5 @@
+import { ThoughtSpotModelDetails } from "../types/thoughtspot";
+
 interface ThoughtSpotMetadata {
   metadata_id: string;
   metadata_name: string;
@@ -14,6 +16,13 @@ interface ThoughtSpotMetadata {
   };
   stats?: {
     last_accessed?: number;
+  };
+  details?: {
+    columns?: Array<{
+      name: string;
+      type: string;
+      description?: string;
+    }>;
   };
 }
 
@@ -484,6 +493,84 @@ export async function fetchModels(): Promise<ThoughtSpotContent[]> {
     console.error("Failed to fetch models:", error);
     // Return empty array on error
     return [];
+  }
+}
+
+export async function fetchModelDetails(
+  modelId: string
+): Promise<ThoughtSpotModelDetails | null> {
+  try {
+    const response = await searchMetadata({
+      metadataIds: [modelId],
+      includeStats: false,
+    });
+
+    if (!response || !Array.isArray(response) || response.length === 0) {
+      console.warn("No model details found for ID:", modelId);
+      return null;
+    }
+
+    const model = response[0];
+
+    // Try to get detailed information with columns
+    const detailedResponse = await makeThoughtSpotApiCall("/metadata/search", {
+      dependent_object_version: "V1",
+      include_details: true,
+      include_headers: true,
+      record_offset: 0,
+      record_size: 1,
+      include_stats: false,
+      include_discoverable_objects: true,
+      show_resolved_parameters: false,
+      metadata: [
+        {
+          identifier: modelId,
+          type: "LOGICAL_TABLE",
+        },
+      ],
+    });
+
+    let columns: Array<{ name: string; type: string; description?: string }> =
+      [];
+
+    if (
+      detailedResponse &&
+      Array.isArray(detailedResponse) &&
+      detailedResponse.length > 0
+    ) {
+      const detailedModel = detailedResponse[0];
+      // Extract column information from the detailed response
+      if (detailedModel.details && detailedModel.details.columns) {
+        columns = detailedModel.details.columns.map(
+          (col: {
+            name?: string;
+            column_name?: string;
+            type?: string;
+            data_type?: string;
+            description?: string;
+            column_description?: string;
+          }) => ({
+            name: col.name || col.column_name || "Unknown",
+            type: col.type || col.data_type || "Unknown",
+            description: col.description || col.column_description,
+          })
+        );
+      }
+    }
+
+    return {
+      id: model.metadata_id,
+      name: model.metadata_name,
+      type: "model" as const,
+      description: model.metadata_header?.description,
+      authorName: model.metadata_header?.authorName,
+      created: model.metadata_header?.created,
+      modified: model.metadata_header?.modified,
+      columns,
+    };
+  } catch (error) {
+    console.error("Failed to fetch model details:", error);
+    return null;
   }
 }
 

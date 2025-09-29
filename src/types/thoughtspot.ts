@@ -121,6 +121,14 @@ export interface ThoughtSpotContent {
   lastAccessed?: number;
 }
 
+export interface ThoughtSpotModelDetails extends ThoughtSpotContent {
+  columns?: Array<{
+    name: string;
+    type: string;
+    description?: string;
+  }>;
+}
+
 export interface SavedConfiguration {
   name: string;
   description?: string;
@@ -142,6 +150,16 @@ export interface AppConfig {
   favicon?: string;
   faviconSyncEnabled?: boolean;
   showFooter: boolean;
+  chatbot?: {
+    enabled: boolean;
+    defaultModelId?: string;
+    selectedModelIds?: string[];
+    welcomeMessage?: string;
+    position?: "bottom-right" | "bottom-left";
+    primaryColor?: string;
+    hoverColor?: string;
+    spotgptApiKey?: string;
+  };
 }
 
 export interface FullAppConfig {

@@ -14,9 +14,18 @@ export default function ChatBubble() {
     setIsClient(true);
   }, []);
 
-  // Get colors from context
-  const primaryColor = "#3b82f6"; // You can make this configurable too
-  const primaryHoverColor = "#2563eb";
+  // Get chatbot configuration from context
+  const chatbotConfig = context.appConfig.chatbot;
+
+  // Don't render if chatbot is disabled
+  if (!chatbotConfig?.enabled) {
+    return null;
+  }
+
+  // Get colors from configuration or use defaults
+  const primaryColor = chatbotConfig.primaryColor || "#3b82f6";
+  const primaryHoverColor = chatbotConfig.hoverColor || "#2563eb";
+  const position = chatbotConfig.position || "bottom-right";
 
   // Don't render anything on the server side
   if (!isClient) {
@@ -31,7 +40,7 @@ export default function ChatBubble() {
         style={{
           position: "fixed",
           bottom: "16px",
-          right: "16px",
+          [position === "bottom-right" ? "right" : "left"]: "16px",
           width: "64px",
           height: "64px",
           backgroundColor: primaryColor,
@@ -45,7 +54,7 @@ export default function ChatBubble() {
           border: "none",
           cursor: "pointer",
           transition: "all 0.2s ease",
-          zIndex: 40,
+          zIndex: 1001,
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.backgroundColor = primaryHoverColor;
