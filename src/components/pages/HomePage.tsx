@@ -415,7 +415,17 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
         };
 
         return (
-          <div style={{ flex: 1, width: "100%", minHeight: 0 }}>
+          <div
+            style={{
+              flex: 1,
+              width: "100%",
+              height: "calc(100vh - 200px)",
+              minHeight: "400px",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
             <ThoughtSpotEmbed
               content={thoughtSpotContent}
               width="100%"
@@ -455,6 +465,7 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
       style={{
         flex: 1,
         width: "100%",
+        height: "100%",
         overflow: "hidden",
         display: "flex",
         minHeight: 0,

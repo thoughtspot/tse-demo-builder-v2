@@ -32,6 +32,7 @@ import {
 import HiddenActionsEditor from "./HiddenActionsEditor";
 import TagFilterComponent from "./TagFilterComponent";
 import SearchableDropdown from "./SearchableDropdown";
+import MultiSelectDropdown from "./MultiSelectDropdown";
 import LoadingDialog from "./LoadingDialog";
 
 import { fetchSavedConfigurations } from "../services/githubApi";
@@ -249,6 +250,8 @@ function StandardMenusContent({
   fullAppConfig,
   updateFullAppConfig,
   onSubTabChange,
+  appConfig,
+  updateAppConfig,
 }: {
   standardMenus: StandardMenu[];
   updateStandardMenu: (
@@ -261,10 +264,12 @@ function StandardMenusContent({
   fullAppConfig: FullAppConfig;
   updateFullAppConfig: (config: FullAppConfig) => void;
   onSubTabChange?: (subTab: string) => void;
+  appConfig: AppConfig;
+  updateAppConfig: (config: AppConfig, bypassClusterWarning?: boolean) => void;
 }) {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "home");
 
-  // Ensure we always have a valid sub-tab selected
+  // Validate initial state on mount
   useEffect(() => {
     const validSubTabs = [
       "home",
@@ -274,11 +279,34 @@ function StandardMenusContent({
       "search",
       "full-app",
       "all-content",
+      "chatbot",
     ];
-    if (!validSubTabs.includes(activeSubTab)) {
+    if (!activeSubTab || !validSubTabs.includes(activeSubTab)) {
       setActiveSubTab("home");
     }
-  }, [activeSubTab]);
+  }, []); // Empty dependency array - runs only on mount
+
+  // Update activeSubTab when initialSubTab changes
+  useEffect(() => {
+    const validSubTabs = [
+      "home",
+      "favorites",
+      "my-reports",
+      "spotter",
+      "search",
+      "full-app",
+      "all-content",
+      "chatbot",
+    ];
+
+    if (
+      initialSubTab &&
+      validSubTabs.includes(initialSubTab) &&
+      initialSubTab !== activeSubTab
+    ) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab, activeSubTab]);
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
 
   const [modelOptions, setModelOptions] = useState<
@@ -478,6 +506,34 @@ function StandardMenusContent({
         return <FullAppPage />;
       case "all-content":
         return <AllContentPage />;
+      case "chatbot":
+        return (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              fontSize: "16px",
+              color: "#6b7280",
+              textAlign: "center",
+              padding: "20px",
+            }}
+          >
+            <div>
+              <div style={{ fontSize: "48px", marginBottom: "16px" }}>💬</div>
+              <div style={{ fontWeight: "500", marginBottom: "8px" }}>
+                No Preview Available
+              </div>
+              <div style={{ fontSize: "14px", color: "#9ca3af" }}>
+                Chatbot configuration does not have a preview.
+                <br />
+                The chatbot will appear as a floating button in your
+                application.
+              </div>
+            </div>
+          </div>
+        );
       default:
         return <div>Page not found</div>;
     }
@@ -518,6 +574,11 @@ function StandardMenusContent({
       id: "all-content",
       name: "All Content",
       icon: standardMenus.find((m) => m.id === "all-content")?.icon || "📚",
+    },
+    {
+      id: "chatbot",
+      name: "Chatbot",
+      icon: "💬",
     },
   ];
 
@@ -777,6 +838,394 @@ function StandardMenusContent({
                     (m) => m.id === "all-content"
                   ),
                 });
+
+                // Handle special case for chatbot configuration
+                if (activeSubTab === "chatbot") {
+                  return (
+                    <div>
+                      <h4
+                        style={{
+                          fontSize: "18px",
+                          fontWeight: "600",
+                          marginBottom: "20px",
+                        }}
+                      >
+                        Chatbot Configuration
+                      </h4>
+                      <p
+                        style={{
+                          marginBottom: "20px",
+                          color: "#6b7280",
+                          fontSize: "14px",
+                        }}
+                      >
+                        Configure the AI assistant chatbot that appears in your
+                        application.
+                      </p>
+
+                      {/* Enable/Disable Chatbot */}
+                      <div
+                        style={{
+                          marginBottom: "24px",
+                          padding: "16px",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "8px",
+                          backgroundColor: "#f9fafb",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          <label
+                            style={{
+                              fontSize: "16px",
+                              fontWeight: "500",
+                              color: "#374151",
+                            }}
+                          >
+                            Enable Chatbot
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={appConfig.chatbot?.enabled ?? true}
+                            onChange={(e) => {
+                              const updatedAppConfig = {
+                                ...appConfig,
+                                chatbot: {
+                                  ...appConfig.chatbot,
+                                  enabled: e.target.checked,
+                                  defaultModelId:
+                                    appConfig.chatbot?.defaultModelId,
+                                  selectedModelIds:
+                                    appConfig.chatbot?.selectedModelIds || [],
+                                  welcomeMessage:
+                                    appConfig.chatbot?.welcomeMessage ||
+                                    "Hello! I'm your AI assistant. What would you like to know about your data?",
+                                  position:
+                                    appConfig.chatbot?.position ||
+                                    "bottom-right",
+                                  spotgptApiKey:
+                                    appConfig.chatbot?.spotgptApiKey,
+                                },
+                              };
+                              updateAppConfig(updatedAppConfig);
+                            }}
+                            style={{
+                              width: "20px",
+                              height: "20px",
+                              cursor: "pointer",
+                            }}
+                          />
+                        </div>
+                        <p
+                          style={{
+                            fontSize: "14px",
+                            color: "#6b7280",
+                            margin: 0,
+                          }}
+                        >
+                          Show or hide the AI assistant chatbot in your
+                          application.
+                        </p>
+                      </div>
+
+                      {/* Model Selection */}
+                      <div
+                        style={{
+                          marginBottom: "24px",
+                          padding: "16px",
+                          border: "2px solid #3b82f6",
+                          borderRadius: "8px",
+                          backgroundColor: "#f0f9ff",
+                        }}
+                      >
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: "16px",
+                            fontWeight: "500",
+                            color: "#374151",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          Available Models
+                        </label>
+                        <p
+                          style={{
+                            fontSize: "14px",
+                            color: "#6b7280",
+                            margin: "0 0 12px 0",
+                          }}
+                        >
+                          Select the models that will be available for chatbot
+                          conversations.
+                        </p>
+                        {isLoadingModels || isLoadingWorksheets ? (
+                          <div
+                            style={{
+                              padding: "12px",
+                              textAlign: "center",
+                              color: "#6b7280",
+                              border: "1px solid #d1d5db",
+                              borderRadius: "4px",
+                              backgroundColor: "white",
+                            }}
+                          >
+                            Loading models...
+                          </div>
+                        ) : modelsError || worksheetsError ? (
+                          <div
+                            style={{
+                              padding: "12px",
+                              textAlign: "center",
+                              color: "#ef4444",
+                              border: "1px solid #ef4444",
+                              borderRadius: "4px",
+                              backgroundColor: "#fef2f2",
+                            }}
+                          >
+                            {modelsError || worksheetsError}
+                          </div>
+                        ) : (
+                          <MultiSelectDropdown
+                            value={appConfig.chatbot?.selectedModelIds || []}
+                            onChange={(selectedIds) => {
+                              const updatedAppConfig = {
+                                ...appConfig,
+                                chatbot: {
+                                  ...appConfig.chatbot,
+                                  enabled: appConfig.chatbot?.enabled ?? true,
+                                  defaultModelId:
+                                    appConfig.chatbot?.defaultModelId,
+                                  selectedModelIds: selectedIds,
+                                  welcomeMessage:
+                                    appConfig.chatbot?.welcomeMessage ||
+                                    "Hello! I'm your AI assistant. What would you like to know about your data?",
+                                  position:
+                                    appConfig.chatbot?.position ||
+                                    "bottom-right",
+                                  spotgptApiKey:
+                                    appConfig.chatbot?.spotgptApiKey,
+                                },
+                              };
+                              updateAppConfig(updatedAppConfig);
+                            }}
+                            options={combinedOptions}
+                            placeholder="Select models for chatbot..."
+                            searchPlaceholder="Search models..."
+                            label=""
+                            isLoading={isLoadingModels || isLoadingWorksheets}
+                            error={modelsError || worksheetsError}
+                          />
+                        )}
+                      </div>
+
+                      {/* Chatbot Position */}
+                      <div
+                        style={{
+                          marginBottom: "24px",
+                          padding: "16px",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "8px",
+                          backgroundColor: "#f9fafb",
+                        }}
+                      >
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: "16px",
+                            fontWeight: "500",
+                            color: "#374151",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          Chatbot Position
+                        </label>
+                        <select
+                          value={appConfig.chatbot?.position || "bottom-right"}
+                          onChange={(e) => {
+                            const updatedAppConfig = {
+                              ...appConfig,
+                              chatbot: {
+                                ...appConfig.chatbot,
+                                enabled: appConfig.chatbot?.enabled ?? true,
+                                defaultModelId:
+                                  appConfig.chatbot?.defaultModelId,
+                                selectedModelIds:
+                                  appConfig.chatbot?.selectedModelIds || [],
+                                welcomeMessage:
+                                  appConfig.chatbot?.welcomeMessage ||
+                                  "Hello! I'm your AI assistant. What would you like to know about your data?",
+                                position: e.target.value as
+                                  | "bottom-right"
+                                  | "bottom-left",
+                              },
+                            };
+                            updateAppConfig(updatedAppConfig);
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "6px",
+                            fontSize: "14px",
+                            backgroundColor: "white",
+                          }}
+                        >
+                          <option value="bottom-right">Bottom Right</option>
+                          <option value="bottom-left">Bottom Left</option>
+                        </select>
+                        <p
+                          style={{
+                            fontSize: "14px",
+                            color: "#6b7280",
+                            margin: "8px 0 0 0",
+                          }}
+                        >
+                          Choose where the chatbot button appears on the screen.
+                        </p>
+                      </div>
+
+                      {/* Welcome Message */}
+                      <div
+                        style={{
+                          marginBottom: "24px",
+                          padding: "16px",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "8px",
+                          backgroundColor: "#f9fafb",
+                        }}
+                      >
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: "16px",
+                            fontWeight: "500",
+                            color: "#374151",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          Welcome Message
+                        </label>
+                        <textarea
+                          value={
+                            appConfig.chatbot?.welcomeMessage ||
+                            "Hello! I'm your AI assistant. What would you like to know about your data?"
+                          }
+                          onChange={(e) => {
+                            const updatedAppConfig = {
+                              ...appConfig,
+                              chatbot: {
+                                ...appConfig.chatbot,
+                                enabled: appConfig.chatbot?.enabled ?? true,
+                                defaultModelId:
+                                  appConfig.chatbot?.defaultModelId,
+                                selectedModelIds:
+                                  appConfig.chatbot?.selectedModelIds || [],
+                                welcomeMessage: e.target.value,
+                                position:
+                                  appConfig.chatbot?.position || "bottom-right",
+                              },
+                            };
+                            updateAppConfig(updatedAppConfig);
+                          }}
+                          placeholder="Enter the welcome message for the chatbot..."
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "6px",
+                            fontSize: "14px",
+                            backgroundColor: "white",
+                            minHeight: "80px",
+                            resize: "vertical",
+                          }}
+                        />
+                        <p
+                          style={{
+                            fontSize: "14px",
+                            color: "#6b7280",
+                            margin: "8px 0 0 0",
+                          }}
+                        >
+                          The message shown when users first open the chatbot.
+                        </p>
+                      </div>
+
+                      {/* SpotGPT API Key */}
+                      <div
+                        style={{
+                          marginBottom: "24px",
+                          padding: "16px",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "8px",
+                          backgroundColor: "#f9fafb",
+                        }}
+                      >
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: "16px",
+                            fontWeight: "500",
+                            color: "#374151",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          SpotGPT API Key
+                        </label>
+                        <input
+                          type="password"
+                          value={appConfig.chatbot?.spotgptApiKey || ""}
+                          onChange={(e) => {
+                            const updatedAppConfig = {
+                              ...appConfig,
+                              chatbot: {
+                                ...appConfig.chatbot,
+                                enabled: appConfig.chatbot?.enabled ?? true,
+                                defaultModelId:
+                                  appConfig.chatbot?.defaultModelId,
+                                selectedModelIds:
+                                  appConfig.chatbot?.selectedModelIds || [],
+                                welcomeMessage:
+                                  appConfig.chatbot?.welcomeMessage ||
+                                  "Hello! I'm your AI assistant. What would you like to know about your data?",
+                                position:
+                                  appConfig.chatbot?.position || "bottom-right",
+                                spotgptApiKey: e.target.value,
+                              },
+                            };
+                            updateAppConfig(updatedAppConfig);
+                          }}
+                          placeholder="Enter your SpotGPT API key..."
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "6px",
+                            fontSize: "14px",
+                            backgroundColor: "white",
+                          }}
+                        />
+                        <p
+                          style={{
+                            fontSize: "14px",
+                            color: "#6b7280",
+                            margin: "8px 0 0 0",
+                          }}
+                        >
+                          API key for SpotGPT to handle general questions and
+                          question classification. Leave empty to use
+                          environment variable SPOTGPT_API_KEY.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
 
                 const menu = standardMenus.find((m) => m.id === activeSubTab);
                 if (!menu) {
@@ -4401,9 +4850,23 @@ function ConfigurationContent({
   const [selectedConfiguration, setSelectedConfiguration] =
     useState<string>("");
 
+  // Validate initial state on mount
+  useEffect(() => {
+    const validSubTabs = ["general", "embedFlags"];
+    if (!activeSubTab || !validSubTabs.includes(activeSubTab)) {
+      setActiveSubTab("general");
+    }
+  }, []); // Empty dependency array - runs only on mount
+
   // Update activeSubTab when initialSubTab changes
   useEffect(() => {
-    if (initialSubTab && initialSubTab !== activeSubTab) {
+    const validSubTabs = ["general", "embedFlags"];
+
+    if (
+      initialSubTab &&
+      validSubTabs.includes(initialSubTab) &&
+      initialSubTab !== activeSubTab
+    ) {
       setActiveSubTab(initialSubTab);
     }
   }, [initialSubTab, activeSubTab]);
@@ -5824,6 +6287,8 @@ export default function SettingsModal({
           fullAppConfig={pendingFullAppConfig}
           updateFullAppConfig={updatePendingFullAppConfig}
           onSubTabChange={(subTab) => onTabChange?.("standard-menus", subTab)}
+          appConfig={pendingAppConfig}
+          updateAppConfig={updatePendingAppConfig}
         />
       ),
     },

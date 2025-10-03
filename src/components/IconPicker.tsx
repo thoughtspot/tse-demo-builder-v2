@@ -565,6 +565,7 @@ const IconPicker: React.FC<IconPickerProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [activeTab, setActiveTab] = useState<"icons" | "images">("icons");
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredIcons = useMemo(() => {
@@ -590,7 +591,36 @@ const IconPicker: React.FC<IconPickerProps> = ({
   const selectedIcon = availableIcons.find((icon) => icon.name === value);
 
   // Check if current value is an image
-  const isImageValue = value && value.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i);
+  const isImageValue =
+    value &&
+    (value.startsWith("data:image") ||
+      value.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i));
+
+  // Get display info for custom images
+  const getCustomImageDisplayInfo = (imageValue: string) => {
+    if (imageValue.startsWith("data:image")) {
+      // For data URLs, extract the image type
+      const mimeMatch = imageValue.match(/data:image\/([^;]+)/);
+      const imageType = mimeMatch ? mimeMatch[1].toUpperCase() : "IMAGE";
+      return {
+        label: `Custom ${imageType}`,
+        description: "Uploaded image file",
+      };
+    } else if (imageValue.includes("/")) {
+      // For URLs, extract filename
+      const filename = imageValue.split("/").pop() || imageValue;
+      return {
+        label: filename,
+        description: "Custom image file",
+      };
+    } else {
+      // For simple filenames
+      return {
+        label: imageValue,
+        description: "Custom image file",
+      };
+    }
+  };
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -598,19 +628,124 @@ const IconPicker: React.FC<IconPickerProps> = ({
     return ["All", ...cats];
   }, []);
 
-  // Handle image file upload
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle image file upload with proper error handling and compression
+  const handleImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        if (result) {
-          onChange(result); // Use data URL
+    if (!file) return;
+
+    setIsProcessingImage(true);
+
+    try {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        alert("Please select a valid image file (PNG, JPG, GIF, SVG, WebP)");
+        return;
+      }
+
+      // Check file size (limit to 5MB for initial upload)
+      const maxSizeInMB = 5;
+      if (file.size > maxSizeInMB * 1024 * 1024) {
+        alert(`File size must be less than ${maxSizeInMB}MB`);
+        return;
+      }
+
+      // For SVG files, read directly without compression
+      if (file.type === "image/svg+xml") {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const result = e.target?.result as string;
+          if (result) {
+            onChange(result);
+            setIsOpen(false); // Close the dropdown after successful upload
+          }
+        };
+        reader.onerror = () => {
+          alert("Failed to read the image file. Please try again.");
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      // For other image formats, compress and resize
+      const compressedDataUrl = await compressImage(file);
+      onChange(compressedDataUrl);
+      setIsOpen(false); // Close the dropdown after successful upload
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to upload image. Please try again."
+      );
+    } finally {
+      setIsProcessingImage(false);
+    }
+  };
+
+  // Compress and resize image
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      const img = new Image();
+
+      img.onload = () => {
+        // Calculate new dimensions while maintaining aspect ratio
+        const maxWidth = 64; // Icon size limit
+        const maxHeight = 64;
+        let { width, height } = img;
+
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width *= ratio;
+          height *= ratio;
+        }
+
+        // Set canvas dimensions
+        canvas.width = width;
+        canvas.height = height;
+
+        // Draw resized image
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        // Convert to base64 with quality control
+        const quality = 0.8; // 80% quality for good balance
+        const dataUrl = canvas.toDataURL("image/png", quality);
+
+        // Check final size (limit to 100KB for icons)
+        const sizeInBytes = Math.ceil((dataUrl.length * 3) / 4);
+        const sizeInKB = sizeInBytes / 1024;
+
+        if (sizeInKB > 100) {
+          // Try with lower quality
+          const lowerQualityDataUrl = canvas.toDataURL("image/jpeg", 0.6);
+          const lowerSizeInBytes = Math.ceil(
+            (lowerQualityDataUrl.length * 3) / 4
+          );
+          const lowerSizeInKB = lowerSizeInBytes / 1024;
+
+          if (lowerSizeInKB > 100) {
+            reject(
+              new Error(
+                "Image is too large even after compression. Please use a smaller image."
+              )
+            );
+          } else {
+            resolve(lowerQualityDataUrl);
+          }
+        } else {
+          resolve(dataUrl);
         }
       };
-      reader.readAsDataURL(file);
-    }
+
+      img.onerror = () => {
+        reject(new Error("Failed to load image"));
+      };
+
+      img.src = URL.createObjectURL(file);
+    });
   };
 
   // Handle image URL input
@@ -640,7 +775,8 @@ const IconPicker: React.FC<IconPickerProps> = ({
         onClick={() => setIsOpen(!isOpen)}
         style={{
           width: "100%",
-          padding: "12px 16px",
+          padding: isImageValue ? "12px 16px" : "12px 16px",
+          minHeight: isImageValue ? "60px" : "48px",
           border: "1px solid #d1d5db",
           borderRadius: "6px",
           backgroundColor: "white",
@@ -669,9 +805,25 @@ const IconPicker: React.FC<IconPickerProps> = ({
                 width: 24,
                 height: 24,
                 objectFit: "contain",
+                border: "1px solid #e5e7eb",
+                borderRadius: "3px",
               }}
             />
-            <span>Custom Image</span>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                flex: 1,
+              }}
+            >
+              <span style={{ fontSize: "14px", fontWeight: "500" }}>
+                {getCustomImageDisplayInfo(value).label}
+              </span>
+              <span style={{ fontSize: "12px", color: "#6b7280" }}>
+                {getCustomImageDisplayInfo(value).description}
+              </span>
+            </div>
           </>
         ) : selectedIcon ? (
           <>
@@ -704,9 +856,11 @@ const IconPicker: React.FC<IconPickerProps> = ({
             borderRadius: "6px",
             boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
             zIndex: 1000,
-            maxHeight: "400px",
+            maxHeight: "500px",
             overflow: "hidden",
             minWidth: "300px",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
           {/* Tab interface */}
@@ -803,7 +957,13 @@ const IconPicker: React.FC<IconPickerProps> = ({
 
           {/* Icon list - only show for icons tab */}
           {activeTab === "icons" && (
-            <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+            <div
+              style={{
+                maxHeight: "calc(500px - 120px)", // Account for tabs and search controls
+                overflowY: "auto",
+                flex: 1,
+              }}
+            >
               {filteredIcons.length > 0 ? (
                 <div
                   style={{
@@ -914,7 +1074,14 @@ const IconPicker: React.FC<IconPickerProps> = ({
 
           {/* Image upload section - only show for images tab */}
           {activeTab === "images" && (
-            <div style={{ padding: "16px" }}>
+            <div
+              style={{
+                padding: "16px",
+                flex: 1,
+                overflowY: "auto",
+                maxHeight: "calc(500px - 120px)", // Account for tabs and potential borders
+              }}
+            >
               <div style={{ marginBottom: "16px" }}>
                 <label
                   style={{
@@ -936,28 +1103,42 @@ const IconPicker: React.FC<IconPickerProps> = ({
                 />
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isProcessingImage}
+                  onClick={() => {
+                    // Reset the file input value to allow re-uploading the same file
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = "";
+                    }
+                    fileInputRef.current?.click();
+                  }}
                   style={{
                     width: "100%",
                     padding: "12px",
                     border: "2px dashed #d1d5db",
                     borderRadius: "6px",
-                    backgroundColor: "#f9fafb",
-                    cursor: "pointer",
+                    backgroundColor: isProcessingImage ? "#f3f4f6" : "#f9fafb",
+                    cursor: isProcessingImage ? "not-allowed" : "pointer",
                     fontSize: "14px",
-                    color: "#6b7280",
+                    color: isProcessingImage ? "#9ca3af" : "#6b7280",
                     transition: "all 0.2s",
+                    opacity: isProcessingImage ? 0.7 : 1,
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "#3b82f6";
-                    e.currentTarget.style.backgroundColor = "#f0f9ff";
+                    if (!isProcessingImage) {
+                      e.currentTarget.style.borderColor = "#3b82f6";
+                      e.currentTarget.style.backgroundColor = "#f0f9ff";
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "#d1d5db";
-                    e.currentTarget.style.backgroundColor = "#f9fafb";
+                    if (!isProcessingImage) {
+                      e.currentTarget.style.borderColor = "#d1d5db";
+                      e.currentTarget.style.backgroundColor = "#f9fafb";
+                    }
                   }}
                 >
-                  📁 Click to upload image file
+                  {isProcessingImage
+                    ? "🔄 Processing image..."
+                    : "📁 Click to upload image file (PNG, JPG, GIF, SVG, WebP)"}
                 </button>
               </div>
 
@@ -1096,47 +1277,101 @@ const IconPicker: React.FC<IconPickerProps> = ({
                 <div
                   style={{
                     marginTop: "16px",
-                    padding: "12px",
+                    padding: "16px",
                     backgroundColor: "#f0f9ff",
-                    borderRadius: "6px",
+                    borderRadius: "8px",
+                    border: "1px solid #bfdbfe",
                   }}
                 >
                   <div
                     style={{
                       fontSize: "14px",
-                      fontWeight: "500",
-                      color: "#374151",
-                      marginBottom: "8px",
+                      fontWeight: "600",
+                      color: "#1e40af",
+                      marginBottom: "12px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
                     }}
                   >
-                    Current Image:
+                    ✅ Selected Custom Image
                   </div>
-                  <img
-                    src={value.startsWith("data:") ? value : `/icons/${value}`}
-                    alt="Current icon"
+
+                  <div
                     style={{
-                      width: 48,
-                      height: 48,
-                      objectFit: "contain",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "4px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      marginBottom: "12px",
                     }}
-                  />
+                  >
+                    <img
+                      src={
+                        value.startsWith("data:") ? value : `/icons/${value}`
+                      }
+                      alt="Current icon"
+                      style={{
+                        width: 48,
+                        height: 48,
+                        objectFit: "contain",
+                        border: "2px solid #3b82f6",
+                        borderRadius: "6px",
+                        backgroundColor: "white",
+                      }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          fontSize: "14px",
+                          fontWeight: "500",
+                          color: "#374151",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        {getCustomImageDisplayInfo(value).label}
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                        {getCustomImageDisplayInfo(value).description}
+                      </div>
+                      {value.startsWith("data:image") && (
+                        <div
+                          style={{
+                            fontSize: "11px",
+                            color: "#9ca3af",
+                            marginTop: "2px",
+                          }}
+                        >
+                          Compressed and optimized for performance
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => onChange("")}
+                    onClick={() => {
+                      onChange("");
+                      setIsOpen(false);
+                    }}
                     style={{
-                      marginTop: "8px",
-                      padding: "4px 8px",
+                      padding: "6px 12px",
                       border: "1px solid #ef4444",
                       borderRadius: "4px",
                       backgroundColor: "white",
                       color: "#ef4444",
                       cursor: "pointer",
                       fontSize: "12px",
+                      fontWeight: "500",
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#fef2f2";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "white";
                     }}
                   >
-                    Remove Image
+                    🗑️ Remove Custom Image
                   </button>
                 </div>
               )}

@@ -100,6 +100,13 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     earlyAccessFlags: "enable-modular-home\nenable-custom-styling",
     favicon: "/ts.png",
     showFooter: true,
+    chatbot: {
+      enabled: true,
+      defaultModelId: undefined,
+      welcomeMessage:
+        "Hello! I'm your AI assistant. What would you like to know about your data?",
+      position: "bottom-right",
+    },
   },
   fullAppConfig: {
     showPrimaryNavbar: true,

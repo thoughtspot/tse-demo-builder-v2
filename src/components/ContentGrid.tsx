@@ -744,25 +744,6 @@ export default function ContentGrid({
                 ? "No items match your current filters. Try adjusting the content type, name pattern, or tag filter in settings."
                 : emptyMessage}
             </p>
-            <button
-              style={{
-                padding: "12px 24px",
-                backgroundColor:
-                  context.stylingConfig.application.buttons?.primary
-                    ?.backgroundColor || "#38a169",
-                color:
-                  context.stylingConfig.application.buttons?.primary
-                    ?.foregroundColor || "white",
-                border: `1px solid ${
-                  context.stylingConfig.application.buttons?.primary
-                    ?.borderColor || "#38a169"
-                }`,
-                borderRadius: "6px",
-                cursor: "pointer",
-              }}
-            >
-              Browse All Items
-            </button>
           </div>
         ) : (
           <div

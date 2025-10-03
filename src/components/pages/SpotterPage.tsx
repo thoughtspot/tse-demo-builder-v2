@@ -142,10 +142,7 @@ export default function SpotterPage({
               hiddenActions: hiddenActions,
             };
 
-            embedInstance = new SpotterEmbed(
-              embedRef.current,
-              spotterConfig
-            );
+            embedInstance = new SpotterEmbed(embedRef.current, spotterConfig);
           }
           embedInstanceRef.current = embedInstance;
           await (embedInstance as { render: () => Promise<void> }).render();
@@ -256,29 +253,6 @@ export default function SpotterPage({
         <div
           style={{ height: "100%", display: "flex", flexDirection: "column" }}
         >
-          <h3
-            style={{
-              fontSize: "16px",
-              fontWeight: "600",
-              marginBottom: "12px",
-              padding: "0 0 12px 0",
-            }}
-          >
-            AI Analyst
-            {finalSpotterSearchQuery && (
-              <span
-                style={{
-                  fontSize: "14px",
-                  fontWeight: "400",
-                  color: "#6b7280",
-                  marginLeft: "12px",
-                }}
-              >
-                - Starting with: &quot;{finalSpotterSearchQuery}&quot;
-              </span>
-            )}
-          </h3>
-
           {iframeError ? (
             <div
               style={{
