@@ -5,16 +5,16 @@ import {
 import {
   classifyQuestion,
   generateGeneralResponse,
-  isSpotGPTAvailable,
+  isAnthropicAvailable,
   QuestionClassification,
-} from "./spotgptClient";
+} from "./anthropicClient";
 
 export interface ConversationMessage {
   id: string;
   type: "user" | "bot" | "system";
   content: string;
   timestamp: Date;
-  source?: "spotter" | "spotgpt" | "system";
+  source?: "spotter" | "anthropic" | "system";
   modelId?: string;
   metadata?: {
     classification?: {
@@ -24,8 +24,8 @@ export interface ConversationMessage {
       suggestedModel?: string;
     };
     usage?: {
-      prompt_tokens: number;
-      completion_tokens: number;
+      input_tokens: number;
+      output_tokens: number;
       total_tokens: number;
     };
   };
@@ -414,7 +414,7 @@ export class ConversationManager {
   }
 
   /**
-   * Handle general questions using SpotGPT
+   * Handle general questions using Anthropic
    */
   private async handleGeneralQuestion(content: string): Promise<void> {
     console.log(
@@ -422,10 +422,10 @@ export class ConversationManager {
       content
     );
 
-    if (!isSpotGPTAvailable()) {
-      console.log("ConversationService - SpotGPT not available");
+    if (!isAnthropicAvailable()) {
+      console.log("ConversationService - Anthropic not available");
       await this.addSystemMessage(
-        "I can help with general questions, but SpotGPT is not configured. Please set up a SpotGPT API key in the chatbot settings."
+        "I can help with general questions, but Anthropic is not configured. Please set up an Anthropic API key in the chatbot settings."
       );
       return;
     }
@@ -440,12 +440,12 @@ export class ConversationManager {
         type: "bot",
         content: response.content || response.response || "",
         timestamp: new Date(),
-        source: "spotgpt",
+        source: "anthropic",
         metadata: {
           usage: response.usage
             ? {
-                prompt_tokens: response.usage.prompt_tokens || 0,
-                completion_tokens: response.usage.completion_tokens || 0,
+                input_tokens: response.usage.input_tokens || 0,
+                output_tokens: response.usage.output_tokens || 0,
                 total_tokens: response.usage.total_tokens || 0,
               }
             : undefined,
@@ -463,7 +463,7 @@ export class ConversationManager {
       );
       this.notifyUpdate();
     } catch (error) {
-      console.error("Error generating SpotGPT response:", error);
+      console.error("Error generating Anthropic response:", error);
       await this.addSystemMessage(
         `Failed to generate response: ${
           error instanceof Error ? error.message : "Unknown error"

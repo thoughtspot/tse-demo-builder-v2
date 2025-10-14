@@ -15,7 +15,7 @@ interface Message {
   type: "user" | "bot" | "system";
   content: string;
   timestamp: Date;
-  source?: "spotter" | "spotgpt" | "system";
+  source?: "spotter" | "anthropic" | "system";
   modelId?: string;
   container?: HTMLElement;
   metadata?: {
@@ -26,8 +26,8 @@ interface Message {
       suggestedModel?: string;
     };
     usage?: {
-      prompt_tokens: number;
-      completion_tokens: number;
+      input_tokens: number;
+      output_tokens: number;
       total_tokens: number;
     };
   };
