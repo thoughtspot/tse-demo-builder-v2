@@ -1585,6 +1585,102 @@ function StandardMenusContent({
                           </div>
                         )}
 
+                        {menu.homePageType === "image" && (
+                          <div style={{ marginBottom: "16px" }}>
+                            <label
+                              style={{
+                                display: "block",
+                                marginBottom: "8px",
+                                fontWeight: "500",
+                                fontSize: "14px",
+                              }}
+                            >
+                              Background Color
+                            </label>
+                            <ColorPicker
+                              value={menu.homePageBackgroundColor || "#f7fafc"}
+                              onChange={(color) =>
+                                updateStandardMenu(
+                                  menu.id,
+                                  "homePageBackgroundColor",
+                                  color
+                                )
+                              }
+                              label="Choose background color for image display"
+                            />
+                            <div
+                              style={{
+                                marginTop: "8px",
+                                padding: "8px 12px",
+                                backgroundColor: "#f0f9ff",
+                                border: "1px solid #0ea5e9",
+                                borderRadius: "4px",
+                                fontSize: "12px",
+                                color: "#0c4a6e",
+                              }}
+                            >
+                              💡 <strong>Tip:</strong> When you upload an image,
+                              the system will automatically analyze it and
+                              suggest a complementary background color that
+                              looks great with your image!
+                            </div>
+                          </div>
+                        )}
+
+                        {menu.homePageType === "image" && (
+                          <div style={{ marginBottom: "16px" }}>
+                            <label
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                marginBottom: "8px",
+                                fontWeight: "500",
+                                fontSize: "14px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={
+                                  menu.homePageMaintainAspectRatio !== false
+                                }
+                                onChange={(e) =>
+                                  updateStandardMenu(
+                                    menu.id,
+                                    "homePageMaintainAspectRatio",
+                                    e.target.checked
+                                  )
+                                }
+                                style={{
+                                  margin: 0,
+                                  cursor: "pointer",
+                                }}
+                              />
+                              Maintain Aspect Ratio
+                            </label>
+                            <div
+                              style={{
+                                marginTop: "4px",
+                                padding: "8px 12px",
+                                backgroundColor: "#f8fafc",
+                                border: "1px solid #e2e8f0",
+                                borderRadius: "4px",
+                                fontSize: "12px",
+                                color: "#64748b",
+                              }}
+                            >
+                              <strong>Checked:</strong> Image will maintain its
+                              original proportions and fit within the available
+                              space
+                              <br />
+                              <strong>Unchecked:</strong> Image will stretch to
+                              fill the entire available space, potentially
+                              changing its proportions
+                            </div>
+                          </div>
+                        )}
+
                         {menu.homePageType === "html" && (
                           <div style={{ marginBottom: "16px" }}>
                             <label

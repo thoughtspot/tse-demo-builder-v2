@@ -28,6 +28,8 @@ export const DEFAULT_CONFIG: ConfigurationData = {
       icon: "home",
       homePageType: "html",
       homePageValue: "<h1>Welcome to TSE Demo Builder</h1>",
+      homePageBackgroundColor: "#f7fafc",
+      homePageMaintainAspectRatio: true,
     },
     {
       id: "favorites",
@@ -92,6 +94,8 @@ export const DEFAULT_CONFIG: ConfigurationData = {
   homePageConfig: {
     type: "html",
     value: "<h1>Welcome to TSE Demo Builder</h1>",
+    backgroundColor: "#f7fafc",
+    maintainAspectRatio: true,
   },
   appConfig: {
     thoughtspotUrl: "https://se-thoughtspot-cloud.thoughtspot.cloud/",
@@ -1248,6 +1252,10 @@ export const applyConfiguration = async (
   config.standardMenus.forEach((menu, index) => {
     if (menu.id && menu.name) {
       console.log(`Applying standard menu ${index + 1}:`, menu.name, menu.id);
+      console.log(
+        `Full menu object for ${menu.id}:`,
+        JSON.stringify(menu, null, 2)
+      );
 
       // Apply all updates for this menu - the debounced save mechanism will batch them
       updateFunctions.updateStandardMenu(menu.id, "name", menu.name);
@@ -1271,6 +1279,20 @@ export const applyConfiguration = async (
           menu.id,
           "homePageValue",
           menu.homePageValue
+        );
+      }
+      if (menu.homePageBackgroundColor !== undefined) {
+        updateFunctions.updateStandardMenu(
+          menu.id,
+          "homePageBackgroundColor",
+          menu.homePageBackgroundColor
+        );
+      }
+      if (menu.homePageMaintainAspectRatio !== undefined) {
+        updateFunctions.updateStandardMenu(
+          menu.id,
+          "homePageMaintainAspectRatio",
+          menu.homePageMaintainAspectRatio
         );
       }
       if (menu.modelId) {
@@ -1830,10 +1852,12 @@ export const loadConfigurationSimplified = async (
     onProgress?.("Validating configuration...", 60);
 
     // Step 3: Validate and merge configuration
+    const importedStandardMenus =
+      (configData.standardMenus as StandardMenu[]) ||
+      DEFAULT_CONFIG.standardMenus;
+
     const mergedConfig: ConfigurationData = {
-      standardMenus:
-        (configData.standardMenus as StandardMenu[]) ||
-        DEFAULT_CONFIG.standardMenus,
+      standardMenus: importedStandardMenus,
       customMenus:
         (configData.customMenus as CustomMenu[]) || DEFAULT_CONFIG.customMenus,
       menuOrder: (() => {

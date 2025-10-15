@@ -140,6 +140,8 @@ export interface SavedConfiguration {
 export interface HomePageConfig {
   type: "html" | "url" | "embed";
   value: string;
+  backgroundColor?: string;
+  maintainAspectRatio?: boolean;
 }
 
 export interface AppConfig {
@@ -172,6 +174,8 @@ export interface StandardMenu {
   icon: string;
   homePageType?: string;
   homePageValue?: string;
+  homePageBackgroundColor?: string;
+  homePageMaintainAspectRatio?: boolean;
   tagFilter?: string;
   modelId?: string;
   contentId?: string;

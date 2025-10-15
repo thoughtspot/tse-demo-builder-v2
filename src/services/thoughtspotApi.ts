@@ -222,13 +222,20 @@ async function makeThoughtSpotGetCall(
   endpoint: string
 ): Promise<Record<string, unknown>> {
   try {
-    const response = await fetch(`${THOUGHTSPOT_BASE_URL}${endpoint}`, {
+    const url = `${THOUGHTSPOT_BASE_URL}${endpoint}`;
+    const response = await fetch(url, {
       method: "GET",
       headers: {
         Accept: "application/json",
       },
       credentials: "include", // Include session cookies
     });
+
+    console.log(
+      "makeThoughtSpotGetCall: Response status:",
+      response.status,
+      response.statusText
+    );
 
     if (!response.ok) {
       // Handle 401 (Unauthorized) gracefully - this is expected when not logged in
@@ -245,8 +252,10 @@ async function makeThoughtSpotGetCall(
     }
 
     const responseData = await response.json();
+    console.log("makeThoughtSpotGetCall: Response data:", responseData);
     return responseData;
   } catch (error) {
+    console.log("makeThoughtSpotGetCall: Error occurred:", error);
     // Don't log 401 errors as they are expected when not logged in
     if (error instanceof Error && error.message.includes("401")) {
       console.log(
@@ -799,12 +808,16 @@ export async function getCurrentUser(): Promise<ThoughtSpotUser | null> {
 
     // If response is empty (401 case), don't log a warning - this is expected
     if (!response || Object.keys(response).length === 0) {
+      console.log(
+        "getCurrentUser: Empty response (likely 401), returning null"
+      );
       return null;
     }
 
-    console.warn("Invalid user response format:", response);
+    console.warn("getCurrentUser: Invalid user response format:", response);
     return null;
   } catch (error) {
+    console.log("getCurrentUser: Error occurred:", error);
     // Don't log 401 errors as they are expected when not logged in
     if (error instanceof Error && error.message.includes("401")) {
       console.log(

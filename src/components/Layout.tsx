@@ -1408,10 +1408,10 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleSessionStatusChange = (_hasSession: boolean) => {
+  const handleSessionStatusChange = useCallback((_hasSession: boolean) => {
     // Session status is tracked by the SessionChecker component
     // We can use this for future features if needed
-  };
+  }, []);
 
   const handleClusterChangeConfirm = () => {
     // Create new app config with the new cluster URL but keep other default values
@@ -1552,9 +1552,9 @@ export default function Layout({ children }: LayoutProps) {
     setPendingClusterUrl("");
   };
 
-  const handleConfigureSettings = () => {
+  const handleConfigureSettings = useCallback(() => {
     openSettingsWithTab("configuration");
-  };
+  }, []);
 
   const updateStandardMenu = (
     id: string,
@@ -2354,7 +2354,6 @@ export default function Layout({ children }: LayoutProps) {
                     "#ffffff",
                   overflow: "auto",
                   overflowX: "hidden",
-                  padding: "24px",
                   display: "flex",
                   flexDirection: "column",
                 }}

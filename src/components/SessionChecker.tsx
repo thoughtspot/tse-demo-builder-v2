@@ -131,6 +131,7 @@ export default function SessionChecker({
     isLoading: true,
     error: null,
   });
+  const [hasEverHadSession, setHasEverHadSession] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -150,6 +151,7 @@ export default function SessionChecker({
         const user = await getCurrentUser();
 
         if (user) {
+          setHasEverHadSession(true);
           setSessionStatus({
             hasSession: true,
             isLoading: false,
@@ -157,12 +159,22 @@ export default function SessionChecker({
           });
           onSessionStatusChange(true);
         } else {
-          setSessionStatus({
-            hasSession: false,
-            isLoading: false,
-            error: null,
-          });
-          onSessionStatusChange(false);
+          // Only set hasSession to false if we haven't ever had a successful session
+          if (!hasEverHadSession) {
+            setSessionStatus({
+              hasSession: false,
+              isLoading: false,
+              error: null,
+            });
+            onSessionStatusChange(false);
+          } else {
+            setSessionStatus({
+              hasSession: true,
+              isLoading: false,
+              error: null,
+            });
+            onSessionStatusChange(true);
+          }
         }
       } catch (error) {
         console.error("Session check failed:", error);
@@ -252,17 +264,20 @@ export default function SessionChecker({
     );
   }
 
-  // Always render children, but show warning banner if no session
+  // Always render children, but show warning banner if no session and we've never had a successful session
   return (
     <>
-      {!sessionStatus.hasSession && (
-        <SessionWarningBanner
-          thoughtspotUrl={thoughtspotUrl}
-          error={sessionStatus.error}
-          onRefresh={handleRefresh}
-          onConfigure={handleConfigure}
-        />
-      )}
+      {false &&
+        !sessionStatus.hasSession &&
+        !sessionStatus.isLoading &&
+        !hasEverHadSession && (
+          <SessionWarningBanner
+            thoughtspotUrl={thoughtspotUrl}
+            error={sessionStatus.error}
+            onRefresh={handleRefresh}
+            onConfigure={handleConfigure}
+          />
+        )}
       {children}
     </>
   );
