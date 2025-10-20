@@ -2258,6 +2258,9 @@ function CustomMenusContent({
   const [availableTags, setAvailableTags] = useState<
     Array<{ id: string; name: string; color: string }>
   >([]);
+  const [availableModels, setAvailableModels] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
 
   // Icon picker state is no longer needed for the new IconPicker component
@@ -2266,6 +2269,7 @@ function CustomMenusContent({
   const [liveboardFilter, setLiveboardFilter] = useState("");
   const [answerFilter, setAnswerFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
+  const [directEmbedFilter, setDirectEmbedFilter] = useState("");
 
   // Filtered lists
   const filteredLiveboards = availableLiveboards.filter((liveboard) =>
@@ -2280,19 +2284,45 @@ function CustomMenusContent({
     tag.name.toLowerCase().includes(tagFilter.toLowerCase())
   );
 
+  // Filtered lists for direct embed
+  const getFilteredDirectEmbedContent = () => {
+    const filter = directEmbedFilter.toLowerCase();
+    const embedType = editingMenu?.contentSelection?.directEmbed?.type;
+
+    if (embedType === "liveboard") {
+      return availableLiveboards.filter((liveboard) =>
+        liveboard.name.toLowerCase().includes(filter)
+      );
+    } else if (embedType === "answer") {
+      return availableAnswers.filter((answer) =>
+        answer.name.toLowerCase().includes(filter)
+      );
+    } else if (embedType === "spotter") {
+      return availableModels.filter((model) =>
+        model.name.toLowerCase().includes(filter)
+      );
+    }
+    return [];
+  };
+
+  // Clear direct embed filter when content type changes
+  useEffect(() => {
+    setDirectEmbedFilter("");
+  }, [editingMenu?.contentSelection?.directEmbed?.type]);
+
   // Load available content and tags
   useEffect(() => {
     const loadContent = async () => {
       try {
         setIsLoadingContent(true);
-        const { fetchLiveboards, fetchAnswers, fetchTags } = await import(
-          "../services/thoughtspotApi"
-        );
+        const { fetchLiveboards, fetchAnswers, fetchTags, fetchModels } =
+          await import("../services/thoughtspotApi");
 
-        const [liveboards, answers, tags] = await Promise.all([
+        const [liveboards, answers, tags, models] = await Promise.all([
           fetchLiveboards(),
           fetchAnswers(),
           fetchTags(),
+          fetchModels(),
         ]);
 
         setAvailableLiveboards(
@@ -2300,6 +2330,7 @@ function CustomMenusContent({
         );
         setAvailableAnswers(answers.map((a) => ({ id: a.id, name: a.name })));
         setAvailableTags(tags);
+        setAvailableModels(models.map((m) => ({ id: m.id, name: m.name })));
       } catch (error) {
         console.error("Failed to load content:", error);
       } finally {
@@ -2642,7 +2673,7 @@ function CustomMenusContent({
               >
                 Content Selection Method
               </label>
-              <div style={{ display: "flex", gap: "16px" }}>
+              <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
                 <label
                   style={{
                     display: "flex",
@@ -2694,6 +2725,36 @@ function CustomMenusContent({
                     style={{ cursor: "pointer" }}
                   />
                   <span style={{ fontSize: "14px" }}>Filter by tags</span>
+                </label>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="contentType"
+                    checked={editingMenu.contentSelection.type === "direct"}
+                    onChange={() =>
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          type: "direct",
+                          directEmbed: {
+                            type: "liveboard",
+                            contentId: "",
+                            contentName: "",
+                            contentDescription: "",
+                          },
+                        },
+                      })
+                    }
+                    style={{ cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: "14px" }}>Direct embed</span>
                 </label>
               </div>
             </div>
@@ -2896,6 +2957,225 @@ function CustomMenusContent({
                 </select>
               </div>
             )}
+
+            {editingMenu.contentSelection.type === "direct" && (
+              <div style={{ marginBottom: "16px" }}>
+                <div style={{ marginBottom: "16px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Content Type
+                  </label>
+                  <select
+                    value={
+                      editingMenu.contentSelection.directEmbed?.type ||
+                      "liveboard"
+                    }
+                    onChange={(e) =>
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          ...editingMenu.contentSelection,
+                          directEmbed: {
+                            ...editingMenu.contentSelection.directEmbed!,
+                            type: e.target.value as
+                              | "liveboard"
+                              | "answer"
+                              | "spotter",
+                          },
+                        },
+                      })
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    <option value="liveboard">Liveboard</option>
+                    <option value="answer">Answer</option>
+                    <option value="spotter">Spotter Model</option>
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: "16px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    {editingMenu.contentSelection.directEmbed?.type ===
+                    "liveboard"
+                      ? "Liveboard"
+                      : editingMenu.contentSelection.directEmbed?.type ===
+                        "answer"
+                      ? "Answer"
+                      : "Spotter Model"}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={`Filter ${
+                      editingMenu.contentSelection.directEmbed?.type ===
+                      "liveboard"
+                        ? "liveboards"
+                        : editingMenu.contentSelection.directEmbed?.type ===
+                          "answer"
+                        ? "answers"
+                        : "models"
+                    }...`}
+                    value={directEmbedFilter}
+                    onChange={(e) => setDirectEmbedFilter(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                      marginBottom: "8px",
+                    }}
+                  />
+                  <select
+                    value={
+                      editingMenu.contentSelection.directEmbed?.contentId || ""
+                    }
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const selectedName =
+                        e.target.selectedOptions[0]?.text || "";
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          ...editingMenu.contentSelection,
+                          directEmbed: {
+                            ...editingMenu.contentSelection.directEmbed!,
+                            contentId: selectedId,
+                            contentName: selectedName,
+                          },
+                        },
+                      });
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    <option value="">
+                      Select a{" "}
+                      {editingMenu.contentSelection.directEmbed?.type ===
+                      "liveboard"
+                        ? "liveboard"
+                        : editingMenu.contentSelection.directEmbed?.type ===
+                          "answer"
+                        ? "answer"
+                        : "model"}
+                    </option>
+                    {isLoadingContent ? (
+                      <option disabled>Loading...</option>
+                    ) : (
+                      getFilteredDirectEmbedContent().map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: "16px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Content Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Enter a display name for the content"
+                    value={
+                      editingMenu.contentSelection.directEmbed?.contentName ||
+                      ""
+                    }
+                    onChange={(e) =>
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          ...editingMenu.contentSelection,
+                          directEmbed: {
+                            ...editingMenu.contentSelection.directEmbed!,
+                            contentName: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: "16px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Content Description (Optional)
+                  </label>
+                  <textarea
+                    placeholder="Enter a description for the content"
+                    value={
+                      editingMenu.contentSelection.directEmbed
+                        ?.contentDescription || ""
+                    }
+                    onChange={(e) =>
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          ...editingMenu.contentSelection,
+                          directEmbed: {
+                            ...editingMenu.contentSelection.directEmbed!,
+                            contentDescription: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                      minHeight: "80px",
+                      resize: "vertical",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Save and Cancel buttons */}
@@ -3057,9 +3337,17 @@ function CustomMenusContent({
                         0
                       } answers`}
                     </>
-                  ) : (
+                  ) : menu.contentSelection.type === "tag" ? (
                     <>
                       {menu.contentSelection.tagIdentifiers?.length || 0} tags
+                    </>
+                  ) : (
+                    <>
+                      Direct{" "}
+                      {menu.contentSelection.directEmbed?.type || "embed"}:{" "}
+                      {menu.contentSelection.directEmbed?.contentName ||
+                        menu.contentSelection.directEmbed?.contentId ||
+                        "Not configured"}
                     </>
                   )}
                 </div>

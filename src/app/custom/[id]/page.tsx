@@ -49,6 +49,18 @@ function CustomMenuPageContent() {
   ];
 
   const getDynamicSubtitle = () => {
+    // Check if this is a direct embed menu
+    if (customMenu?.contentSelection?.type === "direct") {
+      const embedType = customMenu.contentSelection.directEmbed?.type;
+      if (embedType === "liveboard") {
+        return "Liveboard";
+      } else if (embedType === "answer") {
+        return "Answer";
+      } else if (embedType === "spotter") {
+        return "Spotter";
+      }
+    }
+
     if (selectedContentType === "all") {
       return "Liveboards and Answers";
     } else if (selectedContentType === "answer") {
@@ -59,6 +71,16 @@ function CustomMenuPageContent() {
   };
 
   const getDynamicDescription = () => {
+    // Check if this is a direct embed menu
+    if (customMenu?.contentSelection?.type === "direct") {
+      return (
+        customMenu.contentSelection.directEmbed?.contentDescription ||
+        `Direct ${
+          customMenu.contentSelection.directEmbed?.type || "content"
+        } embed`
+      );
+    }
+
     if (selectedContentType === "all") {
       return "Content selected for this custom menu.";
     } else if (selectedContentType === "answer") {
@@ -129,6 +151,133 @@ function CustomMenuPageContent() {
   }
 
   const contentTypeTabs = getTabLabels();
+
+  // Handle direct embed menus - show the embed directly without grid
+  if (
+    customMenu?.contentSelection?.type === "direct" &&
+    customMenu.contentSelection.directEmbed
+  ) {
+    const directEmbed = customMenu.contentSelection.directEmbed;
+    const directContent: ThoughtSpotContent = {
+      id: directEmbed.contentId,
+      name: directEmbed.contentName || customMenu.name,
+      description: directEmbed.contentDescription || customMenu.description,
+      type: directEmbed.type === "spotter" ? "model" : directEmbed.type,
+    };
+
+    return (
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+          height: "100%",
+          overflow: "hidden",
+        }}
+      >
+        {!stylingConfig.embedDisplay?.hideTitle ||
+        (directContent.description &&
+          !stylingConfig.embedDisplay?.hideDescription) ? (
+          <div
+            style={{
+              backgroundColor:
+                stylingConfig.application.backgrounds?.cardBackground ||
+                "#f7fafc",
+              padding: "24px",
+              borderRadius: "8px",
+              border: `1px solid ${
+                stylingConfig.application.backgrounds?.borderColor || "#e2e8f0"
+              }`,
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "auto",
+              minHeight: 0,
+            }}
+          >
+            {!stylingConfig.embedDisplay?.hideTitle && (
+              <h2
+                style={{
+                  fontSize: "24px",
+                  fontWeight: "600",
+                  marginBottom: "16px",
+                }}
+              >
+                {directContent.name}
+              </h2>
+            )}
+            {directContent.description &&
+              !stylingConfig.embedDisplay?.hideDescription && (
+                <p
+                  style={{
+                    color: "#4a5568",
+                    lineHeight: "1.6",
+                    marginBottom: stylingConfig.embedDisplay?.hideTitle
+                      ? "0"
+                      : "24px",
+                  }}
+                >
+                  {directContent.description}
+                </p>
+              )}
+            <div
+              style={{
+                border: "1px solid #e2e8f0",
+                borderRadius: "8px",
+                backgroundColor: "white",
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+                overflow: "auto",
+              }}
+            >
+              <ThoughtSpotEmbed
+                content={directContent}
+                width="100%"
+                height="100%"
+                onLoad={() => {}}
+                onError={(error) =>
+                  console.error(
+                    "Direct embed load error for",
+                    directContent.name,
+                    ":",
+                    error
+                  )
+                }
+              />
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "auto",
+              minHeight: 0,
+            }}
+          >
+            <ThoughtSpotEmbed
+              content={directContent}
+              width="100%"
+              height="100%"
+              onLoad={() => {}}
+              onError={(error) =>
+                console.error(
+                  "Direct embed load error for",
+                  directContent.name,
+                  ":",
+                  error
+                )
+              }
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // If showing content directly, render the content view with proper space utilization
   if (showContentDirectly && selectedContent) {

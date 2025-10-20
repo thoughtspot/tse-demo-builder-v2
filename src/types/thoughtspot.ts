@@ -211,13 +211,20 @@ export interface CustomMenu {
   icon: string;
   enabled: boolean;
   contentSelection: {
-    type: "specific" | "tag";
+    type: "specific" | "tag" | "direct";
     specificContent?: {
       liveboards: string[];
       answers: string[];
     };
     tagIdentifiers?: string[];
     contentType?: "answer" | "liveboard";
+    // Direct embed configuration
+    directEmbed?: {
+      type: "liveboard" | "answer" | "spotter";
+      contentId: string;
+      contentName?: string;
+      contentDescription?: string;
+    };
   };
 }
 

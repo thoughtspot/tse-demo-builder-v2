@@ -7,6 +7,7 @@ import ThoughtSpotEmbed from "./ThoughtSpotEmbed";
 import { ThoughtSpotContent } from "../types/thoughtspot";
 import { useAppContext } from "./Layout";
 
+// Updated interface to support direct embeds
 interface ContentGridProps {
   title: string;
   subtitle: string;
@@ -34,13 +35,19 @@ interface ContentGridProps {
   onBackClick?: () => void;
   customContent?: {
     contentSelection: {
-      type: "specific" | "tag";
+      type: "specific" | "tag" | "direct";
       specificContent?: {
         liveboards: string[];
         answers: string[];
       };
       tagIdentifiers?: string[];
       contentType?: "answer" | "liveboard";
+      directEmbed?: {
+        type: "liveboard" | "answer" | "spotter";
+        contentId: string;
+        contentName?: string;
+        contentDescription?: string;
+      };
     };
   };
   // For tab-based filtering in custom menus
@@ -114,6 +121,28 @@ export default function ContentGrid({
             );
             liveboards = specificContent.liveboards;
             answers = specificContent.answers;
+          } else if (
+            customContent.contentSelection.type === "direct" &&
+            customContent.contentSelection.directEmbed
+          ) {
+            // For direct embed, create a single content item
+            const directEmbed = customContent.contentSelection.directEmbed;
+            const directContent: ThoughtSpotContent = {
+              id: directEmbed.contentId,
+              name: directEmbed.contentName || "Direct Embed",
+              description: directEmbed.contentDescription || "",
+              type: directEmbed.type === "spotter" ? "model" : directEmbed.type,
+            };
+
+            if (directEmbed.type === "liveboard") {
+              liveboards = [directContent];
+            } else if (directEmbed.type === "answer") {
+              answers = [directContent];
+            } else if (directEmbed.type === "spotter") {
+              // For spotter, we'll add it as a model type to answers for now
+              // This might need adjustment based on how models are handled
+              answers = [directContent];
+            }
           }
         } else if (fetchAllContent) {
           const allContent = await fetchAllThoughtSpotContentWithStats();
