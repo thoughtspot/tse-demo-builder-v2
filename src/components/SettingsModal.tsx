@@ -1492,6 +1492,72 @@ function StandardMenusContent({
                             </p>
                           </div>
                         </div>
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: "16px",
+                            marginTop: "16px",
+                          }}
+                        >
+                          <div>
+                            <label
+                              style={{
+                                display: "block",
+                                fontSize: "14px",
+                                fontWeight: "500",
+                                marginBottom: "8px",
+                                color: "#374151",
+                              }}
+                            >
+                              Name Pattern Filter
+                            </label>
+                            <input
+                              type="text"
+                              value={menu.namePattern || ""}
+                              onChange={(e) =>
+                                updateStandardMenu(
+                                  menu.id,
+                                  "namePattern",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="e.g., 'Sales', 'Q4', 'Dashboard'"
+                              style={{
+                                width: "100%",
+                                padding: "8px 12px",
+                                border: "1px solid #d1d5db",
+                                borderRadius: "6px",
+                                fontSize: "14px",
+                                backgroundColor: "#ffffff",
+                              }}
+                            />
+                            <p
+                              style={{
+                                margin: "4px 0 0 0",
+                                fontSize: "12px",
+                                color: "#6b7280",
+                              }}
+                            >
+                              Show only content with names containing this text
+                            </p>
+                          </div>
+
+                          <div>
+                            <TagFilterComponent
+                              value={menu.tagFilter || ""}
+                              onChange={(value) =>
+                                updateStandardMenu(menu.id, "tagFilter", value)
+                              }
+                              availableTags={availableTags}
+                              isLoading={isLoadingTags}
+                              error={tagsError}
+                              label="Tag Filter"
+                              description="Show only content tagged with this tag"
+                            />
+                          </div>
+                        </div>
                       </div>
                     )}
 

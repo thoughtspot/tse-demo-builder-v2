@@ -267,8 +267,7 @@ export default function SessionChecker({
   // Always render children, but show warning banner if no session and we've never had a successful session
   return (
     <>
-      {false &&
-        !sessionStatus.hasSession &&
+      {!sessionStatus.hasSession &&
         !sessionStatus.isLoading &&
         !hasEverHadSession && (
           <SessionWarningBanner
