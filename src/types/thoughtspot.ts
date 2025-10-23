@@ -97,6 +97,7 @@ export interface ThoughtSpotBaseEmbedConfig {
   locale?: string; // User locale preference
   runtimeFilters?: RuntimeFilter[];
   customizations: {
+    iconSpriteUrl?: string;
     content: {
       strings: Record<string, string>;
       stringIDs: Record<string, string>;

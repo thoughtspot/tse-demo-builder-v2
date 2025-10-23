@@ -9,6 +9,7 @@ import SearchPage from "./pages/SearchPage";
 import FullAppPage from "./pages/FullAppPage";
 import AllContentPage from "./pages/AllContentPage";
 import SpotterIconPicker from "./SpotterIconPicker";
+import IconPicker from "./IconPicker";
 import MaterialIcon from "./MaterialIcon";
 import ColorPicker from "./ColorPicker";
 import ImageUpload from "./ImageUpload";
@@ -39,7 +40,6 @@ import { fetchSavedConfigurations } from "../services/githubApi";
 import {
   checkStorageHealth,
   clearStorageAndReloadDefaults,
-  saveStylingConfig,
 } from "../services/configurationService";
 import ThemeSelector from "./ThemeSelector";
 import { applyTheme } from "../types/themes";
@@ -2294,7 +2294,6 @@ function CustomMenusContent({
   onUnsavedChange,
   onEditingMenuChange,
   onSaveMenu,
-  onCancelEdit,
   ref,
 }: {
   customMenus: CustomMenu[];
