@@ -51,7 +51,7 @@ export const DEFAULT_CONFIG: ConfigurationData = {
       id: "spotter",
       name: "Spotter",
       enabled: true,
-      icon: "spotter-custom.svg",
+      icon: "spotter-preview-custom.svg",
       homePageType: "html",
       homePageValue: "<h1>Spotter</h1>",
     },
@@ -169,6 +169,7 @@ export const DEFAULT_CONFIG: ConfigurationData = {
       strings: {},
       stringIDs: {},
       cssUrl: "",
+      iconSpriteUrl: "",
       customCSS: {
         variables: {},
         rules_UNSTABLE: {},
@@ -395,6 +396,10 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
         usersCount: parsed.userConfig?.users?.length || 0,
         currentUserId: parsed.userConfig?.currentUserId,
       });
+      console.log(
+        "Loaded iconSpriteUrl from localStorage:",
+        parsed.stylingConfig?.embeddedContent?.iconSpriteUrl
+      );
 
       // For existing configurations, only add missing fields from DEFAULT_CONFIG, don't overwrite existing values
       const mergedConfig = {
@@ -423,6 +428,10 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
         usersCount: mergedConfig.userConfig?.users?.length || 0,
         currentUserId: mergedConfig.userConfig?.currentUserId,
       });
+      console.log(
+        "Final merged config iconSpriteUrl:",
+        mergedConfig.stylingConfig?.embeddedContent?.iconSpriteUrl
+      );
 
       return mergedConfig;
     }
@@ -722,12 +731,44 @@ export const saveStylingConfig = async (
       JSON.stringify(currentConfig.stylingConfig) !==
       JSON.stringify(stylingConfig);
 
-    if (!hasChanged) {
+    console.log("saveStylingConfig: hasChanged =", hasChanged);
+    console.log(
+      "saveStylingConfig: currentConfig.stylingConfig.embeddedContent.iconSpriteUrl =",
+      currentConfig.stylingConfig.embeddedContent?.iconSpriteUrl
+    );
+    console.log(
+      "saveStylingConfig: new stylingConfig.embeddedContent.iconSpriteUrl =",
+      stylingConfig.embeddedContent?.iconSpriteUrl
+    );
+
+    // Force save for iconSpriteUrl changes to avoid race conditions
+    const iconSpriteUrlChanged =
+      currentConfig.stylingConfig.embeddedContent?.iconSpriteUrl !==
+      stylingConfig.embeddedContent?.iconSpriteUrl;
+
+    if (!hasChanged && !iconSpriteUrlChanged) {
+      console.log("saveStylingConfig: No changes detected, skipping save");
       return;
     }
 
+    if (iconSpriteUrlChanged) {
+      console.log("saveStylingConfig: iconSpriteUrl changed, forcing save");
+    }
+
     const updatedConfig = { ...currentConfig, stylingConfig };
+    console.log(
+      "saveStylingConfig: About to save updatedConfig with iconSpriteUrl:",
+      updatedConfig.stylingConfig.embeddedContent?.iconSpriteUrl
+    );
     await saveToStorage(updatedConfig);
+    console.log("saveStylingConfig: Configuration saved successfully");
+
+    // Verify what was actually saved
+    const verifyConfig = await loadFromStorage();
+    console.log(
+      "saveStylingConfig: Verification - loaded iconSpriteUrl after save:",
+      verifyConfig.stylingConfig.embeddedContent?.iconSpriteUrl
+    );
     // saveStylingConfig completed successfully
   } catch (error) {
     const message = `Failed to save styling config: ${
@@ -1017,12 +1058,19 @@ export const loadConfigurationFromSource = async (
 
     // Update stored menus with any new properties from DEFAULT_CONFIG
     mergedStandardMenus.forEach((mergedMenu) => {
+      const storedMenu = storedStandardMenus.find(
+        (m) => m.id === mergedMenu.id
+      );
       const defaultMenu = DEFAULT_CONFIG.standardMenus.find(
         (m) => m.id === mergedMenu.id
       );
-      if (defaultMenu) {
-        // Merge properties, keeping stored values but adding new default properties
-        Object.assign(mergedMenu, defaultMenu, mergedMenu);
+
+      if (storedMenu) {
+        // If we have stored values, use them and merge with defaults for missing properties
+        Object.assign(mergedMenu, defaultMenu, storedMenu);
+      } else if (defaultMenu) {
+        // If no stored values, use defaults
+        Object.assign(mergedMenu, defaultMenu);
       }
     });
 
@@ -1220,6 +1268,7 @@ export const applyConfiguration = async (
       strings: config.stylingConfig.embeddedContent?.strings || {},
       stringIDs: config.stylingConfig.embeddedContent?.stringIDs || {},
       cssUrl: config.stylingConfig.embeddedContent?.cssUrl || "",
+      iconSpriteUrl: config.stylingConfig.embeddedContent?.iconSpriteUrl || "",
       customCSS: {
         variables:
           config.stylingConfig.embeddedContent?.customCSS?.variables || {},

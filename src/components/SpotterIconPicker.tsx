@@ -6,12 +6,14 @@ interface SpotterIcon {
   name: string;
   displayName: string;
   url: string;
+  previewUrl: string;
   filename: string;
 }
 
 interface SpotterIconPickerProps {
   selectedIcon?: string;
   onIconSelect: (iconUrl: string) => void;
+  onMenuIconUpdate?: (iconUrl: string) => void;
   title?: string;
   description?: string;
 }
@@ -19,6 +21,7 @@ interface SpotterIconPickerProps {
 export default function SpotterIconPicker({
   selectedIcon,
   onIconSelect,
+  onMenuIconUpdate,
   title = "Spotter Icon Selection",
   description = "Choose an icon for your Spotter embed",
 }: SpotterIconPickerProps) {
@@ -43,9 +46,12 @@ export default function SpotterIconPicker({
 
         const data = await response.json();
 
-        // Process the icons
-        const processedIcons: SpotterIcon[] = data
-          .filter((item: { name: string }) => item.name.endsWith(".svg"))
+        // Process the icons - exclude preview files from the selectable list
+        const customIcons = data
+          .filter(
+            (item: { name: string }) =>
+              item.name.endsWith(".svg") && !item.name.includes("-preview-")
+          )
           .map((item: { name: string }) => {
             // Convert filename to display name
             // Remove .svg extension and version numbers (-01, -02, etc.)
@@ -59,17 +65,38 @@ export default function SpotterIconPicker({
               )
               .join(" ");
 
+            // Create preview URL for standalone version and original URL for embed
+            // Convert "generic-02.svg" to "generic-preview-02.svg"
+            const previewName = item.name.replace(
+              /(\w+)-(\d+)\.svg/,
+              "$1-preview-$2.svg"
+            );
+            const previewUrl = `https://cdn.jsdelivr.net/gh/thoughtspot/tse-demo-builders-pre-built/icons/spotter/${previewName}`;
+            const originalUrl = `https://cdn.jsdelivr.net/gh/thoughtspot/tse-demo-builders-pre-built/icons/spotter/${item.name}`;
+
             return {
               name: item.name,
               displayName,
-              url: `https://cdn.jsdelivr.net/gh/thoughtspot/tse-demo-builders-pre-built/icons/spotter/${item.name}`,
+              url: originalUrl, // This will be used for the actual embed configuration
+              previewUrl: previewUrl, // This will be used for display in the picker
               filename: item.name,
             };
-          })
-          .sort((a: SpotterIcon, b: SpotterIcon) =>
-            a.displayName.localeCompare(b.displayName)
-          );
+          });
 
+        const processedIcons: SpotterIcon[] = [
+          // Add a default "None" option first
+          {
+            name: "Default",
+            displayName: "Default (No Custom Icon)",
+            url: "", // Empty URL means no custom icon
+            previewUrl: "", // No preview for default
+          },
+          ...customIcons,
+        ].sort((a: SpotterIcon, b: SpotterIcon) =>
+          a.displayName.localeCompare(b.displayName)
+        );
+
+        console.log("Processed icons:", processedIcons);
         setIcons(processedIcons);
       } catch (err) {
         console.error("Failed to fetch Spotter icons:", err);
@@ -84,6 +111,21 @@ export default function SpotterIconPicker({
 
   const handleIconSelect = (icon: SpotterIcon) => {
     onIconSelect(icon.url);
+
+    // Also update the navigation menu icon if callback is provided
+    if (onMenuIconUpdate) {
+      if (icon.url === "") {
+        // Default option - use the default spotter icon
+        onMenuIconUpdate("/icons/spotter-custom.svg");
+      } else {
+        // Convert the original URL to preview URL for menu display
+        const menuIconUrl = icon.url.replace(
+          /(\w+)-(\d+)\.svg/,
+          "$1-preview-$2.svg"
+        );
+        onMenuIconUpdate(menuIconUrl);
+      }
+    }
   };
 
   if (loading) {
@@ -140,14 +182,9 @@ export default function SpotterIconPicker({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-          gap: "12px",
-          maxHeight: "300px",
-          overflowY: "auto",
-          border: "1px solid #e5e7eb",
-          borderRadius: "8px",
-          padding: "16px",
-          backgroundColor: "#f9fafb",
+          gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+          gap: "8px",
+          maxWidth: "100%",
         }}
       >
         {icons.map((icon) => {
@@ -162,24 +199,24 @@ export default function SpotterIconPicker({
                 flexDirection: "column",
                 alignItems: "center",
                 padding: "12px 8px",
-                border: `2px solid ${isSelected ? "#3b82f6" : "#e5e7eb"}`,
+                border: isSelected ? "2px solid #3b82f6" : "1px solid #e5e7eb",
                 borderRadius: "8px",
                 backgroundColor: isSelected ? "#eff6ff" : "white",
                 cursor: "pointer",
                 transition: "all 0.2s ease",
-                minHeight: "100px",
+                minHeight: "80px",
                 justifyContent: "center",
               }}
               onMouseEnter={(e) => {
                 if (!isSelected) {
-                  e.currentTarget.style.borderColor = "#9ca3af";
-                  e.currentTarget.style.backgroundColor = "#f3f4f6";
+                  e.currentTarget.style.backgroundColor = "#f9fafb";
+                  e.currentTarget.style.borderColor = "#d1d5db";
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isSelected) {
-                  e.currentTarget.style.borderColor = "#e5e7eb";
                   e.currentTarget.style.backgroundColor = "white";
+                  e.currentTarget.style.borderColor = "#e5e7eb";
                 }
               }}
             >
@@ -193,32 +230,54 @@ export default function SpotterIconPicker({
                   justifyContent: "center",
                 }}
               >
-                <img
-                  src={icon.url}
-                  alt={icon.displayName}
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: "100%",
-                    objectFit: "contain",
-                  }}
-                  onError={(e) => {
-                    // Fallback if image fails to load
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = "none";
-                    const parent = target.parentElement;
-                    if (parent) {
-                      parent.innerHTML = `<div style="color: #9ca3af; font-size: 12px;">📁</div>`;
-                    }
-                  }}
-                />
+                {icon.previewUrl ? (
+                  <img
+                    src={icon.previewUrl}
+                    alt={icon.displayName}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                    }}
+                    onError={(e) => {
+                      // Fallback to letter if preview image fails to load
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = "none";
+                      const parent = target.parentElement;
+                      if (parent) {
+                        parent.innerHTML = `<div style="background-color: #f3f4f6; border-radius: 4px; font-size: 10px; color: #6b7280; font-weight: bold; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">${
+                          icon.name.includes("generic") ? "G" : "S"
+                        }</div>`;
+                      }
+                    }}
+                  />
+                ) : (
+                  // Default option - show a "no icon" indicator
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      backgroundColor: "#f3f4f6",
+                      borderRadius: "4px",
+                      fontSize: "10px",
+                      color: "#6b7280",
+                      fontWeight: "bold",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    —
+                  </div>
+                )}
               </div>
               <div
                 style={{
                   fontSize: "12px",
-                  fontWeight: "500",
+                  fontWeight: isSelected ? "600" : "500",
                   color: isSelected ? "#1d4ed8" : "#374151",
                   textAlign: "center",
-                  lineHeight: "1.3",
+                  lineHeight: "1.2",
                   wordBreak: "break-word",
                 }}
               >

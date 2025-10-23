@@ -8,7 +8,7 @@ import SpotterPage from "./pages/SpotterPage";
 import SearchPage from "./pages/SearchPage";
 import FullAppPage from "./pages/FullAppPage";
 import AllContentPage from "./pages/AllContentPage";
-import IconPicker from "./IconPicker";
+import SpotterIconPicker from "./SpotterIconPicker";
 import MaterialIcon from "./MaterialIcon";
 import ColorPicker from "./ColorPicker";
 import ImageUpload from "./ImageUpload";
@@ -39,6 +39,7 @@ import { fetchSavedConfigurations } from "../services/githubApi";
 import {
   checkStorageHealth,
   clearStorageAndReloadDefaults,
+  saveStylingConfig,
 } from "../services/configurationService";
 import ThemeSelector from "./ThemeSelector";
 import { applyTheme } from "../types/themes";
@@ -3482,9 +3483,15 @@ function EventsContent({
 function StylingContent({
   stylingConfig,
   updateStylingConfig,
+  updateStandardMenu,
 }: {
   stylingConfig: StylingConfig;
   updateStylingConfig: (config: StylingConfig) => void;
+  updateStandardMenu?: (
+    id: string,
+    field: string,
+    value: string | boolean
+  ) => void;
 }) {
   const [activeSubTab, setActiveSubTab] = useState("application");
 
@@ -3610,13 +3617,34 @@ function StylingContent({
   };
 
   const updateEmbeddedContent = (field: string, value: unknown) => {
-    updateStylingConfig({
+    console.log("updateEmbeddedContent called with:", field, value);
+    console.log(
+      "Current stylingConfig.embeddedContent:",
+      stylingConfig.embeddedContent
+    );
+
+    const newConfig = {
       ...stylingConfig,
       embeddedContent: {
         ...stylingConfig.embeddedContent,
         [field]: value,
       },
-    });
+    };
+
+    console.log("New embeddedContent:", newConfig.embeddedContent);
+    console.log(
+      "updateEmbeddedContent: calling updateStylingConfig with iconSpriteUrl:",
+      newConfig.embeddedContent.iconSpriteUrl
+    );
+    updateStylingConfig(newConfig);
+
+    // For iconSpriteUrl changes, the navigation menu should update immediately
+    // The user will need to click "Apply Changes" to persist the selection
+    if (field === "iconSpriteUrl") {
+      console.log(
+        "Icon selection updated - navigation menu should update immediately"
+      );
+    }
   };
 
   return (
@@ -4283,6 +4311,23 @@ function StylingContent({
                   borderRadius: "4px",
                   fontSize: "14px",
                 }}
+              />
+            </div>
+
+            {/* Spotter Icon Selection */}
+            <div style={{ marginBottom: "24px" }}>
+              <SpotterIconPicker
+                selectedIcon={stylingConfig.embeddedContent.iconSpriteUrl}
+                onIconSelect={(iconUrl) =>
+                  updateEmbeddedContent("iconSpriteUrl", iconUrl)
+                }
+                onMenuIconUpdate={(menuIconUrl) => {
+                  if (updateStandardMenu) {
+                    updateStandardMenu("spotter", "icon", menuIconUrl);
+                  }
+                }}
+                title="Spotter Icon Selection"
+                description="Choose an icon for your Spotter embed. This will be used as the iconSpriteUrl in the embed configuration and will also update the Spotter menu icon."
               />
             </div>
 
@@ -6788,7 +6833,8 @@ export default function SettingsModal({
       content: (
         <StylingContent
           stylingConfig={pendingStylingConfig}
-          updateStylingConfig={updatePendingStylingConfig}
+          updateStylingConfig={updateStylingConfig}
+          updateStandardMenu={updateStandardMenu}
         />
       ),
     },

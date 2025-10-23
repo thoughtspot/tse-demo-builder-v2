@@ -94,6 +94,8 @@ export default function SpotterPage({
           // Get custom CSS configuration from styling config
           const customCSS = context.stylingConfig.embeddedContent.customCSS;
           const cssUrl = context.stylingConfig.embeddedContent.cssUrl;
+          const iconSpriteUrl =
+            context.stylingConfig.embeddedContent.iconSpriteUrl;
           const strings = context.stylingConfig.embeddedContent.strings;
           const stringIDs = context.stylingConfig.embeddedContent.stringIDs;
 
@@ -113,6 +115,7 @@ export default function SpotterPage({
               hiddenActions: hiddenActions,
             }),
             customizations: {
+              iconSpriteUrl: iconSpriteUrl || undefined,
               content: {
                 strings: strings || {},
                 stringIDs: stringIDs || {},
@@ -173,6 +176,7 @@ export default function SpotterPage({
     finalEmbedFlags,
     context.stylingConfig.embeddedContent.customCSS,
     context.stylingConfig.embeddedContent.cssUrl,
+    context.stylingConfig.embeddedContent.iconSpriteUrl,
     context.stylingConfig.embeddedContent.strings,
     context.stylingConfig.embeddedContent.stringIDs,
     context.userConfig.currentUserId,

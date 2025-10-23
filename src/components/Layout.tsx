@@ -122,6 +122,7 @@ const migrateStandardMenus = (menus: StandardMenu[]): StandardMenu[] => {
     "/icons/favorites.png": "favorites",
     "/icons/my-reports.png": "my-reports",
     "/icons/spotter-custom.svg": "spotter-custom.svg",
+    "/icons/spotter-preview-custom.svg": "spotter-preview-custom.svg",
     "/icons/search.png": "search",
     "/icons/full-app.png": "full-app",
   };
@@ -968,10 +969,17 @@ export default function Layout({ children }: LayoutProps) {
       home: "/icons/home.png",
       favorites: "/icons/favorites.png",
       "my-reports": "/icons/my-reports.png",
-      spotter: "/icons/spotter-custom.svg",
+      spotter:
+        stylingConfig.embeddedContent.iconSpriteUrl ||
+        "/icons/spotter-custom.svg",
       search: "/icons/search.png",
       "full-app": "/icons/full-app.png",
     };
+
+    console.log(
+      "Layout: stylingConfig.embeddedContent.iconSpriteUrl =",
+      stylingConfig.embeddedContent.iconSpriteUrl
+    );
 
     // Return the mapped path or fallback to default
     return iconPathMap[cleanIcon] || "/ts.png";
@@ -1715,6 +1723,10 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const updateStylingConfig = (config: StylingConfig) => {
+    console.log(
+      "Layout updateStylingConfig: received config with iconSpriteUrl:",
+      config.embeddedContent.iconSpriteUrl
+    );
     setStylingConfig(config);
 
     // Save to storage immediately when loading from configuration
