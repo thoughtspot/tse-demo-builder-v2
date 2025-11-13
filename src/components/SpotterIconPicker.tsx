@@ -109,6 +109,12 @@ export default function SpotterIconPicker({
     fetchIcons();
   }, []);
 
+  // Check if current selectedIcon is a custom image (not one of our predefined icons)
+  const isCustomImage =
+    selectedIcon && !icons.find((icon) => icon.url === selectedIcon);
+  const isImageValue =
+    selectedIcon && selectedIcon.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i);
+
   const handleIconSelect = (icon: SpotterIcon) => {
     onIconSelect(icon.url);
 
@@ -293,16 +299,53 @@ export default function SpotterIconPicker({
           style={{
             marginTop: "12px",
             padding: "8px 12px",
-            backgroundColor: "#f0f9ff",
-            border: "1px solid #0ea5e9",
+            backgroundColor: isCustomImage ? "#fef3c7" : "#f0f9ff",
+            border: `1px solid ${isCustomImage ? "#f59e0b" : "#0ea5e9"}`,
             borderRadius: "6px",
             fontSize: "14px",
-            color: "#0369a1",
+            color: isCustomImage ? "#92400e" : "#0369a1",
           }}
         >
-          <strong>Selected:</strong>{" "}
-          {icons.find((icon) => icon.url === selectedIcon)?.displayName ||
-            "Custom icon"}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {isCustomImage && isImageValue ? (
+              <img
+                src={
+                  selectedIcon.startsWith("data:")
+                    ? selectedIcon
+                    : `/icons/${selectedIcon}`
+                }
+                alt="Custom icon"
+                style={{
+                  width: 24,
+                  height: 24,
+                  objectFit: "contain",
+                }}
+                onError={(e) => {
+                  // Fallback if custom image fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = "none";
+                  const parent = target.parentElement;
+                  if (parent) {
+                    parent.innerHTML = `<div style="background-color: #f3f4f6; border-radius: 4px; font-size: 10px; color: #6b7280; font-weight: bold; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;">?</div>`;
+                  }
+                }}
+              />
+            ) : null}
+            <div>
+              <strong>Selected:</strong>{" "}
+              {isCustomImage
+                ? "Custom Image"
+                : icons.find((icon) => icon.url === selectedIcon)
+                    ?.displayName || "Custom icon"}
+              {isCustomImage && (
+                <div
+                  style={{ fontSize: "12px", marginTop: "4px", opacity: 0.8 }}
+                >
+                  This custom image was selected from the style configuration
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

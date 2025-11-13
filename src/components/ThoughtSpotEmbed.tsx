@@ -239,6 +239,8 @@ export default function ThoughtSpotEmbed({
         const stringIDs = context.stylingConfig.embeddedContent.stringIDs;
 
         console.log("ThoughtSpotEmbed: iconSpriteUrl =", iconSpriteUrl);
+        console.log("ThoughtSpotEmbed: strings =", strings);
+        console.log("ThoughtSpotEmbed: stringIDs =", stringIDs);
 
         // Filter out visibleActions from embed flags to prevent conflicts with hiddenActions
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -272,6 +274,11 @@ export default function ThoughtSpotEmbed({
             },
           },
         };
+
+        console.log(
+          "ThoughtSpotEmbed: baseEmbedConfig.customizations.content =",
+          baseEmbedConfig.customizations.content
+        );
 
         if (content.type === "liveboard") {
           console.log(

@@ -167,7 +167,10 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     },
     embeddedContent: {
       strings: {},
-      stringIDs: {},
+      stringIDs: {
+        "liveboard.highlights.title": "Shopper Highlights",
+        "convAssist.landingpage.description2": "Ask a question about sales.",
+      },
       cssUrl: "",
       iconSpriteUrl: "",
       customCSS: {
@@ -1260,6 +1263,10 @@ export const applyConfiguration = async (
   // Apply styling config with safety checks
   console.log("=== Applying Styling Configuration ===");
   console.log("Styling config to apply:", config.stylingConfig);
+  console.log(
+    "String IDs in config:",
+    config.stylingConfig.embeddedContent?.stringIDs
+  );
 
   // Ensure the styling config has proper structure
   const safeStylingConfig = {

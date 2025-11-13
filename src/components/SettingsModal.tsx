@@ -3635,6 +3635,10 @@ function StylingContent({
       "updateEmbeddedContent: calling updateStylingConfig with iconSpriteUrl:",
       newConfig.embeddedContent.iconSpriteUrl
     );
+    console.log(
+      "updateEmbeddedContent: stringIDs after update:",
+      newConfig.embeddedContent.stringIDs
+    );
     updateStylingConfig(newConfig);
 
     // For iconSpriteUrl changes, the navigation menu should update immediately
