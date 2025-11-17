@@ -5,6 +5,9 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 
+// Default Claude model to use across all AI services
+export const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-5-20250929";
+
 export interface AnthropicResponse {
   response?: string;
   message?: string;
@@ -75,7 +78,7 @@ export class AnthropicClient {
     } = {}
   ): Promise<AnthropicResponse> {
     const {
-      model = "claude-3-5-sonnet-20241022",
+      model = DEFAULT_CLAUDE_MODEL,
       maxTokens = 1000,
       temperature = 0.7,
     } = options;
@@ -243,7 +246,7 @@ Respond with only the JSON object, no additional text.`;
 
   try {
     const response = await client.chat(prompt, {
-      model: "claude-3-5-sonnet-20241022",
+      model: DEFAULT_CLAUDE_MODEL,
       maxTokens: 500,
       temperature: 0.1, // Lower temperature for more consistent classification
     });
@@ -392,7 +395,7 @@ Question: "${question}"`;
 
   try {
     const response = await client.sendMessage(prompt, {
-      model: "claude-3-5-sonnet-20241022",
+      model: DEFAULT_CLAUDE_MODEL,
       maxTokens: 2000,
       temperature: 0.7,
     });
@@ -433,7 +436,7 @@ Please provide a clear analysis and answer to their question based on the availa
 
   try {
     const response = await client.sendMessage(prompt, {
-      model: "claude-3-5-sonnet-20241022",
+      model: DEFAULT_CLAUDE_MODEL,
       maxTokens: 2000,
       temperature: 0.7,
     });
@@ -477,7 +480,7 @@ export const testAnthropicAPI = async (
     const response = await client.chat(
       "Hello, this is a test message. Please respond with 'API test successful'.",
       {
-        model: "claude-3-5-sonnet-20241022",
+        model: DEFAULT_CLAUDE_MODEL,
         maxTokens: 100,
         temperature: 0.1,
       }
@@ -493,6 +496,318 @@ export const testAnthropicAPI = async (
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+};
+
+/**
+ * Generates HTML/CSS content for a home page based on a description
+ */
+export const generateHomePageContent = async (
+  description: string,
+  apiKey?: string
+): Promise<string> => {
+  const client = initializeAnthropic(apiKey);
+
+  const prompt = `You are an expert web developer. Create a beautiful, modern HTML page with inline CSS based on the following description:
+
+Description: "${description}"
+
+Requirements:
+1. Create a complete, self-contained HTML document with inline CSS in a <style> tag
+2. Use modern CSS with flexbox or grid for layout
+3. Make it responsive and mobile-friendly
+4. Use professional colors and typography
+5. Include semantic HTML5 elements
+6. NO external dependencies - everything must be inline
+7. Make it visually appealing and professional
+8. Add appropriate spacing, shadows, and visual hierarchy
+
+Return ONLY the HTML code, nothing else. The HTML should be ready to use as-is.`;
+
+  try {
+    const response = await client.chat(prompt, {
+      model: DEFAULT_CLAUDE_MODEL,
+      maxTokens: 4000,
+      temperature: 0.7,
+    });
+
+    // Clean the response to extract just the HTML
+    let html = response.trim();
+
+    // Remove markdown code blocks if present
+    if (html.includes("```html")) {
+      html = html.replace(/```html\s*/g, "").replace(/```\s*$/g, "");
+    } else if (html.includes("```")) {
+      html = html.replace(/```\s*/g, "");
+    }
+
+    return html.trim();
+  } catch (error) {
+    console.error("Error generating home page content:", error);
+    throw new Error(
+      `Failed to generate home page content: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+};
+
+/**
+ * Generates both application and ThoughtSpot CSS styles based on a style description
+ */
+export const generateStyleConfiguration = async (
+  description: string,
+  apiKey?: string
+): Promise<{
+  applicationStyles: {
+    topBar: { backgroundColor: string; foregroundColor: string };
+    sidebar: { backgroundColor: string; foregroundColor: string };
+    buttons: {
+      primary: {
+        backgroundColor: string;
+        foregroundColor: string;
+        hoverBackgroundColor: string;
+      };
+      secondary: {
+        backgroundColor: string;
+        foregroundColor: string;
+        hoverBackgroundColor: string;
+      };
+    };
+    backgrounds: {
+      mainBackground: string;
+      contentBackground: string;
+      borderColor: string;
+    };
+    typography: {
+      primaryColor: string;
+      secondaryColor: string;
+      linkColor: string;
+    };
+  };
+  embeddedContentVariables: Record<string, string>;
+}> => {
+  const client = initializeAnthropic(apiKey);
+
+  const prompt = `You are an expert in web application styling and CSS. Based on the following style description, generate a complete styling configuration for BOTH the application UI AND ThoughtSpot embedded content.
+
+Style Description: "${description}"
+
+YOU MUST generate styling for TWO sections:
+
+1. APPLICATION STYLES (the wrapper application UI):
+Generate these required fields:
+- topBar: backgroundColor (string), foregroundColor (string)
+- sidebar: backgroundColor (string), foregroundColor (string)
+- buttons.primary: backgroundColor (string), foregroundColor (string), hoverBackgroundColor (string)
+- buttons.secondary: backgroundColor (string), foregroundColor (string), hoverBackgroundColor (string)
+- backgrounds: mainBackground (string), contentBackground (string), borderColor (string)
+- typography: primaryColor (string), secondaryColor (string), linkColor (string)
+
+2. THOUGHTSPOT EMBEDDED CONTENT CSS VARIABLES (for charts/dashboards):
+Generate these required CSS variables with appropriate colors matching the style description:
+- "--ts-var-root-color": Main text color
+- "--ts-var-root-background": Main background color
+- "--ts-var-root-font-family": Font family (e.g. "Inter, sans-serif")
+- "--ts-var-nav-background": Navigation panel background
+- "--ts-var-nav-color": Navigation panel text color
+- "--ts-var-button--primary-color": Primary button text color
+- "--ts-var-button--primary-background": Primary button background
+- "--ts-var-button--primary--hover-background": Primary button hover background
+- "--ts-var-button--secondary-color": Secondary button text color
+- "--ts-var-button--secondary-background": Secondary button background
+- "--ts-var-button--secondary--hover-background": Secondary button hover background
+- "--ts-var-button-border-radius": Button border radius (e.g. "4px")
+- "--ts-var-menu-color": Menu text color
+- "--ts-var-menu-background": Menu background
+- "--ts-var-menu--hover-background": Menu hover background
+- "--ts-var-viz-title-color": Visualization title color
+- "--ts-var-viz-description-color": Visualization description color
+- "--ts-var-viz-background": Visualization tile background
+- "--ts-var-viz-border-radius": Visualization border radius (e.g. "8px")
+- "--ts-var-chip-color": Filter chip text color
+- "--ts-var-chip-background": Filter chip background
+- "--ts-var-chip--hover-background": Filter chip hover background
+- "--ts-var-search-bar-text-font-color": Search bar text color
+- "--ts-var-search-bar-background": Search bar background
+- "--ts-var-dialog-header-background": Dialog header background
+- "--ts-var-dialog-header-color": Dialog header text color
+- "--ts-var-dialog-body-background": Dialog body background
+- "--ts-var-dialog-body-color": Dialog body text color
+
+Requirements:
+1. ALL colors MUST be valid hex codes (e.g. #1e3a8a, #22c55e, #000000, #ffffff)
+2. Ensure good contrast and accessibility
+3. Keep colors consistent between application and embedded content
+4. Make the styling cohesive and professional
+
+CRITICAL: You MUST return a JSON object with EXACTLY this structure (all fields are required):
+{
+  "applicationStyles": {
+    "topBar": { "backgroundColor": "#hex", "foregroundColor": "#hex" },
+    "sidebar": { "backgroundColor": "#hex", "foregroundColor": "#hex" },
+    "buttons": {
+      "primary": { "backgroundColor": "#hex", "foregroundColor": "#hex", "hoverBackgroundColor": "#hex" },
+      "secondary": { "backgroundColor": "#hex", "foregroundColor": "#hex", "hoverBackgroundColor": "#hex" }
+    },
+    "backgrounds": { "mainBackground": "#hex", "contentBackground": "#hex", "borderColor": "#hex" },
+    "typography": { "primaryColor": "#hex", "secondaryColor": "#hex", "linkColor": "#hex" }
+  },
+  "embeddedContentVariables": {
+    "--ts-var-root-color": "#hex",
+    "--ts-var-root-background": "#hex",
+    "--ts-var-root-font-family": "string",
+    "--ts-var-nav-background": "#hex",
+    "--ts-var-nav-color": "#hex",
+    "--ts-var-button--primary-color": "#hex",
+    "--ts-var-button--primary-background": "#hex",
+    "--ts-var-button--primary--hover-background": "#hex",
+    "--ts-var-button--secondary-color": "#hex",
+    "--ts-var-button--secondary-background": "#hex",
+    "--ts-var-button--secondary--hover-background": "#hex",
+    "--ts-var-button-border-radius": "4px",
+    "--ts-var-menu-color": "#hex",
+    "--ts-var-menu-background": "#hex",
+    "--ts-var-menu--hover-background": "#hex",
+    "--ts-var-viz-title-color": "#hex",
+    "--ts-var-viz-description-color": "#hex",
+    "--ts-var-viz-background": "#hex",
+    "--ts-var-viz-title-color": "#hex",
+    "--ts-var-viz-description-color": "#hex",
+    "--ts-var-viz-border-radius": "8px",
+    "--ts-var-chip-color": "#hex",
+    "--ts-var-chip-background": "#hex",
+    "--ts-var-chip--hover-background": "#hex",
+    "--ts-var-search-bar-text-font-color": "#hex",
+    "--ts-var-search-bar-background": "#hex",
+    "--ts-var-dialog-header-background": "#hex",
+    "--ts-var-dialog-header-color": "#hex",
+    "--ts-var-dialog-body-background": "#hex",
+    "--ts-var-dialog-body-color": "#hex"
+  }
+}
+
+Return ONLY the JSON object, no additional text or explanation.`;
+
+  try {
+    const response = await client.chat(prompt, {
+      model: DEFAULT_CLAUDE_MODEL,
+      maxTokens: 3000,
+      temperature: 0.7,
+    });
+
+    console.log("Raw Claude response for styles:", response.substring(0, 500));
+
+    // Clean the response to extract just the JSON
+    let jsonStr = response.trim();
+
+    // Remove markdown code blocks if present
+    if (jsonStr.includes("```json")) {
+      jsonStr = jsonStr.replace(/```json\s*/g, "").replace(/```\s*$/g, "");
+    } else if (jsonStr.includes("```")) {
+      jsonStr = jsonStr.replace(/```\s*/g, "");
+    }
+
+    console.log("Cleaned JSON string:", jsonStr.substring(0, 500));
+
+    // Parse and validate the JSON
+    const styleConfig = JSON.parse(jsonStr);
+
+    console.log("Parsed style config structure:", {
+      hasApplicationStyles: !!styleConfig.applicationStyles,
+      hasEmbeddedContentVariables: !!styleConfig.embeddedContentVariables,
+      applicationStylesKeys: styleConfig.applicationStyles
+        ? Object.keys(styleConfig.applicationStyles)
+        : [],
+      embeddedVariablesCount: styleConfig.embeddedContentVariables
+        ? Object.keys(styleConfig.embeddedContentVariables).length
+        : 0,
+    });
+
+    // Validate that we got the proper structure
+    if (
+      !styleConfig.applicationStyles ||
+      !styleConfig.embeddedContentVariables ||
+      typeof styleConfig.applicationStyles !== "object" ||
+      typeof styleConfig.embeddedContentVariables !== "object"
+    ) {
+      console.error("Invalid style config structure:", styleConfig);
+      throw new Error(
+        "Invalid response format - expected applicationStyles and embeddedContentVariables"
+      );
+    }
+
+    return styleConfig;
+  } catch (error) {
+    console.error("Error generating style configuration:", error);
+
+    // Return a basic fallback configuration
+    console.warn("Using fallback style configuration");
+    return {
+      applicationStyles: {
+        topBar: {
+          backgroundColor: "#1e3a8a",
+          foregroundColor: "#ffffff",
+        },
+        sidebar: {
+          backgroundColor: "#f3f4f6",
+          foregroundColor: "#1f2937",
+        },
+        buttons: {
+          primary: {
+            backgroundColor: "#3182ce",
+            foregroundColor: "#ffffff",
+            hoverBackgroundColor: "#2563eb",
+          },
+          secondary: {
+            backgroundColor: "#e5e7eb",
+            foregroundColor: "#1f2937",
+            hoverBackgroundColor: "#d1d5db",
+          },
+        },
+        backgrounds: {
+          mainBackground: "#ffffff",
+          contentBackground: "#f9fafb",
+          borderColor: "#e5e7eb",
+        },
+        typography: {
+          primaryColor: "#1f2937",
+          secondaryColor: "#6b7280",
+          linkColor: "#3182ce",
+        },
+      },
+      embeddedContentVariables: {
+        "--ts-var-root-color": "#1f2937",
+        "--ts-var-root-background": "#ffffff",
+        "--ts-var-root-font-family":
+          "Inter, -apple-system, system-ui, sans-serif",
+        "--ts-var-nav-background": "#f3f4f6",
+        "--ts-var-nav-color": "#1f2937",
+        "--ts-var-button--primary-color": "#ffffff",
+        "--ts-var-button--primary-background": "#3182ce",
+        "--ts-var-button--primary--hover-background": "#2563eb",
+        "--ts-var-button--secondary-color": "#1f2937",
+        "--ts-var-button--secondary-background": "#e5e7eb",
+        "--ts-var-button--secondary--hover-background": "#d1d5db",
+        "--ts-var-button-border-radius": "6px",
+        "--ts-var-menu-color": "#1f2937",
+        "--ts-var-menu-background": "#ffffff",
+        "--ts-var-menu--hover-background": "#f3f4f6",
+        "--ts-var-viz-title-color": "#1f2937",
+        "--ts-var-viz-description-color": "#6b7280",
+        "--ts-var-viz-background": "#ffffff",
+        "--ts-var-viz-border-radius": "8px",
+        "--ts-var-chip-color": "#1f2937",
+        "--ts-var-chip-background": "#f3f4f6",
+        "--ts-var-chip--hover-background": "#e5e7eb",
+        "--ts-var-search-bar-text-font-color": "#1f2937",
+        "--ts-var-search-bar-background": "#ffffff",
+        "--ts-var-dialog-header-background": "#f9fafb",
+        "--ts-var-dialog-header-color": "#1f2937",
+        "--ts-var-dialog-body-background": "#ffffff",
+        "--ts-var-dialog-body-color": "#1f2937",
+      },
     };
   }
 };

@@ -240,6 +240,12 @@ const iconMap: Record<
   "scatter-plot": ScatterPlot,
   "donut-large": DonutLarge,
   "donut-small": DonutSmall,
+  close: Settings, // Temporary fallback
+  auto_fix_high: Star, // Temporary fallback for wizard icon
+  assignment: Assessment,
+  apps: Public,
+  library_books: Assessment,
+  manage_search: Search,
 
   // View icons
   "view-module": ViewModule,

@@ -40,9 +40,14 @@ import { fetchSavedConfigurations } from "../services/githubApi";
 import {
   checkStorageHealth,
   clearStorageAndReloadDefaults,
+  DEFAULT_CONFIG,
+  saveAllConfigurations,
 } from "../services/configurationService";
 import ThemeSelector from "./ThemeSelector";
 import { applyTheme } from "../types/themes";
+import ConfigurationWizard, {
+  WizardConfiguration,
+} from "./ConfigurationWizard";
 
 // Configuration interfaces for compatibility
 interface ConfigurationData {
@@ -3493,6 +3498,10 @@ function StylingContent({
   ) => void;
 }) {
   const [activeSubTab, setActiveSubTab] = useState("application");
+  const [showStyleWizard, setShowStyleWizard] = useState(false);
+  const [styleDescription, setStyleDescription] = useState("");
+  const [isGeneratingStyle, setIsGeneratingStyle] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   // Ensure we always have a valid sub-tab selected
   useEffect(() => {
@@ -3650,17 +3659,130 @@ function StylingContent({
     }
   };
 
+  const handleGenerateStyle = async () => {
+    if (!styleDescription.trim()) {
+      setGenerationError("Please provide a style description.");
+      return;
+    }
+
+    try {
+      setIsGeneratingStyle(true);
+      setGenerationError(null);
+
+      console.log(
+        "Calling style generation API with description:",
+        styleDescription
+      );
+
+      const response = await fetch("/api/anthropic/generate-style", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ description: styleDescription }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate style");
+      }
+
+      const styleConfig = await response.json();
+
+      console.log("Received style configuration:", styleConfig);
+
+      // Update the styling configuration with the generated styles
+      const newStylingConfig: StylingConfig = {
+        ...stylingConfig,
+        application: {
+          ...stylingConfig.application,
+          topBar: styleConfig.applicationStyles.topBar,
+          sidebar: styleConfig.applicationStyles.sidebar,
+          footer: {
+            ...stylingConfig.application.footer,
+            backgroundColor:
+              styleConfig.applicationStyles.backgrounds?.contentBackground ||
+              stylingConfig.application.footer.backgroundColor,
+            foregroundColor:
+              styleConfig.applicationStyles.typography?.secondaryColor ||
+              stylingConfig.application.footer.foregroundColor,
+          },
+          dialogs: {
+            ...stylingConfig.application.dialogs,
+            backgroundColor:
+              styleConfig.applicationStyles.backgrounds?.contentBackground ||
+              stylingConfig.application.dialogs.backgroundColor,
+          },
+          buttons: styleConfig.applicationStyles.buttons,
+          backgrounds: styleConfig.applicationStyles.backgrounds,
+          typography: styleConfig.applicationStyles.typography,
+        },
+        embeddedContent: {
+          ...stylingConfig.embeddedContent,
+          customCSS: {
+            ...stylingConfig.embeddedContent.customCSS,
+            variables: styleConfig.embeddedContentVariables,
+          },
+        },
+      };
+
+      updateStylingConfig(newStylingConfig);
+
+      // Close the wizard on success
+      setShowStyleWizard(false);
+      setStyleDescription("");
+    } catch (error) {
+      console.error("Error generating style:", error);
+      setGenerationError(
+        error instanceof Error
+          ? error.message
+          : "Failed to generate style. Please try again."
+      );
+    } finally {
+      setIsGeneratingStyle(false);
+    }
+  };
+
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <h3
+      <div
         style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
           marginBottom: "24px",
-          fontSize: "20px",
-          fontWeight: "bold",
         }}
       >
-        Styling Configuration
-      </h3>
+        <h3
+          style={{
+            margin: 0,
+            fontSize: "20px",
+            fontWeight: "bold",
+          }}
+        >
+          Styling Configuration
+        </h3>
+        <button
+          onClick={() => setShowStyleWizard(true)}
+          style={{
+            padding: "10px 20px",
+            backgroundColor: "#8b5cf6",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "14px",
+            fontWeight: "500",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+          title="Generate styles using AI based on your description"
+        >
+          <MaterialIcon icon="auto_fix_high" style={{ fontSize: "18px" }} />
+          Style Wizard
+        </button>
+      </div>
 
       {/* Sub-tabs */}
       <div
@@ -4366,6 +4488,343 @@ function StylingContent({
           </div>
         )}
       </div>
+
+      {/* Style Wizard Modal */}
+      {showStyleWizard && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+            padding: "20px",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isGeneratingStyle) {
+              setShowStyleWizard(false);
+              setStyleDescription("");
+              setGenerationError(null);
+            }
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: "12px",
+              maxWidth: "600px",
+              width: "100%",
+              maxHeight: "90vh",
+              overflow: "auto",
+              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: "24px",
+                borderBottom: "1px solid #e5e7eb",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                position: "sticky",
+                top: 0,
+                backgroundColor: "white",
+                zIndex: 1,
+              }}
+            >
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "12px" }}
+              >
+                <MaterialIcon
+                  icon="auto_fix_high"
+                  style={{ fontSize: "32px", color: "#8b5cf6" }}
+                />
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "24px",
+                    fontWeight: "600",
+                    color: "#1f2937",
+                  }}
+                >
+                  Style Wizard
+                </h2>
+              </div>
+              {!isGeneratingStyle && (
+                <button
+                  onClick={() => {
+                    setShowStyleWizard(false);
+                    setStyleDescription("");
+                    setGenerationError(null);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "8px",
+                    color: "#6b7280",
+                  }}
+                >
+                  <MaterialIcon icon="close" style={{ fontSize: "24px" }} />
+                </button>
+              )}
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: "24px" }}>
+              <p
+                style={{
+                  marginTop: 0,
+                  marginBottom: "24px",
+                  color: "#6b7280",
+                  fontSize: "14px",
+                  lineHeight: "1.6",
+                }}
+              >
+                Describe your desired style and colors, and AI will generate a
+                complete styling configuration for your application and embedded
+                ThoughtSpot content.
+              </p>
+
+              {/* Style Description */}
+              <div style={{ marginBottom: "24px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontWeight: "500",
+                    color: "#374151",
+                    fontSize: "14px",
+                  }}
+                >
+                  Style Description
+                </label>
+                <textarea
+                  value={styleDescription}
+                  onChange={(e) => setStyleDescription(e.target.value)}
+                  placeholder="Describe your desired style and colors. For example: 'Professional corporate theme with navy blue primary color (#1e3a8a), light gray backgrounds, and orange accents for buttons. Use modern, clean design with subtle shadows.'"
+                  rows={6}
+                  disabled={isGeneratingStyle}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                    fontFamily: "inherit",
+                    resize: "vertical",
+                    boxSizing: "border-box",
+                    opacity: isGeneratingStyle ? 0.6 : 1,
+                  }}
+                />
+                <p
+                  style={{
+                    marginTop: "8px",
+                    fontSize: "12px",
+                    color: "#6b7280",
+                    fontStyle: "italic",
+                  }}
+                >
+                  💡 Tip: Be specific about colors, mood, and design preferences
+                  for best results.
+                </p>
+              </div>
+
+              {/* Error Message */}
+              {generationError && (
+                <div
+                  style={{
+                    padding: "12px 16px",
+                    backgroundColor: "#fef2f2",
+                    border: "1px solid #fca5a5",
+                    borderRadius: "6px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    <MaterialIcon
+                      icon="error"
+                      style={{ fontSize: "20px", color: "#dc2626" }}
+                    />
+                    <span style={{ color: "#dc2626", fontSize: "14px" }}>
+                      {generationError}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Loading Indicator */}
+              {isGeneratingStyle && (
+                <div
+                  style={{
+                    padding: "16px",
+                    backgroundColor: "#eff6ff",
+                    border: "1px solid #bfdbfe",
+                    borderRadius: "6px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <MaterialIcon
+                      icon="autorenew"
+                      style={{
+                        fontSize: "24px",
+                        color: "#3b82f6",
+                        animation: "spin 1s linear infinite",
+                      }}
+                    />
+                    <div>
+                      <div
+                        style={{
+                          color: "#1e40af",
+                          fontSize: "14px",
+                          fontWeight: "500",
+                        }}
+                      >
+                        Generating styles...
+                      </div>
+                      <div
+                        style={{
+                          color: "#60a5fa",
+                          fontSize: "12px",
+                          marginTop: "4px",
+                        }}
+                      >
+                        This may take a moment. AI is creating your custom
+                        theme.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div
+              style={{
+                padding: "24px",
+                borderTop: "1px solid #e5e7eb",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+                position: "sticky",
+                bottom: 0,
+                backgroundColor: "white",
+              }}
+            >
+              <button
+                onClick={() => {
+                  setShowStyleWizard(false);
+                  setStyleDescription("");
+                  setGenerationError(null);
+                }}
+                disabled={isGeneratingStyle}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: "white",
+                  color: "#374151",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  cursor: isGeneratingStyle ? "not-allowed" : "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  opacity: isGeneratingStyle ? 0.5 : 1,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleGenerateStyle}
+                disabled={isGeneratingStyle || !styleDescription.trim()}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor:
+                    isGeneratingStyle || !styleDescription.trim()
+                      ? "#9ca3af"
+                      : "#8b5cf6",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor:
+                    isGeneratingStyle || !styleDescription.trim()
+                      ? "not-allowed"
+                      : "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                {isGeneratingStyle ? (
+                  <>
+                    <MaterialIcon
+                      icon="autorenew"
+                      style={{
+                        fontSize: "18px",
+                        animation: "spin 1s linear infinite",
+                      }}
+                    />
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        gap: "2px",
+                        letterSpacing: "2px",
+                      }}
+                    >
+                      <span
+                        style={{ animation: "pulse 1.4s ease-in-out infinite" }}
+                      >
+                        •
+                      </span>
+                      <span
+                        style={{
+                          animation: "pulse 1.4s ease-in-out 0.2s infinite",
+                        }}
+                      >
+                        •
+                      </span>
+                      <span
+                        style={{
+                          animation: "pulse 1.4s ease-in-out 0.4s infinite",
+                        }}
+                      >
+                        •
+                      </span>
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <MaterialIcon
+                      icon="auto_fix_high"
+                      style={{ fontSize: "18px" }}
+                    />
+                    Generate Styles
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -5348,6 +5807,9 @@ function ConfigurationContent({
   const [selectedConfiguration, setSelectedConfiguration] =
     useState<string>("");
 
+  // Configuration Wizard state
+  const [showWizard, setShowWizard] = useState(false);
+
   // Validate initial state on mount
   useEffect(() => {
     const validSubTabs = ["general", "embedFlags"];
@@ -5388,6 +5850,470 @@ function ConfigurationContent({
       });
     } finally {
       setIsLoadingConfigurations(false);
+    }
+  };
+
+  // Handle wizard completion
+  const handleWizardComplete = async (wizardConfig: WizardConfiguration) => {
+    try {
+      console.log("Wizard configuration:", wizardConfig);
+
+      // Generate AI content if descriptions provided
+      let homePageHTML =
+        DEFAULT_CONFIG.standardMenus.find((m) => m.id === "home")
+          ?.homePageValue || "<h1>Welcome</h1>";
+      let embeddedContentVariables: Record<string, string> = {};
+      let applicationStyles: {
+        topBar?: { backgroundColor: string; foregroundColor: string };
+        sidebar?: { backgroundColor: string; foregroundColor: string };
+        buttons?: {
+          primary?: {
+            backgroundColor: string;
+            foregroundColor: string;
+            hoverBackgroundColor: string;
+          };
+          secondary?: {
+            backgroundColor: string;
+            foregroundColor: string;
+            hoverBackgroundColor: string;
+          };
+        };
+        backgrounds?: {
+          mainBackground: string;
+          contentBackground: string;
+          borderColor: string;
+        };
+        typography?: {
+          primaryColor: string;
+          secondaryColor: string;
+          linkColor: string;
+        };
+      } | null = null;
+      let hasAIContent = false;
+      const aiErrors: string[] = [];
+
+      // Generate home page content if description provided
+      if (
+        wizardConfig.homePageDescription &&
+        wizardConfig.homePageDescription.trim()
+      ) {
+        console.log("Generating home page content with AI...");
+        try {
+          const response = await fetch("/api/anthropic/generate-home-page", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              description: wizardConfig.homePageDescription,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to generate home page");
+          }
+
+          const data = await response.json();
+          homePageHTML = data.html;
+          console.log(
+            "Successfully generated home page content, length:",
+            homePageHTML.length
+          );
+          hasAIContent = true;
+        } catch (error) {
+          console.error("Failed to generate home page content:", error);
+          const errorMsg = `Home page generation failed: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`;
+          aiErrors.push(errorMsg);
+          alert(
+            errorMsg +
+              "\n\nUsing default home page instead. Please check that your Anthropic API key is configured.\n\nFor local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
+          );
+        }
+      }
+
+      // Generate style configuration if description provided
+      if (
+        wizardConfig.styleDescription &&
+        wizardConfig.styleDescription.trim()
+      ) {
+        console.log("Generating style configuration with AI...");
+        try {
+          const response = await fetch("/api/anthropic/generate-style", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              description: wizardConfig.styleDescription,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(
+              errorData.error || "Failed to generate style configuration"
+            );
+          }
+
+          const data = await response.json();
+          console.log("Raw API response:", JSON.stringify(data, null, 2));
+
+          embeddedContentVariables = data.embeddedContentVariables || {};
+          applicationStyles = data.applicationStyles || null;
+
+          console.log("AFTER ASSIGNMENT:");
+          console.log(
+            "- embeddedContentVariables:",
+            Object.keys(embeddedContentVariables).length,
+            "keys"
+          );
+          console.log(
+            "- applicationStyles:",
+            applicationStyles ? "PRESENT" : "NULL"
+          );
+
+          if (Object.keys(embeddedContentVariables).length === 0) {
+            console.error(
+              "ERROR: embeddedContentVariables is empty after assignment!"
+            );
+          }
+          if (!applicationStyles) {
+            console.error("ERROR: applicationStyles is null after assignment!");
+          }
+
+          console.log(
+            "Successfully generated style configuration:",
+            Object.keys(embeddedContentVariables).length,
+            "embedded variables,",
+            applicationStyles
+              ? "application styles included"
+              : "no application styles"
+          );
+          console.log(
+            "Embedded content variables:",
+            JSON.stringify(embeddedContentVariables, null, 2)
+          );
+          if (applicationStyles) {
+            console.log(
+              "Application styles:",
+              JSON.stringify(applicationStyles, null, 2)
+            );
+          } else {
+            console.warn("WARNING: No application styles were generated!");
+          }
+          hasAIContent = true;
+        } catch (error) {
+          console.error("Failed to generate style configuration:", error);
+          const errorMsg = `Style generation failed: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`;
+          aiErrors.push(errorMsg);
+          alert(
+            errorMsg +
+              "\n\nUsing default styles instead. Please check that your Anthropic API key is configured.\n\nFor local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
+          );
+        }
+      }
+
+      if (hasAIContent && aiErrors.length === 0) {
+        console.log("AI content generated successfully");
+      }
+
+      console.log("============ CREATING CONFIGURATION ============");
+      console.log("About to create configuration with:");
+      console.log(
+        "- embeddedContentVariables count:",
+        Object.keys(embeddedContentVariables).length
+      );
+      console.log(
+        "- embeddedContentVariables sample:",
+        embeddedContentVariables["--ts-var-root-background"]
+      );
+      console.log(
+        "- applicationStyles:",
+        applicationStyles ? "PRESENT" : "NULL"
+      );
+      if (applicationStyles) {
+        console.log("- applicationStyles.topBar:", applicationStyles.topBar);
+      }
+      console.log("- homePageHTML length:", homePageHTML.length);
+      if (wizardConfig.modelId) {
+        console.log("- Model ID:", wizardConfig.modelId);
+        console.log("- Will be applied to: Chatbot, Spotter, and Search");
+      }
+      console.log("================================================");
+
+      // Create new configuration
+      const newConfig: ConfigurationData = {
+        ...DEFAULT_CONFIG,
+        appConfig: {
+          ...DEFAULT_CONFIG.appConfig,
+          thoughtspotUrl: wizardConfig.thoughtspotUrl,
+          applicationName: wizardConfig.applicationName,
+          chatbot: {
+            enabled: DEFAULT_CONFIG.appConfig.chatbot?.enabled ?? true,
+            defaultModelId:
+              wizardConfig.modelId ||
+              DEFAULT_CONFIG.appConfig.chatbot?.defaultModelId,
+            selectedModelIds:
+              DEFAULT_CONFIG.appConfig.chatbot?.selectedModelIds,
+            welcomeMessage: DEFAULT_CONFIG.appConfig.chatbot?.welcomeMessage,
+            position: DEFAULT_CONFIG.appConfig.chatbot?.position,
+            spotgptApiKey: DEFAULT_CONFIG.appConfig.chatbot?.spotgptApiKey,
+          },
+        },
+        standardMenus: DEFAULT_CONFIG.standardMenus.map((menu) => {
+          const updatedMenu = {
+            ...menu,
+            enabled: wizardConfig.enabledMenus.includes(menu.id),
+            spotterModelId:
+              menu.id === "spotter" && wizardConfig.modelId
+                ? wizardConfig.modelId
+                : menu.spotterModelId,
+            searchDataSource:
+              menu.id === "search" && wizardConfig.modelId
+                ? wizardConfig.modelId
+                : menu.searchDataSource,
+            homePageValue:
+              menu.id === "home" ? homePageHTML : menu.homePageValue,
+          };
+
+          // Ensure Spotter keeps its custom icon from DEFAULT_CONFIG
+          if (menu.id === "spotter") {
+            console.log(
+              `Wizard: Setting Spotter icon to ${menu.icon} from DEFAULT_CONFIG`
+            );
+            if (wizardConfig.modelId) {
+              console.log(
+                `Wizard: Setting Spotter model to ${wizardConfig.modelId}`
+              );
+            }
+          }
+
+          if (menu.id === "search" && wizardConfig.modelId) {
+            console.log(
+              `Wizard: Setting Search data source to ${wizardConfig.modelId}`
+            );
+          }
+
+          return updatedMenu;
+        }),
+        stylingConfig: {
+          ...DEFAULT_CONFIG.stylingConfig,
+          // Apply application styles if generated
+          application: applicationStyles
+            ? {
+                ...DEFAULT_CONFIG.stylingConfig.application,
+                topBar: {
+                  ...DEFAULT_CONFIG.stylingConfig.application.topBar,
+                  backgroundColor:
+                    applicationStyles.topBar?.backgroundColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.topBar
+                      .backgroundColor,
+                  foregroundColor:
+                    applicationStyles.topBar?.foregroundColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.topBar
+                      .foregroundColor,
+                },
+                sidebar: {
+                  ...DEFAULT_CONFIG.stylingConfig.application.sidebar,
+                  backgroundColor:
+                    applicationStyles.sidebar?.backgroundColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.sidebar
+                      .backgroundColor,
+                  foregroundColor:
+                    applicationStyles.sidebar?.foregroundColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.sidebar
+                      .foregroundColor,
+                },
+                buttons: {
+                  ...DEFAULT_CONFIG.stylingConfig.application.buttons,
+                  primary: {
+                    ...DEFAULT_CONFIG.stylingConfig.application.buttons.primary,
+                    backgroundColor:
+                      applicationStyles.buttons?.primary?.backgroundColor ||
+                      DEFAULT_CONFIG.stylingConfig.application.buttons.primary
+                        .backgroundColor,
+                    foregroundColor:
+                      applicationStyles.buttons?.primary?.foregroundColor ||
+                      DEFAULT_CONFIG.stylingConfig.application.buttons.primary
+                        .foregroundColor,
+                    hoverBackgroundColor:
+                      applicationStyles.buttons?.primary
+                        ?.hoverBackgroundColor ||
+                      DEFAULT_CONFIG.stylingConfig.application.buttons.primary
+                        .hoverBackgroundColor,
+                  },
+                  secondary: {
+                    ...DEFAULT_CONFIG.stylingConfig.application.buttons
+                      .secondary,
+                    backgroundColor:
+                      applicationStyles.buttons?.secondary?.backgroundColor ||
+                      DEFAULT_CONFIG.stylingConfig.application.buttons.secondary
+                        .backgroundColor,
+                    foregroundColor:
+                      applicationStyles.buttons?.secondary?.foregroundColor ||
+                      DEFAULT_CONFIG.stylingConfig.application.buttons.secondary
+                        .foregroundColor,
+                    hoverBackgroundColor:
+                      applicationStyles.buttons?.secondary
+                        ?.hoverBackgroundColor ||
+                      DEFAULT_CONFIG.stylingConfig.application.buttons.secondary
+                        .hoverBackgroundColor,
+                  },
+                },
+                backgrounds: {
+                  ...DEFAULT_CONFIG.stylingConfig.application.backgrounds,
+                  mainBackground:
+                    applicationStyles.backgrounds?.mainBackground ||
+                    DEFAULT_CONFIG.stylingConfig.application.backgrounds
+                      .mainBackground,
+                  contentBackground:
+                    applicationStyles.backgrounds?.contentBackground ||
+                    DEFAULT_CONFIG.stylingConfig.application.backgrounds
+                      .contentBackground,
+                  borderColor:
+                    applicationStyles.backgrounds?.borderColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.backgrounds
+                      .borderColor,
+                },
+                typography: {
+                  ...DEFAULT_CONFIG.stylingConfig.application.typography,
+                  primaryColor:
+                    applicationStyles.typography?.primaryColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.typography
+                      .primaryColor,
+                  secondaryColor:
+                    applicationStyles.typography?.secondaryColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.typography
+                      .secondaryColor,
+                  linkColor:
+                    applicationStyles.typography?.linkColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.typography
+                      .linkColor,
+                },
+              }
+            : DEFAULT_CONFIG.stylingConfig.application,
+          // Apply embedded content variables
+          embeddedContent: {
+            ...DEFAULT_CONFIG.stylingConfig.embeddedContent,
+            customCSS: {
+              ...DEFAULT_CONFIG.stylingConfig.embeddedContent.customCSS,
+              variables: embeddedContentVariables,
+            },
+          },
+        },
+      };
+
+      console.log("Created new configuration with styling:", {
+        hasApplicationStyles: !!applicationStyles,
+        applicationStylesPreview: applicationStyles
+          ? {
+              topBarBg: applicationStyles.topBar?.backgroundColor,
+              sidebarBg: applicationStyles.sidebar?.backgroundColor,
+              primaryButtonBg:
+                applicationStyles.buttons?.primary?.backgroundColor,
+            }
+          : null,
+        embeddedVariablesCount: Object.keys(embeddedContentVariables).length,
+      });
+
+      console.log(
+        "Full styling config to be saved:",
+        JSON.stringify(newConfig.stylingConfig, null, 2)
+      );
+
+      // Clear current configuration and save new one
+      await clearAllConfigurations?.();
+
+      // Small delay to ensure clear completes
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Save the new configuration
+      await saveAllConfigurations(newConfig);
+
+      // Add custom menus if provided
+      if (wizardConfig.customMenus && wizardConfig.customMenus.length > 0) {
+        console.log(
+          "Wizard: Custom menu configurations detected:",
+          wizardConfig.customMenus.length
+        );
+
+        const customMenusData: CustomMenu[] = wizardConfig.customMenus.map(
+          (menu, index) => ({
+            id: `custom-${Date.now()}-${index}`,
+            name: menu.name,
+            description: "",
+            icon: menu.icon,
+            enabled: true,
+            contentSelection: {
+              type: menu.type,
+              tagIdentifiers: menu.tagIdentifiers,
+              directEmbed: menu.directEmbed,
+            },
+          })
+        );
+
+        console.log(
+          "Wizard: Creating custom menu objects:",
+          JSON.stringify(customMenusData, null, 2)
+        );
+
+        // Save custom menus to storage directly
+        try {
+          const existingCustomMenus = JSON.parse(
+            localStorage.getItem("tse-custom-menus") || "[]"
+          );
+          console.log(
+            "Wizard: Existing custom menus:",
+            existingCustomMenus.length
+          );
+
+          const allCustomMenus = [...existingCustomMenus, ...customMenusData];
+          localStorage.setItem(
+            "tse-custom-menus",
+            JSON.stringify(allCustomMenus)
+          );
+
+          console.log(
+            "Wizard: Custom menus saved to localStorage. Total custom menus:",
+            allCustomMenus.length
+          );
+
+          // Also try to use addCustomMenu if available
+          if (addCustomMenu) {
+            console.log(
+              "Wizard: addCustomMenu function is available, adding menus"
+            );
+            for (const customMenuData of customMenusData) {
+              addCustomMenu(customMenuData);
+            }
+          } else {
+            console.warn("Wizard: addCustomMenu function not available");
+          }
+        } catch (error) {
+          console.error("Wizard: Error saving custom menus:", error);
+        }
+      } else {
+        console.log("Wizard: No custom menus in wizard configuration");
+      }
+
+      setImportStatus({
+        message: "Configuration created successfully! Reloading...",
+        type: "success",
+      });
+
+      // Reload the page after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (error) {
+      console.error("Error applying wizard configuration:", error);
+      setImportStatus({
+        message: `Failed to create configuration: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+        type: "error",
+      });
     }
   };
 
@@ -5469,6 +6395,28 @@ function ConfigurationContent({
               }}
             >
               <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                <button
+                  onClick={() => setShowWizard(true)}
+                  style={{
+                    padding: "10px 20px",
+                    backgroundColor: "#8b5cf6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
+                  <MaterialIcon
+                    icon="auto_fix_high"
+                    style={{ fontSize: "18px" }}
+                  />
+                  Configuration Wizard
+                </button>
                 <button
                   onClick={() => {
                     setShowExportDialog(true);
@@ -6211,6 +7159,15 @@ function ConfigurationContent({
                 </div>
               </div>
             )}
+
+            {/* Configuration Wizard */}
+            <ConfigurationWizard
+              isOpen={showWizard}
+              onClose={() => setShowWizard(false)}
+              onComplete={handleWizardComplete}
+              currentThoughtSpotUrl={appConfig.thoughtspotUrl}
+              standardMenus={standardMenus || []}
+            />
           </div>
         )}
 

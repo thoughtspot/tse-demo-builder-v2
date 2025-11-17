@@ -51,7 +51,7 @@ export const DEFAULT_CONFIG: ConfigurationData = {
       id: "spotter",
       name: "Spotter",
       enabled: true,
-      icon: "spotter-preview-custom.svg",
+      icon: "spotter-custom.svg",
       homePageType: "html",
       homePageValue: "<h1>Spotter</h1>",
     },

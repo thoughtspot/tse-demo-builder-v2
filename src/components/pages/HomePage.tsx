@@ -213,8 +213,8 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
         return (
           <div
             style={{
+              flex: 1,
               width: "100%",
-              height: "100%",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -333,17 +333,41 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
     switch (mappedType) {
       case "html":
         if (mappedValue && mappedValue.trim()) {
+          // Create a data URL for the iframe to isolate HTML content
+          const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                  body {
+                    margin: 0;
+                    padding: 0;
+                    overflow: auto;
+                  }
+                </style>
+              </head>
+              <body>
+                ${mappedValue}
+              </body>
+            </html>
+          `;
+          const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(
+            htmlContent
+          )}`;
+
           return (
-            <div
-              dangerouslySetInnerHTML={{ __html: mappedValue }}
+            <iframe
+              src={dataUrl}
               style={{
-                backgroundColor: "white",
-                padding: "20px",
-                borderRadius: "8px",
-                border: "1px solid #e2e8f0",
+                flex: 1,
+                width: "100%",
                 height: "100%",
-                overflow: "auto",
+                border: "none",
               }}
+              title="HTML Content"
+              sandbox="allow-scripts allow-same-origin"
             />
           );
         }
@@ -566,8 +590,7 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
             style={{
               flex: 1,
               width: "100%",
-              height: "calc(100vh - 200px)",
-              minHeight: "400px",
+              minHeight: 0,
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
@@ -611,12 +634,9 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
     <div
       style={{
         flex: 1,
-        width: "100%",
-        height: "100%",
-        overflow: "hidden",
         display: "flex",
-        minHeight: 0,
         flexDirection: "column",
+        minHeight: 0,
       }}
     >
       {renderContent()}
