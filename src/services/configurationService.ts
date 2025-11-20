@@ -186,6 +186,10 @@ export const DEFAULT_CONFIG: ConfigurationData = {
         enable2ColumnLayout: true,
         isLiveboardStylingAndGroupingEnabled: true,
       },
+      appEmbed: {
+        enable2ColumnLayout: true,
+        isLiveboardStylingAndGroupingEnabled: true,
+      },
     },
     embedDisplay: {
       hideTitle: false,
