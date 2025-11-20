@@ -178,7 +178,12 @@ export const DEFAULT_CONFIG: ConfigurationData = {
         rules_UNSTABLE: {},
       },
     },
-    embedFlags: {},
+    embedFlags: {
+      liveboardEmbed: {
+        enable2ColumnLayout: true,
+        isLiveboardStylingAndGroupingEnabled: true,
+      },
+    },
     embedDisplay: {
       hideTitle: false,
       hideDescription: false,
