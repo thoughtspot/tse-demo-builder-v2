@@ -502,26 +502,80 @@ export const testAnthropicAPI = async (
 
 /**
  * Generates HTML/CSS content for a home page based on a description
+ * If no description is provided, creates an analytics-focused home page based on the application name
+ * Uses provided colors to match the application styling
  */
 export const generateHomePageContent = async (
   description: string,
+  applicationName?: string,
+  styleColors?: {
+    primaryColor?: string;
+    secondaryColor?: string;
+    accentColor?: string;
+    backgroundColor?: string;
+    textColor?: string;
+  },
   apiKey?: string
 ): Promise<string> => {
   const client = initializeAnthropic(apiKey);
 
-  const prompt = `You are an expert web developer. Create a beautiful, modern HTML page with inline CSS based on the following description:
+  // If no description provided, create a default analytics page based on app name
+  let effectiveDescription = description;
+  if (!description || description.trim() === "") {
+    effectiveDescription = `Create an analytics home page for ${
+      applicationName || "Business Analytics"
+    }. The page should welcome users to the analytics platform and show key metrics or insights relevant to the company type indicated in the name. Include visually appealing data visualization placeholders, modern gradients, and professional styling that reflects the company's industry.`;
+  }
 
-Description: "${description}"
+  // Build color guidance if colors are provided
+  let colorGuidance = "";
+  if (styleColors) {
+    colorGuidance =
+      "\n\nCRITICAL COLOR REQUIREMENTS - YOU MUST USE THESE EXACT COLORS:";
+    if (styleColors.primaryColor) {
+      colorGuidance += `\n- Primary/Accent Color: ${styleColors.primaryColor} (use for buttons, highlights, and primary accent elements)`;
+    }
+    if (styleColors.secondaryColor) {
+      colorGuidance += `\n- Secondary Color: ${styleColors.secondaryColor} (use for secondary elements and accents)`;
+    }
+    if (styleColors.backgroundColor) {
+      colorGuidance += `\n- Background Color: ${styleColors.backgroundColor} (use for main background)`;
+    }
+    if (styleColors.textColor) {
+      colorGuidance += `\n- Text Color: ${styleColors.textColor} (use for main text)`;
+    }
+    if (styleColors.accentColor) {
+      colorGuidance += `\n- Additional Accent: ${styleColors.accentColor} (use for gradients, emphasis, and visual interest)`;
+    }
+    colorGuidance +=
+      "\n\nThese colors are from the application's main styling and MUST be used to ensure visual consistency. Create gradients using variations of these colors.";
+  }
+
+  const prompt = `You are an expert web developer creating an analytics home page. Create a beautiful, modern HTML page with inline CSS based on the following description:
+
+Description: "${effectiveDescription}"
+${colorGuidance}
 
 Requirements:
 1. Create a complete, self-contained HTML document with inline CSS in a <style> tag
 2. Use modern CSS with flexbox or grid for layout
 3. Make it responsive and mobile-friendly
-4. Use professional colors and typography
+4. Use professional typography with modern sans-serif fonts (e.g., -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif)
 5. Include semantic HTML5 elements
 6. NO external dependencies - everything must be inline
 7. Make it visually appealing and professional
 8. Add appropriate spacing, shadows, and visual hierarchy
+9. For analytics pages: Include metric cards, data visualization concepts, or dashboard-style layouts
+10. Use gradients and modern card designs${
+    styleColors ? " that incorporate the provided colors" : ""
+  }
+11. The page should reflect the company type/industry based on the application name
+12. Create a centered, welcoming layout with clear visual hierarchy
+13. ${
+    styleColors
+      ? "MANDATORY: Use ONLY the provided colors (and their lighter/darker variations) to ensure the page matches the application styling"
+      : "Use professional, cohesive colors"
+  }
 
 Return ONLY the HTML code, nothing else. The HTML should be ready to use as-is.`;
 
@@ -555,9 +609,11 @@ Return ONLY the HTML code, nothing else. The HTML should be ready to use as-is.`
 
 /**
  * Generates both application and ThoughtSpot CSS styles based on a style description
+ * If no description is provided, creates professional default styles
  */
 export const generateStyleConfiguration = async (
   description: string,
+  applicationName?: string,
   apiKey?: string
 ): Promise<{
   applicationStyles: {
@@ -590,9 +646,17 @@ export const generateStyleConfiguration = async (
 }> => {
   const client = initializeAnthropic(apiKey);
 
+  // If no description, create a default based on application name
+  let effectiveDescription = description;
+  if (!description || description.trim() === "") {
+    effectiveDescription = `Create a professional, modern analytics styling for ${
+      applicationName || "Business Analytics"
+    }. Use contemporary colors that work well for data visualizations. Ensure good contrast and a clean, professional appearance suitable for business intelligence applications.`;
+  }
+
   const prompt = `You are an expert in web application styling and CSS. Based on the following style description, generate a complete styling configuration for BOTH the application UI AND ThoughtSpot embedded content.
 
-Style Description: "${description}"
+Style Description: "${effectiveDescription}"
 
 YOU MUST generate styling for TWO sections:
 
@@ -606,14 +670,15 @@ Generate these required fields:
 - typography: primaryColor (string), secondaryColor (string), linkColor (string)
 
 2. THOUGHTSPOT EMBEDDED CONTENT CSS VARIABLES (for charts/dashboards):
-Generate these required CSS variables with appropriate colors matching the style description:
+Generate these required CSS variables with appropriate colors matching the style description.
+CRITICAL: Include ALL visualization colors for charts - this is MANDATORY:
 - "--ts-var-root-color": Main text color
 - "--ts-var-root-background": Main background color
 - "--ts-var-root-font-family": Font family (e.g. "Inter, sans-serif")
 - "--ts-var-nav-background": Navigation panel background
 - "--ts-var-nav-color": Navigation panel text color
 - "--ts-var-button--primary-color": Primary button text color
-- "--ts-var-button--primary-background": Primary button background
+- "--ts-var-button--primary-background": Primary button background (MUST be a vibrant, professional color)
 - "--ts-var-button--primary--hover-background": Primary button hover background
 - "--ts-var-button--secondary-color": Secondary button text color
 - "--ts-var-button--secondary-background": Secondary button background
@@ -636,11 +701,27 @@ Generate these required CSS variables with appropriate colors matching the style
 - "--ts-var-dialog-body-background": Dialog body background
 - "--ts-var-dialog-body-color": Dialog body text color
 
+VISUALIZATION COLORS (MANDATORY - MUST include ALL of these):
+- "--ts-var-viz-color-1": First chart color (vibrant, professional)
+- "--ts-var-viz-color-2": Second chart color
+- "--ts-var-viz-color-3": Third chart color
+- "--ts-var-viz-color-4": Fourth chart color
+- "--ts-var-viz-color-5": Fifth chart color
+- "--ts-var-viz-color-6": Sixth chart color
+- "--ts-var-viz-color-7": Seventh chart color
+- "--ts-var-viz-color-8": Eighth chart color
+- "--ts-var-viz-color-9": Ninth chart color
+- "--ts-var-viz-color-10": Tenth chart color
+
+These visualization colors should form a cohesive palette that works well together for data visualizations.
+
 Requirements:
 1. ALL colors MUST be valid hex codes (e.g. #1e3a8a, #22c55e, #000000, #ffffff)
 2. Ensure good contrast and accessibility
 3. Keep colors consistent between application and embedded content
 4. Make the styling cohesive and professional
+5. Visualization colors MUST form a cohesive, professional palette for data charts
+6. Button colors should be vibrant and actionable
 
 CRITICAL: You MUST return a JSON object with EXACTLY this structure (all fields are required):
 {
@@ -673,8 +754,6 @@ CRITICAL: You MUST return a JSON object with EXACTLY this structure (all fields 
     "--ts-var-viz-title-color": "#hex",
     "--ts-var-viz-description-color": "#hex",
     "--ts-var-viz-background": "#hex",
-    "--ts-var-viz-title-color": "#hex",
-    "--ts-var-viz-description-color": "#hex",
     "--ts-var-viz-border-radius": "8px",
     "--ts-var-chip-color": "#hex",
     "--ts-var-chip-background": "#hex",
@@ -684,7 +763,17 @@ CRITICAL: You MUST return a JSON object with EXACTLY this structure (all fields 
     "--ts-var-dialog-header-background": "#hex",
     "--ts-var-dialog-header-color": "#hex",
     "--ts-var-dialog-body-background": "#hex",
-    "--ts-var-dialog-body-color": "#hex"
+    "--ts-var-dialog-body-color": "#hex",
+    "--ts-var-viz-color-1": "#hex",
+    "--ts-var-viz-color-2": "#hex",
+    "--ts-var-viz-color-3": "#hex",
+    "--ts-var-viz-color-4": "#hex",
+    "--ts-var-viz-color-5": "#hex",
+    "--ts-var-viz-color-6": "#hex",
+    "--ts-var-viz-color-7": "#hex",
+    "--ts-var-viz-color-8": "#hex",
+    "--ts-var-viz-color-9": "#hex",
+    "--ts-var-viz-color-10": "#hex"
   }
 }
 
@@ -807,6 +896,16 @@ Return ONLY the JSON object, no additional text or explanation.`;
         "--ts-var-dialog-header-color": "#1f2937",
         "--ts-var-dialog-body-background": "#ffffff",
         "--ts-var-dialog-body-color": "#1f2937",
+        "--ts-var-viz-color-1": "#3182ce",
+        "--ts-var-viz-color-2": "#10b981",
+        "--ts-var-viz-color-3": "#f59e0b",
+        "--ts-var-viz-color-4": "#8b5cf6",
+        "--ts-var-viz-color-5": "#ef4444",
+        "--ts-var-viz-color-6": "#06b6d4",
+        "--ts-var-viz-color-7": "#f97316",
+        "--ts-var-viz-color-8": "#ec4899",
+        "--ts-var-viz-color-9": "#84cc16",
+        "--ts-var-viz-color-10": "#6366f1",
       },
     };
   }

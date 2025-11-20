@@ -5892,126 +5892,134 @@ function ConfigurationContent({
       let hasAIContent = false;
       const aiErrors: string[] = [];
 
-      // Generate home page content if description provided
-      if (
-        wizardConfig.homePageDescription &&
-        wizardConfig.homePageDescription.trim()
-      ) {
-        console.log("Generating home page content with AI...");
-        try {
-          const response = await fetch("/api/anthropic/generate-home-page", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              description: wizardConfig.homePageDescription,
-            }),
-          });
+      // ALWAYS generate style configuration FIRST (using app name if no description)
+      console.log("Generating style configuration with AI...");
+      try {
+        const response = await fetch("/api/anthropic/generate-style", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description: wizardConfig.styleDescription || "",
+            applicationName: wizardConfig.applicationName,
+          }),
+        });
 
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || "Failed to generate home page");
-          }
-
-          const data = await response.json();
-          homePageHTML = data.html;
-          console.log(
-            "Successfully generated home page content, length:",
-            homePageHTML.length
-          );
-          hasAIContent = true;
-        } catch (error) {
-          console.error("Failed to generate home page content:", error);
-          const errorMsg = `Home page generation failed: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`;
-          aiErrors.push(errorMsg);
-          alert(
-            errorMsg +
-              "\n\nUsing default home page instead. Please check that your Anthropic API key is configured.\n\nFor local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || "Failed to generate style configuration"
           );
         }
+
+        const data = await response.json();
+        console.log("Raw API response:", JSON.stringify(data, null, 2));
+
+        embeddedContentVariables = data.embeddedContentVariables || {};
+        applicationStyles = data.applicationStyles || null;
+
+        console.log("AFTER ASSIGNMENT:");
+        console.log(
+          "- embeddedContentVariables:",
+          Object.keys(embeddedContentVariables).length,
+          "keys"
+        );
+        console.log(
+          "- applicationStyles:",
+          applicationStyles ? "PRESENT" : "NULL"
+        );
+
+        if (Object.keys(embeddedContentVariables).length === 0) {
+          console.error(
+            "ERROR: embeddedContentVariables is empty after assignment!"
+          );
+        }
+        if (!applicationStyles) {
+          console.error("ERROR: applicationStyles is null after assignment!");
+        }
+
+        console.log(
+          "Successfully generated style configuration:",
+          Object.keys(embeddedContentVariables).length,
+          "embedded variables,",
+          applicationStyles
+            ? "application styles included"
+            : "no application styles"
+        );
+        console.log(
+          "Embedded content variables:",
+          JSON.stringify(embeddedContentVariables, null, 2)
+        );
+        if (applicationStyles) {
+          console.log(
+            "Application styles:",
+            JSON.stringify(applicationStyles, null, 2)
+          );
+        } else {
+          console.warn("WARNING: No application styles were generated!");
+        }
+        hasAIContent = true;
+      } catch (error) {
+        console.error("Failed to generate style configuration:", error);
+        const errorMsg = `Style generation failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`;
+        aiErrors.push(errorMsg);
+        alert(
+          errorMsg +
+            "\n\nUsing default styles instead. Please check that your Anthropic API key is configured.\n\nFor local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
+        );
       }
 
-      // Generate style configuration if description provided
-      if (
-        wizardConfig.styleDescription &&
-        wizardConfig.styleDescription.trim()
-      ) {
-        console.log("Generating style configuration with AI...");
-        try {
-          const response = await fetch("/api/anthropic/generate-style", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              description: wizardConfig.styleDescription,
-            }),
-          });
+      // Generate home page content AFTER styles so we can use the same colors
+      console.log(
+        "Generating home page content with AI using generated style colors..."
+      );
+      try {
+        // Extract key colors from generated styles to pass to home page generation
+        const styleColors = {
+          primaryColor:
+            applicationStyles?.buttons?.primary?.backgroundColor ||
+            embeddedContentVariables["--ts-var-button--primary-background"],
+          secondaryColor: applicationStyles?.sidebar?.backgroundColor,
+          accentColor: embeddedContentVariables["--ts-var-viz-color-1"],
+          backgroundColor: applicationStyles?.backgrounds?.mainBackground,
+          textColor: applicationStyles?.typography?.primaryColor,
+        };
 
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(
-              errorData.error || "Failed to generate style configuration"
-            );
-          }
+        console.log("Using style colors for home page:", styleColors);
 
-          const data = await response.json();
-          console.log("Raw API response:", JSON.stringify(data, null, 2));
+        const response = await fetch("/api/anthropic/generate-home-page", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description: wizardConfig.homePageDescription || "",
+            applicationName: wizardConfig.applicationName,
+            styleColors: styleColors,
+          }),
+        });
 
-          embeddedContentVariables = data.embeddedContentVariables || {};
-          applicationStyles = data.applicationStyles || null;
-
-          console.log("AFTER ASSIGNMENT:");
-          console.log(
-            "- embeddedContentVariables:",
-            Object.keys(embeddedContentVariables).length,
-            "keys"
-          );
-          console.log(
-            "- applicationStyles:",
-            applicationStyles ? "PRESENT" : "NULL"
-          );
-
-          if (Object.keys(embeddedContentVariables).length === 0) {
-            console.error(
-              "ERROR: embeddedContentVariables is empty after assignment!"
-            );
-          }
-          if (!applicationStyles) {
-            console.error("ERROR: applicationStyles is null after assignment!");
-          }
-
-          console.log(
-            "Successfully generated style configuration:",
-            Object.keys(embeddedContentVariables).length,
-            "embedded variables,",
-            applicationStyles
-              ? "application styles included"
-              : "no application styles"
-          );
-          console.log(
-            "Embedded content variables:",
-            JSON.stringify(embeddedContentVariables, null, 2)
-          );
-          if (applicationStyles) {
-            console.log(
-              "Application styles:",
-              JSON.stringify(applicationStyles, null, 2)
-            );
-          } else {
-            console.warn("WARNING: No application styles were generated!");
-          }
-          hasAIContent = true;
-        } catch (error) {
-          console.error("Failed to generate style configuration:", error);
-          const errorMsg = `Style generation failed: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`;
-          aiErrors.push(errorMsg);
-          alert(
-            errorMsg +
-              "\n\nUsing default styles instead. Please check that your Anthropic API key is configured.\n\nFor local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
-          );
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to generate home page");
         }
+
+        const data = await response.json();
+        homePageHTML = data.html;
+        console.log(
+          "Successfully generated home page content with matching colors, length:",
+          homePageHTML.length
+        );
+        hasAIContent = true;
+      } catch (error) {
+        console.error("Failed to generate home page content:", error);
+        const errorMsg = `Home page generation failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`;
+        aiErrors.push(errorMsg);
+        alert(
+          errorMsg +
+            "\n\nUsing default home page instead. Please check that your Anthropic API key is configured.\n\nFor local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
+        );
       }
 
       if (hasAIContent && aiErrors.length === 0) {

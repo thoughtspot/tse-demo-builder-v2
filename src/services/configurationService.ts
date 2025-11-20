@@ -27,8 +27,9 @@ export const DEFAULT_CONFIG: ConfigurationData = {
       enabled: true,
       icon: "home",
       homePageType: "html",
-      homePageValue: "<h1>Welcome to TSE Demo Builder</h1>",
-      homePageBackgroundColor: "#f7fafc",
+      homePageValue:
+        "<div style=\"display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 0;\"><div style=\"text-align: center; padding: 60px 40px; background: rgba(255, 255, 255, 0.95); border-radius: 24px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); max-width: 800px; margin: 20px;\"><h1 style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 48px; font-weight: 700; margin: 0 0 20px 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -0.02em;\">Welcome to TSE Demo Builder</h1><p style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 20px; color: #4a5568; margin: 0; line-height: 1.6; font-weight: 400;\">Build and customize your ThoughtSpot embedded demos with ease</p></div></div>",
+      homePageBackgroundColor: "#667eea",
       homePageMaintainAspectRatio: true,
     },
     {
@@ -93,8 +94,9 @@ export const DEFAULT_CONFIG: ConfigurationData = {
   ],
   homePageConfig: {
     type: "html",
-    value: "<h1>Welcome to TSE Demo Builder</h1>",
-    backgroundColor: "#f7fafc",
+    value:
+      "<div style=\"display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 0;\"><div style=\"text-align: center; padding: 60px 40px; background: rgba(255, 255, 255, 0.95); border-radius: 24px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); max-width: 800px; margin: 20px;\"><h1 style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 48px; font-weight: 700; margin: 0 0 20px 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -0.02em;\">Welcome to TSE Demo Builder</h1><p style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 20px; color: #4a5568; margin: 0; line-height: 1.6; font-weight: 400;\">Build and customize your ThoughtSpot embedded demos with ease</p></div></div>",
+    backgroundColor: "#667eea",
     maintainAspectRatio: true,
   },
   appConfig: {

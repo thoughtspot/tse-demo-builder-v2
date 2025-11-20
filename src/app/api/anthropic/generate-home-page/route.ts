@@ -3,23 +3,27 @@ import { generateHomePageContent } from "../../../../services/anthropicService";
 
 export async function POST(request: NextRequest) {
   try {
-    const { description } = await request.json();
+    const { description, applicationName, styleColors } = await request.json();
 
     console.log(
       "Generate Home Page API - Description length:",
-      description?.length
+      description?.length || 0
     );
+    console.log(
+      "Generate Home Page API - Application name:",
+      applicationName || "Not provided"
+    );
+    console.log(
+      "Generate Home Page API - Style colors provided:",
+      !!styleColors
+    );
+    if (styleColors) {
+      console.log("Generate Home Page API - Colors:", styleColors);
+    }
     console.log(
       "Generate Home Page API - Has API key:",
       !!process.env.ANTHROPIC_API_KEY
     );
-
-    if (!description || !description.trim()) {
-      return NextResponse.json(
-        { error: "Description is required" },
-        { status: 400 }
-      );
-    }
 
     // Check if API key is available
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -36,7 +40,9 @@ export async function POST(request: NextRequest) {
 
     console.log("Calling generateHomePageContent...");
     const html = await generateHomePageContent(
-      description,
+      description || "",
+      applicationName,
+      styleColors,
       process.env.ANTHROPIC_API_KEY
     );
 

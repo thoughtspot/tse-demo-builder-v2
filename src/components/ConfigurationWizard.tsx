@@ -319,27 +319,19 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
         customMenus: customMenus.length > 0 ? customMenus : undefined,
       };
 
-      // Show different messages if AI generation will be used
-      const willUseAI =
-        (homePageDescription && homePageDescription.trim()) ||
-        (styleDescription && styleDescription.trim());
-
-      if (willUseAI) {
-        setProcessingMessage("Calling AI to generate content and styles...");
-        setProcessingProgress(30);
-        console.log("Wizard: Configuration includes AI generation requests");
-      } else {
-        setProcessingMessage("Configuration ready!");
-        setProcessingProgress(100);
-      }
+      // AI generation is always used to create home page and styles
+      setProcessingMessage("Generating custom home page and styles with AI...");
+      setProcessingProgress(30);
+      console.log(
+        "Wizard: Generating home page and styles for",
+        applicationName
+      );
 
       // Call onComplete and let the parent handle AI generation
       await onComplete(config);
 
-      if (willUseAI) {
-        setProcessingMessage("AI generation complete!");
-        setProcessingProgress(100);
-      }
+      setProcessingMessage("AI generation complete!");
+      setProcessingProgress(100);
 
       // Small delay to show completion
       await new Promise((resolve) => setTimeout(resolve, 500));
