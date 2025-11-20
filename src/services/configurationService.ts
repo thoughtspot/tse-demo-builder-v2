@@ -107,6 +107,7 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     chatbot: {
       enabled: true,
       defaultModelId: undefined,
+      selectedModelIds: [],
       welcomeMessage:
         "Hello! I'm your AI assistant. What would you like to know about your data?",
       position: "bottom-right",

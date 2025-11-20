@@ -163,11 +163,30 @@ export class ConversationManager {
     // Find the best model to use
     let modelToUse: ThoughtSpotContent | null = null;
 
-    // If a preferred model is provided (for follow-up questions), use it
-    if (preferredModel && availableModelIds.includes(preferredModel.id)) {
+    // PRIORITY 1: If we already have an active model from this conversation, keep using it
+    if (this.activeModelId) {
+      const activeModel = this.context.availableModels.find(
+        (m) => m.id === this.activeModelId && availableModelIds.includes(m.id)
+      );
+      if (activeModel) {
+        modelToUse = activeModel;
+        console.log("Using active model from conversation:", activeModel.name);
+      }
+    }
+
+    // PRIORITY 2: If a preferred model is provided (from smart selection), use it
+    if (
+      !modelToUse &&
+      preferredModel &&
+      availableModelIds.includes(preferredModel.id)
+    ) {
       modelToUse = preferredModel;
       console.log("Using preferred model for follow-up:", preferredModel.name);
-    } else if (
+    }
+
+    // PRIORITY 3: Use the classification's suggested model
+    if (
+      !modelToUse &&
       suggestedModelId &&
       availableModelIds.includes(suggestedModelId)
     ) {
@@ -176,8 +195,8 @@ export class ConversationManager {
         null;
     }
 
+    // PRIORITY 4: Use the first available model if no specific suggestion
     if (!modelToUse && availableModelIds.length > 0) {
-      // Use the first available model if no specific suggestion
       modelToUse =
         this.context.availableModels.find(
           (m) => m.id === availableModelIds[0]
@@ -190,6 +209,10 @@ export class ConversationManager {
       );
       return;
     }
+
+    // Set this as the active model for the conversation
+    this.activeModelId = modelToUse.id;
+    console.log("Active model set to:", modelToUse.name, "ID:", modelToUse.id);
 
     // Get or create conversation for this model
     let conversation = this.context.activeConversations.get(modelToUse.id);
