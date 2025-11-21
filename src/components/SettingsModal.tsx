@@ -4652,6 +4652,7 @@ function StylingContent({
                       display: "flex",
                       alignItems: "center",
                       gap: "8px",
+                      marginBottom: "8px",
                     }}
                   >
                     <MaterialIcon
@@ -4662,6 +4663,25 @@ function StylingContent({
                       {generationError}
                     </span>
                   </div>
+                  <button
+                    onClick={handleGenerateStyle}
+                    style={{
+                      padding: "6px 12px",
+                      backgroundColor: "#ef4444",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      fontWeight: "500",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                  >
+                    <MaterialIcon icon="refresh" style={{ fontSize: "16px" }} />
+                    Try Again
+                  </button>
                 </div>
               )}
 
@@ -4683,23 +4703,47 @@ function StylingContent({
                       gap: "12px",
                     }}
                   >
-                    <MaterialIcon
-                      icon="autorenew"
-                      style={{
-                        fontSize: "24px",
-                        color: "#3b82f6",
-                        animation: "spin 1s linear infinite",
-                      }}
-                    />
                     <div>
                       <div
                         style={{
                           color: "#1e40af",
                           fontSize: "14px",
                           fontWeight: "500",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
                         }}
                       >
-                        Generating styles...
+                        <span>Generating styles</span>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            gap: "2px",
+                            letterSpacing: "2px",
+                          }}
+                        >
+                          <span
+                            style={{
+                              animation: "pulse 1.4s ease-in-out infinite",
+                            }}
+                          >
+                            •
+                          </span>
+                          <span
+                            style={{
+                              animation: "pulse 1.4s ease-in-out 0.2s infinite",
+                            }}
+                          >
+                            •
+                          </span>
+                          <span
+                            style={{
+                              animation: "pulse 1.4s ease-in-out 0.4s infinite",
+                            }}
+                          >
+                            •
+                          </span>
+                        </span>
                       </div>
                       <div
                         style={{
@@ -4776,13 +4820,7 @@ function StylingContent({
               >
                 {isGeneratingStyle ? (
                   <>
-                    <MaterialIcon
-                      icon="autorenew"
-                      style={{
-                        fontSize: "18px",
-                        animation: "spin 1s linear infinite",
-                      }}
-                    />
+                    <span>Updating</span>
                     <span
                       style={{
                         display: "inline-flex",
@@ -5858,6 +5896,27 @@ function ConfigurationContent({
     try {
       console.log("Wizard configuration:", wizardConfig);
 
+      // IMPORTANT: Load current configuration to preserve existing users
+      const { loadAllConfigurations } = await import(
+        "../services/configurationService"
+      );
+      const currentConfig = await loadAllConfigurations();
+      console.log("Wizard: Loaded current configuration:", {
+        hasUsers: !!currentConfig.userConfig?.users,
+        usersCount: currentConfig.userConfig?.users?.length || 0,
+        users: currentConfig.userConfig?.users?.map(
+          (u: {
+            id: string;
+            name: string;
+            access?: { customMenus?: string[] };
+          }) => ({
+            id: u.id,
+            name: u.name,
+            customMenusCount: u.access?.customMenus?.length || 0,
+          })
+        ),
+      });
+
       // Generate AI content if descriptions provided
       let homePageHTML =
         DEFAULT_CONFIG.standardMenus.find((m) => m.id === "home")
@@ -5964,10 +6023,21 @@ function ConfigurationContent({
           error instanceof Error ? error.message : "Unknown error"
         }`;
         aiErrors.push(errorMsg);
-        alert(
+
+        // Show error message with option to retry or continue
+        const continueWithDefault = confirm(
           errorMsg +
-            "\n\nUsing default styles instead. Please check that your Anthropic API key is configured.\n\nFor local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
+            "\n\nWould you like to continue with default styles?\n\n" +
+            "Click OK to continue with default styles.\n" +
+            "Click Cancel to abort the configuration wizard and try again.\n\n" +
+            "Note: Make sure your Anthropic API key is configured correctly.\n" +
+            "For local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
         );
+
+        if (!continueWithDefault) {
+          // User wants to abort and try again
+          throw new Error("Configuration cancelled by user");
+        }
       }
 
       // Generate home page content AFTER styles so we can use the same colors
@@ -6016,10 +6086,21 @@ function ConfigurationContent({
           error instanceof Error ? error.message : "Unknown error"
         }`;
         aiErrors.push(errorMsg);
-        alert(
+
+        // Show error message with option to retry or continue
+        const continueWithDefault = confirm(
           errorMsg +
-            "\n\nUsing default home page instead. Please check that your Anthropic API key is configured.\n\nFor local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
+            "\n\nWould you like to continue with the default home page?\n\n" +
+            "Click OK to continue with default home page.\n" +
+            "Click Cancel to abort the configuration wizard and try again.\n\n" +
+            "Note: Make sure your Anthropic API key is configured correctly.\n" +
+            "For local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
         );
+
+        if (!continueWithDefault) {
+          // User wants to abort and try again
+          throw new Error("Configuration cancelled by user");
+        }
       }
 
       if (hasAIContent && aiErrors.length === 0) {
@@ -6051,8 +6132,18 @@ function ConfigurationContent({
       console.log("================================================");
 
       // Create new configuration
+      // IMPORTANT: Use existing userConfig to preserve current users and their settings
+      console.log("Wizard: Creating newConfig - currentConfig.userConfig:", {
+        hasUserConfig: !!currentConfig.userConfig,
+        hasUsers: !!currentConfig.userConfig?.users,
+        usersCount: currentConfig.userConfig?.users?.length || 0,
+        usersData: currentConfig.userConfig?.users,
+      });
+
       const newConfig: ConfigurationData = {
         ...DEFAULT_CONFIG,
+        // Preserve existing userConfig instead of using DEFAULT_CONFIG's empty users
+        userConfig: currentConfig.userConfig || DEFAULT_CONFIG.userConfig,
         appConfig: {
           ...DEFAULT_CONFIG.appConfig,
           thoughtspotUrl: wizardConfig.thoughtspotUrl,
@@ -6230,16 +6321,7 @@ function ConfigurationContent({
         JSON.stringify(newConfig.stylingConfig, null, 2)
       );
 
-      // Clear current configuration and save new one
-      await clearAllConfigurations?.();
-
-      // Small delay to ensure clear completes
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Save the new configuration
-      await saveAllConfigurations(newConfig);
-
-      // Add custom menus if provided
+      // Add custom menus to configuration BEFORE saving
       if (wizardConfig.customMenus && wizardConfig.customMenus.length > 0) {
         console.log(
           "Wizard: Custom menu configurations detected:",
@@ -6247,18 +6329,47 @@ function ConfigurationContent({
         );
 
         const customMenusData: CustomMenu[] = wizardConfig.customMenus.map(
-          (menu, index) => ({
-            id: `custom-${Date.now()}-${index}`,
-            name: menu.name,
-            description: "",
-            icon: menu.icon,
-            enabled: true,
-            contentSelection: {
-              type: menu.type,
-              tagIdentifiers: menu.tagIdentifiers,
-              directEmbed: menu.directEmbed,
-            },
-          })
+          (menu, index) => {
+            console.log(
+              `Wizard: Processing custom menu ${index + 1}:`,
+              JSON.stringify(menu, null, 2)
+            );
+
+            // Build contentSelection based on menu type
+            const contentSelection: CustomMenu["contentSelection"] =
+              menu.type === "tag"
+                ? {
+                    type: "tag",
+                    tagIdentifiers: menu.tagIdentifiers || [],
+                  }
+                : menu.type === "direct"
+                ? {
+                    type: "direct",
+                    directEmbed: menu.directEmbed,
+                  }
+                : {
+                    // Fallback to specific type (shouldn't happen)
+                    type: "specific",
+                    specificContent: {
+                      liveboards: [],
+                      answers: [],
+                    },
+                  };
+
+            console.log(
+              `Wizard: Content selection for menu ${index + 1}:`,
+              JSON.stringify(contentSelection, null, 2)
+            );
+
+            return {
+              id: `custom-${Date.now()}-${index}`,
+              name: menu.name,
+              description: "",
+              icon: menu.icon,
+              enabled: true,
+              contentSelection,
+            };
+          }
         );
 
         console.log(
@@ -6266,44 +6377,109 @@ function ConfigurationContent({
           JSON.stringify(customMenusData, null, 2)
         );
 
-        // Save custom menus to storage directly
-        try {
-          const existingCustomMenus = JSON.parse(
-            localStorage.getItem("tse-custom-menus") || "[]"
-          );
+        // Add custom menus to the configuration
+        newConfig.customMenus = customMenusData;
+
+        // Also update menu order to include custom menu IDs
+        const customMenuIds = customMenusData.map((m) => m.id);
+        newConfig.menuOrder = [...newConfig.menuOrder, ...customMenuIds];
+
+        // DEBUG: Check userConfig state before updating
+        console.log("Wizard: DEBUG - Checking userConfig before update:", {
+          hasUserConfig: !!newConfig.userConfig,
+          hasUsers: !!newConfig.userConfig?.users,
+          usersCount: newConfig.userConfig?.users?.length || 0,
+          usersArray: newConfig.userConfig?.users,
+          currentUserId: newConfig.userConfig?.currentUserId,
+        });
+
+        // IMPORTANT: Add custom menu IDs to all users' access configuration
+        // so they appear in the navigation
+        if (
+          newConfig.userConfig &&
+          newConfig.userConfig.users &&
+          newConfig.userConfig.users.length > 0
+        ) {
+          console.log("Wizard: BEFORE updating user access:");
+          newConfig.userConfig.users.forEach((u, index) => {
+            console.log(`  User ${index + 1} (${u.id}):`, {
+              name: u.name,
+              currentCustomMenus: u.access?.customMenus || [],
+            });
+          });
+
+          newConfig.userConfig = {
+            ...newConfig.userConfig,
+            users: newConfig.userConfig.users.map((user) => ({
+              ...user,
+              access: {
+                ...user.access,
+                customMenus: [
+                  ...(user.access?.customMenus || []),
+                  ...customMenuIds,
+                ],
+              },
+            })),
+          };
+
+          console.log("Wizard: AFTER updating user access:");
+          newConfig.userConfig.users.forEach((u, index) => {
+            console.log(`  User ${index + 1} (${u.id}):`, {
+              name: u.name,
+              updatedCustomMenus: u.access?.customMenus || [],
+            });
+          });
           console.log(
-            "Wizard: Existing custom menus:",
-            existingCustomMenus.length
+            "Wizard: Updated user access configurations to include new custom menus:",
+            customMenuIds
           );
-
-          const allCustomMenus = [...existingCustomMenus, ...customMenusData];
-          localStorage.setItem(
-            "tse-custom-menus",
-            JSON.stringify(allCustomMenus)
-          );
-
-          console.log(
-            "Wizard: Custom menus saved to localStorage. Total custom menus:",
-            allCustomMenus.length
-          );
-
-          // Also try to use addCustomMenu if available
-          if (addCustomMenu) {
-            console.log(
-              "Wizard: addCustomMenu function is available, adding menus"
-            );
-            for (const customMenuData of customMenusData) {
-              addCustomMenu(customMenuData);
+        } else {
+          console.error(
+            "Wizard: WARNING - userConfig or userConfig.users is missing!",
+            {
+              hasUserConfig: !!newConfig.userConfig,
+              hasUsers: !!newConfig.userConfig?.users,
+              usersCount: newConfig.userConfig?.users?.length || 0,
             }
-          } else {
-            console.warn("Wizard: addCustomMenu function not available");
-          }
-        } catch (error) {
-          console.error("Wizard: Error saving custom menus:", error);
+          );
         }
+
+        console.log(
+          "Wizard: Added custom menus to configuration. Total custom menus:",
+          newConfig.customMenus.length
+        );
+        console.log("Wizard: Updated menu order:", newConfig.menuOrder);
       } else {
         console.log("Wizard: No custom menus in wizard configuration");
       }
+
+      // Clear current configuration and save new one
+      // Set importing flag to prevent Layout from auto-saving during this process
+      const { setIsImportingConfiguration } = await import(
+        "../services/configurationService"
+      );
+      setIsImportingConfiguration(true);
+
+      await clearAllConfigurations?.();
+
+      // Small delay to ensure clear completes
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Save the new configuration (including custom menus)
+      console.log("==== WIZARD: FINAL SAVE DEBUG ====");
+      console.log("Custom Menus Count:", newConfig.customMenus?.length || 0);
+      console.log(
+        "Custom Menu IDs:",
+        newConfig.customMenus?.map((m) => m.id)
+      );
+      console.log("Users Count:", newConfig.userConfig?.users?.length || 0);
+      console.log(
+        "Full userConfig being saved:",
+        JSON.stringify(newConfig.userConfig, null, 2)
+      );
+      console.log("==================================");
+
+      await saveAllConfigurations(newConfig);
 
       setImportStatus({
         message: "Configuration created successfully! Reloading...",

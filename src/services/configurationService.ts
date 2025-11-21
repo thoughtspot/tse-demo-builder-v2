@@ -412,6 +412,10 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
         currentUserId: parsed.userConfig?.currentUserId,
       });
       console.log(
+        "[ConfigService] RAW parsed.userConfig.users from localStorage:",
+        JSON.stringify(parsed.userConfig?.users, null, 2)
+      );
+      console.log(
         "Loaded iconSpriteUrl from localStorage:",
         parsed.stylingConfig?.embeddedContent?.iconSpriteUrl
       );
@@ -518,6 +522,12 @@ const saveToStorage = async (config: ConfigurationData): Promise<void> => {
       hasUsers: !!config.userConfig?.users,
       usersCount: config.userConfig?.users?.length || 0,
       currentUserId: config.userConfig?.currentUserId,
+      customMenusCount: config.customMenus?.length || 0,
+      userCustomMenuAccess: config.userConfig?.users?.map((u) => ({
+        userId: u.id,
+        userName: u.name,
+        customMenusAccess: u.access?.customMenus || [],
+      })),
       isLarge,
     });
 
@@ -535,6 +545,13 @@ const saveToStorage = async (config: ConfigurationData): Promise<void> => {
     } else {
       // Save to localStorage for small configurations
       const serializedValue = JSON.stringify(config);
+
+      // Debug: Log what we're writing to localStorage
+      console.log(
+        "[saveToStorage] WRITING to localStorage - userConfig.users:",
+        JSON.stringify(config.userConfig.users, null, 2)
+      );
+
       localStorage.setItem(STORAGE_KEY, serializedValue);
 
       // Remove from IndexedDB if it exists there
@@ -741,6 +758,17 @@ export const saveStylingConfig = async (
   try {
     const currentConfig = await loadFromStorage();
 
+    // Debug: Log what was loaded
+    console.log("[saveStylingConfig] LOADED currentConfig.userConfig:", {
+      hasUsers: !!currentConfig.userConfig?.users,
+      usersCount: currentConfig.userConfig?.users?.length || 0,
+      customMenus:
+        currentConfig.userConfig?.users?.map((u) => ({
+          id: u.id,
+          customMenus: u.access?.customMenus || [],
+        })) || [],
+    });
+
     // Check if stylingConfig has actually changed
     const hasChanged =
       JSON.stringify(currentConfig.stylingConfig) !==
@@ -775,6 +803,18 @@ export const saveStylingConfig = async (
       "saveStylingConfig: About to save updatedConfig with iconSpriteUrl:",
       updatedConfig.stylingConfig.embeddedContent?.iconSpriteUrl
     );
+
+    // Debug: Log what we're about to save
+    console.log("[saveStylingConfig] ABOUT TO SAVE updatedConfig.userConfig:", {
+      hasUsers: !!updatedConfig.userConfig?.users,
+      usersCount: updatedConfig.userConfig?.users?.length || 0,
+      customMenus:
+        updatedConfig.userConfig?.users?.map((u) => ({
+          id: u.id,
+          customMenus: u.access?.customMenus || [],
+        })) || [],
+    });
+
     await saveToStorage(updatedConfig);
     console.log("saveStylingConfig: Configuration saved successfully");
 

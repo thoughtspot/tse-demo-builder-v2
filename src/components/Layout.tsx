@@ -634,6 +634,14 @@ export default function Layout({ children }: LayoutProps) {
             "Loaded currentUserId:",
             configs.userConfig.currentUserId
           );
+          console.log(
+            "[Layout] IMMEDIATELY after loadConfiguration, userConfig.users:",
+            configs.userConfig.users?.map((u) => ({
+              id: u.id,
+              name: u.name,
+              customMenus: u.access?.customMenus || [],
+            })) || []
+          );
           if (
             !configs.userConfig.users ||
             configs.userConfig.users.length === 0
@@ -700,6 +708,14 @@ export default function Layout({ children }: LayoutProps) {
               "Setting userConfig from loaded config, currentUserId:",
               configs.userConfig.currentUserId
             );
+            console.log("[Layout] LOADED userConfig detail:", {
+              users:
+                configs.userConfig.users?.map((u) => ({
+                  id: u.id,
+                  name: u.name,
+                  customMenus: u.access?.customMenus || [],
+                })) || [],
+            });
             setUserConfig(configs.userConfig);
           }
         });
@@ -2267,12 +2283,61 @@ export default function Layout({ children }: LayoutProps) {
   //   });
   // }
 
+  // Debug: Log userConfig users before filtering
+  if (process.env.NODE_ENV === "development" && customMenus.length > 0) {
+    console.log("[Layout] BEFORE filtering - userConfig state:", {
+      hasUsers: !!userConfig.users,
+      usersCount: userConfig.users?.length || 0,
+      currentUserId: userConfig.currentUserId,
+      allUsers:
+        userConfig.users?.map((u) => ({
+          id: u.id,
+          name: u.name,
+          customMenus: u.access?.customMenus || [],
+        })) || [],
+    });
+    // Log the raw userConfig.users to see actual structure
+    console.log(
+      "[Layout] RAW userConfig.users:",
+      JSON.stringify(userConfig.users, null, 2)
+    );
+  }
+
   const accessibleCustomMenus = customMenus.filter((menu) => {
     const currentUser = userConfig.users.find(
       (u) => u.id === userConfig.currentUserId
     );
+
+    // Debug logging
+    if (process.env.NODE_ENV === "development") {
+      console.log("[Layout] Filtering custom menu:", {
+        menuId: menu.id,
+        menuName: menu.name,
+        currentUserId: userConfig.currentUserId,
+        currentUser: currentUser
+          ? {
+              id: currentUser.id,
+              name: currentUser.name,
+              access: currentUser.access,
+            }
+          : null,
+        userCustomMenuAccess: currentUser?.access?.customMenus || [],
+        hasAccess: currentUser?.access?.customMenus?.includes(menu.id) || false,
+      });
+    }
+
     return currentUser?.access?.customMenus?.includes(menu.id);
   });
+
+  // Debug: Log final accessible custom menus
+  if (process.env.NODE_ENV === "development" && customMenus.length > 0) {
+    console.log("[Layout] Custom menus filtering complete:", {
+      totalCustomMenus: customMenus.length,
+      accessibleCustomMenus: accessibleCustomMenus.length,
+      customMenuIds: customMenus.map((m) => m.id),
+      accessibleIds: accessibleCustomMenus.map((m) => m.id),
+    });
+  }
 
   const contextValue: AppContextType = {
     homePageConfig,
