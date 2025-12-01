@@ -54,6 +54,7 @@ export default function FullAppPage() {
         // Get custom CSS configuration from styling config
         const customCSS = stylingConfig.embeddedContent.customCSS;
         const cssUrl = stylingConfig.embeddedContent.cssUrl;
+        const iconSpriteUrl = stylingConfig.embeddedContent.iconSpriteUrl;
         const strings = stylingConfig.embeddedContent.strings;
         const stringIDs = stylingConfig.embeddedContent.stringIDs;
 
@@ -86,6 +87,7 @@ export default function FullAppPage() {
           ...filteredAppEmbedFlags,
           ...(hiddenActions.length > 0 && { hiddenActions }),
           customizations: {
+            iconSpriteUrl: iconSpriteUrl || undefined,
             content: {
               strings: strings || {},
               stringIDs: stringIDs || {},
@@ -135,6 +137,7 @@ export default function FullAppPage() {
     fullAppConfig.hideHomepageLeftNav,
     stylingConfig.embeddedContent.customCSS,
     stylingConfig.embeddedContent.cssUrl,
+    stylingConfig.embeddedContent.iconSpriteUrl,
     stylingConfig.embeddedContent.strings,
     stylingConfig.embeddedContent.stringIDs,
     userConfig.currentUserId,

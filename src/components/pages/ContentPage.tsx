@@ -19,6 +19,8 @@ interface ContentPageProps {
 interface AllContentConfig {
   contentType?: "answer" | "liveboard";
   excludeSystemContent?: boolean;
+  namePattern?: string;
+  tagFilter?: string;
 }
 
 interface FavoritesConfig {
@@ -70,6 +72,8 @@ export default function ContentPage({
         contentType:
           selectedContentType === "all" ? undefined : selectedContentType,
         excludeSystemContent: menu.excludeSystemContent || false,
+        namePattern: menu.namePattern,
+        tagFilter: menu.tagFilter,
       };
       fetchProp = { fetchAllContent: true, allContentConfig: config };
     } else if (pageType === "favorites") {

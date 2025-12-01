@@ -233,8 +233,14 @@ export default function ThoughtSpotEmbed({
         // Get custom CSS configuration from styling config
         const customCSS = context.stylingConfig.embeddedContent.customCSS;
         const cssUrl = context.stylingConfig.embeddedContent.cssUrl;
+        const iconSpriteUrl =
+          context.stylingConfig.embeddedContent.iconSpriteUrl;
         const strings = context.stylingConfig.embeddedContent.strings;
         const stringIDs = context.stylingConfig.embeddedContent.stringIDs;
+
+        console.log("ThoughtSpotEmbed: iconSpriteUrl =", iconSpriteUrl);
+        console.log("ThoughtSpotEmbed: strings =", strings);
+        console.log("ThoughtSpotEmbed: stringIDs =", stringIDs);
 
         // Filter out visibleActions from embed flags to prevent conflicts with hiddenActions
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -254,6 +260,7 @@ export default function ThoughtSpotEmbed({
           ...(hiddenActions.length > 0 && { hiddenActions }),
           ...(runtimeFilters.length > 0 && { runtimeFilters }),
           customizations: {
+            iconSpriteUrl: iconSpriteUrl || undefined,
             content: {
               strings: strings || {},
               stringIDs: stringIDs || {},
@@ -267,6 +274,11 @@ export default function ThoughtSpotEmbed({
             },
           },
         };
+
+        console.log(
+          "ThoughtSpotEmbed: baseEmbedConfig.customizations.content =",
+          baseEmbedConfig.customizations.content
+        );
 
         if (content.type === "liveboard") {
           console.log(
@@ -406,6 +418,7 @@ export default function ThoughtSpotEmbed({
     context.stylingConfig.embedFlags?.spotterEmbed,
     context.stylingConfig.embeddedContent.customCSS,
     context.stylingConfig.embeddedContent.cssUrl,
+    context.stylingConfig.embeddedContent.iconSpriteUrl,
     context.stylingConfig.embeddedContent.strings,
     context.stylingConfig.embeddedContent.stringIDs,
     context.userConfig.currentUserId,

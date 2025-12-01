@@ -7,6 +7,7 @@ import ThoughtSpotEmbed from "./ThoughtSpotEmbed";
 import { ThoughtSpotContent } from "../types/thoughtspot";
 import { useAppContext } from "./Layout";
 
+// Updated interface to support direct embeds
 interface ContentGridProps {
   title: string;
   subtitle: string;
@@ -29,18 +30,26 @@ interface ContentGridProps {
   allContentConfig?: {
     contentType?: "answer" | "liveboard";
     excludeSystemContent?: boolean;
+    namePattern?: string;
+    tagFilter?: string;
   };
   showDirectContent?: boolean;
   onBackClick?: () => void;
   customContent?: {
     contentSelection: {
-      type: "specific" | "tag";
+      type: "specific" | "tag" | "direct";
       specificContent?: {
         liveboards: string[];
         answers: string[];
       };
       tagIdentifiers?: string[];
       contentType?: "answer" | "liveboard";
+      directEmbed?: {
+        type: "liveboard" | "answer" | "spotter";
+        contentId: string;
+        contentName?: string;
+        contentDescription?: string;
+      };
     };
   };
   // For tab-based filtering in custom menus
@@ -114,6 +123,28 @@ export default function ContentGrid({
             );
             liveboards = specificContent.liveboards;
             answers = specificContent.answers;
+          } else if (
+            customContent.contentSelection.type === "direct" &&
+            customContent.contentSelection.directEmbed
+          ) {
+            // For direct embed, create a single content item
+            const directEmbed = customContent.contentSelection.directEmbed;
+            const directContent: ThoughtSpotContent = {
+              id: directEmbed.contentId,
+              name: directEmbed.contentName || "Direct Embed",
+              description: directEmbed.contentDescription || "",
+              type: directEmbed.type === "spotter" ? "model" : directEmbed.type,
+            };
+
+            if (directEmbed.type === "liveboard") {
+              liveboards = [directContent];
+            } else if (directEmbed.type === "answer") {
+              answers = [directContent];
+            } else if (directEmbed.type === "spotter") {
+              // For spotter, we'll add it as a model type to answers for now
+              // This might need adjustment based on how models are handled
+              answers = [directContent];
+            }
           }
         } else if (fetchAllContent) {
           const allContent = await fetchAllThoughtSpotContentWithStats();
@@ -152,9 +183,20 @@ export default function ContentGrid({
             answers = favoritesContent.answers;
           }
         } else {
-          const allContent = await fetchAllThoughtSpotContentWithStats();
-          liveboards = allContent.liveboards;
-          answers = allContent.answers;
+          // Check if we need to filter by tags for all content
+          if (
+            allContentConfig?.tagFilter &&
+            allContentConfig.tagFilter.trim()
+          ) {
+            const tagFilter = allContentConfig.tagFilter.trim();
+            const tagContent = await fetchContentByTags([tagFilter]);
+            liveboards = tagContent.liveboards;
+            answers = tagContent.answers;
+          } else {
+            const allContent = await fetchAllThoughtSpotContentWithStats();
+            liveboards = allContent.liveboards;
+            answers = allContent.answers;
+          }
         }
 
         // Combine liveboards and answers, excluding models
@@ -283,6 +325,17 @@ export default function ContentGrid({
             console.log(
               "Items after filtering system content:",
               allContent.length
+            );
+          }
+
+          // Filter by name pattern if specified
+          if (
+            allContentConfig.namePattern &&
+            allContentConfig.namePattern.trim()
+          ) {
+            const pattern = allContentConfig.namePattern.toLowerCase().trim();
+            allContent = allContent.filter((item) =>
+              item.name.toLowerCase().includes(pattern)
             );
           }
         }
@@ -668,7 +721,13 @@ export default function ContentGrid({
           (fetchUserContent &&
             userContentConfig &&
             (userContentConfig.contentType ||
-              userContentConfig.namePattern))) && (
+              userContentConfig.namePattern ||
+              userContentConfig.tagFilter)) ||
+          (fetchAllContent &&
+            allContentConfig &&
+            (allContentConfig.contentType ||
+              allContentConfig.namePattern ||
+              allContentConfig.tagFilter))) && (
           <div
             style={{
               padding: "12px 16px",
@@ -718,6 +777,21 @@ export default function ContentGrid({
                 Tag: &quot;{favoritesConfig.tagFilter}&quot;
               </span>
             )}
+            {allContentConfig?.contentType && (
+              <span style={{ marginLeft: "8px" }}>
+                Type: {allContentConfig.contentType}
+              </span>
+            )}
+            {allContentConfig?.namePattern && (
+              <span style={{ marginLeft: "8px" }}>
+                Name: &quot;{allContentConfig.namePattern}&quot;
+              </span>
+            )}
+            {allContentConfig?.tagFilter && (
+              <span style={{ marginLeft: "8px" }}>
+                Tag: &quot;{allContentConfig.tagFilter}&quot;
+              </span>
+            )}
           </div>
         )}
 
@@ -740,29 +814,15 @@ export default function ContentGrid({
                 userContentConfig &&
                 (userContentConfig.contentType ||
                   userContentConfig.namePattern ||
-                  userContentConfig.tagFilter))
+                  userContentConfig.tagFilter)) ||
+              (fetchAllContent &&
+                allContentConfig &&
+                (allContentConfig.contentType ||
+                  allContentConfig.namePattern ||
+                  allContentConfig.tagFilter))
                 ? "No items match your current filters. Try adjusting the content type, name pattern, or tag filter in settings."
                 : emptyMessage}
             </p>
-            <button
-              style={{
-                padding: "12px 24px",
-                backgroundColor:
-                  context.stylingConfig.application.buttons?.primary
-                    ?.backgroundColor || "#38a169",
-                color:
-                  context.stylingConfig.application.buttons?.primary
-                    ?.foregroundColor || "white",
-                border: `1px solid ${
-                  context.stylingConfig.application.buttons?.primary
-                    ?.borderColor || "#38a169"
-                }`,
-                borderRadius: "6px",
-                cursor: "pointer",
-              }}
-            >
-              Browse All Items
-            </button>
           </div>
         ) : (
           <div

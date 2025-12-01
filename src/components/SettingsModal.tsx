@@ -8,6 +8,7 @@ import SpotterPage from "./pages/SpotterPage";
 import SearchPage from "./pages/SearchPage";
 import FullAppPage from "./pages/FullAppPage";
 import AllContentPage from "./pages/AllContentPage";
+import SpotterIconPicker from "./SpotterIconPicker";
 import IconPicker from "./IconPicker";
 import MaterialIcon from "./MaterialIcon";
 import ColorPicker from "./ColorPicker";
@@ -39,9 +40,14 @@ import { fetchSavedConfigurations } from "../services/githubApi";
 import {
   checkStorageHealth,
   clearStorageAndReloadDefaults,
+  DEFAULT_CONFIG,
+  saveAllConfigurations,
 } from "../services/configurationService";
 import ThemeSelector from "./ThemeSelector";
 import { applyTheme } from "../types/themes";
+import ConfigurationWizard, {
+  WizardConfiguration,
+} from "./ConfigurationWizard";
 
 // Configuration interfaces for compatibility
 interface ConfigurationData {
@@ -269,7 +275,7 @@ function StandardMenusContent({
 }) {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "home");
 
-  // Ensure we always have a valid sub-tab selected
+  // Validate initial state on mount
   useEffect(() => {
     const validSubTabs = [
       "home",
@@ -281,10 +287,32 @@ function StandardMenusContent({
       "all-content",
       "chatbot",
     ];
-    if (!validSubTabs.includes(activeSubTab)) {
+    if (!activeSubTab || !validSubTabs.includes(activeSubTab)) {
       setActiveSubTab("home");
     }
-  }, [activeSubTab]);
+  }, []); // Empty dependency array - runs only on mount
+
+  // Update activeSubTab when initialSubTab changes
+  useEffect(() => {
+    const validSubTabs = [
+      "home",
+      "favorites",
+      "my-reports",
+      "spotter",
+      "search",
+      "full-app",
+      "all-content",
+      "chatbot",
+    ];
+
+    if (
+      initialSubTab &&
+      validSubTabs.includes(initialSubTab) &&
+      initialSubTab !== activeSubTab
+    ) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab, activeSubTab]);
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
 
   const [modelOptions, setModelOptions] = useState<
@@ -887,11 +915,6 @@ function StandardMenusContent({
                                   position:
                                     appConfig.chatbot?.position ||
                                     "bottom-right",
-                                  primaryColor:
-                                    appConfig.chatbot?.primaryColor ||
-                                    "#3b82f6",
-                                  hoverColor:
-                                    appConfig.chatbot?.hoverColor || "#2563eb",
                                   spotgptApiKey:
                                     appConfig.chatbot?.spotgptApiKey,
                                 },
@@ -992,11 +1015,6 @@ function StandardMenusContent({
                                   position:
                                     appConfig.chatbot?.position ||
                                     "bottom-right",
-                                  primaryColor:
-                                    appConfig.chatbot?.primaryColor ||
-                                    "#3b82f6",
-                                  hoverColor:
-                                    appConfig.chatbot?.hoverColor || "#2563eb",
                                   spotgptApiKey:
                                     appConfig.chatbot?.spotgptApiKey,
                                 },
@@ -1052,10 +1070,6 @@ function StandardMenusContent({
                                 position: e.target.value as
                                   | "bottom-right"
                                   | "bottom-left",
-                                primaryColor:
-                                  appConfig.chatbot?.primaryColor || "#3b82f6",
-                                hoverColor:
-                                  appConfig.chatbot?.hoverColor || "#2563eb",
                               },
                             };
                             updateAppConfig(updatedAppConfig);
@@ -1122,10 +1136,6 @@ function StandardMenusContent({
                                 welcomeMessage: e.target.value,
                                 position:
                                   appConfig.chatbot?.position || "bottom-right",
-                                primaryColor:
-                                  appConfig.chatbot?.primaryColor || "#3b82f6",
-                                hoverColor:
-                                  appConfig.chatbot?.hoverColor || "#2563eb",
                               },
                             };
                             updateAppConfig(updatedAppConfig);
@@ -1150,230 +1160,6 @@ function StandardMenusContent({
                           }}
                         >
                           The message shown when users first open the chatbot.
-                        </p>
-                      </div>
-
-                      {/* Primary Color */}
-                      <div
-                        style={{
-                          marginBottom: "24px",
-                          padding: "16px",
-                          border: "1px solid #e2e8f0",
-                          borderRadius: "8px",
-                          backgroundColor: "#f9fafb",
-                        }}
-                      >
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: "16px",
-                            fontWeight: "500",
-                            color: "#374151",
-                            marginBottom: "8px",
-                          }}
-                        >
-                          Primary Color
-                        </label>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "12px",
-                          }}
-                        >
-                          <input
-                            type="color"
-                            value={appConfig.chatbot?.primaryColor || "#3b82f6"}
-                            onChange={(e) => {
-                              const updatedAppConfig = {
-                                ...appConfig,
-                                chatbot: {
-                                  ...appConfig.chatbot,
-                                  enabled: appConfig.chatbot?.enabled ?? true,
-                                  defaultModelId:
-                                    appConfig.chatbot?.defaultModelId,
-                                  welcomeMessage:
-                                    appConfig.chatbot?.welcomeMessage ||
-                                    "Hello! I'm your AI assistant. What would you like to know about your data?",
-                                  position:
-                                    appConfig.chatbot?.position ||
-                                    "bottom-right",
-                                  primaryColor: e.target.value,
-                                  hoverColor:
-                                    appConfig.chatbot?.hoverColor || "#2563eb",
-                                  spotgptApiKey:
-                                    appConfig.chatbot?.spotgptApiKey,
-                                },
-                              };
-                              updateAppConfig(updatedAppConfig);
-                            }}
-                            style={{
-                              width: "40px",
-                              height: "40px",
-                              border: "1px solid #d1d5db",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                            }}
-                          />
-                          <input
-                            type="text"
-                            value={appConfig.chatbot?.primaryColor || "#3b82f6"}
-                            onChange={(e) => {
-                              const updatedAppConfig = {
-                                ...appConfig,
-                                chatbot: {
-                                  ...appConfig.chatbot,
-                                  enabled: appConfig.chatbot?.enabled ?? true,
-                                  defaultModelId:
-                                    appConfig.chatbot?.defaultModelId,
-                                  selectedModelIds:
-                                    appConfig.chatbot?.selectedModelIds || [],
-                                  welcomeMessage:
-                                    appConfig.chatbot?.welcomeMessage ||
-                                    "Hello! I'm your AI assistant. What would you like to know about your data?",
-                                  position:
-                                    appConfig.chatbot?.position ||
-                                    "bottom-right",
-                                  primaryColor: e.target.value,
-                                  hoverColor:
-                                    appConfig.chatbot?.hoverColor || "#2563eb",
-                                  spotgptApiKey:
-                                    appConfig.chatbot?.spotgptApiKey,
-                                },
-                              };
-                              updateAppConfig(updatedAppConfig);
-                            }}
-                            placeholder="#3b82f6"
-                            style={{
-                              flex: 1,
-                              padding: "8px 12px",
-                              border: "1px solid #d1d5db",
-                              borderRadius: "6px",
-                              fontSize: "14px",
-                              backgroundColor: "white",
-                            }}
-                          />
-                        </div>
-                        <p
-                          style={{
-                            fontSize: "14px",
-                            color: "#6b7280",
-                            margin: "8px 0 0 0",
-                          }}
-                        >
-                          The main color of the chatbot button.
-                        </p>
-                      </div>
-
-                      {/* Hover Color */}
-                      <div
-                        style={{
-                          marginBottom: "24px",
-                          padding: "16px",
-                          border: "1px solid #e2e8f0",
-                          borderRadius: "8px",
-                          backgroundColor: "#f9fafb",
-                        }}
-                      >
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: "16px",
-                            fontWeight: "500",
-                            color: "#374151",
-                            marginBottom: "8px",
-                          }}
-                        >
-                          Hover Color
-                        </label>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "12px",
-                          }}
-                        >
-                          <input
-                            type="color"
-                            value={appConfig.chatbot?.hoverColor || "#2563eb"}
-                            onChange={(e) => {
-                              const updatedAppConfig = {
-                                ...appConfig,
-                                chatbot: {
-                                  ...appConfig.chatbot,
-                                  enabled: appConfig.chatbot?.enabled ?? true,
-                                  defaultModelId:
-                                    appConfig.chatbot?.defaultModelId,
-                                  selectedModelIds:
-                                    appConfig.chatbot?.selectedModelIds || [],
-                                  welcomeMessage:
-                                    appConfig.chatbot?.welcomeMessage ||
-                                    "Hello! I'm your AI assistant. What would you like to know about your data?",
-                                  position:
-                                    appConfig.chatbot?.position ||
-                                    "bottom-right",
-                                  primaryColor:
-                                    appConfig.chatbot?.primaryColor ||
-                                    "#3b82f6",
-                                  hoverColor: e.target.value,
-                                },
-                              };
-                              updateAppConfig(updatedAppConfig);
-                            }}
-                            style={{
-                              width: "40px",
-                              height: "40px",
-                              border: "1px solid #d1d5db",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                            }}
-                          />
-                          <input
-                            type="text"
-                            value={appConfig.chatbot?.hoverColor || "#2563eb"}
-                            onChange={(e) => {
-                              const updatedAppConfig = {
-                                ...appConfig,
-                                chatbot: {
-                                  ...appConfig.chatbot,
-                                  enabled: appConfig.chatbot?.enabled ?? true,
-                                  defaultModelId:
-                                    appConfig.chatbot?.defaultModelId,
-                                  selectedModelIds:
-                                    appConfig.chatbot?.selectedModelIds || [],
-                                  welcomeMessage:
-                                    appConfig.chatbot?.welcomeMessage ||
-                                    "Hello! I'm your AI assistant. What would you like to know about your data?",
-                                  position:
-                                    appConfig.chatbot?.position ||
-                                    "bottom-right",
-                                  primaryColor:
-                                    appConfig.chatbot?.primaryColor ||
-                                    "#3b82f6",
-                                  hoverColor: e.target.value,
-                                },
-                              };
-                              updateAppConfig(updatedAppConfig);
-                            }}
-                            placeholder="#2563eb"
-                            style={{
-                              flex: 1,
-                              padding: "8px 12px",
-                              border: "1px solid #d1d5db",
-                              borderRadius: "6px",
-                              fontSize: "14px",
-                              backgroundColor: "white",
-                            }}
-                          />
-                        </div>
-                        <p
-                          style={{
-                            fontSize: "14px",
-                            color: "#6b7280",
-                            margin: "8px 0 0 0",
-                          }}
-                        >
-                          The color of the chatbot button when hovered over.
                         </p>
                       </div>
 
@@ -1416,10 +1202,6 @@ function StandardMenusContent({
                                   "Hello! I'm your AI assistant. What would you like to know about your data?",
                                 position:
                                   appConfig.chatbot?.position || "bottom-right",
-                                primaryColor:
-                                  appConfig.chatbot?.primaryColor || "#3b82f6",
-                                hoverColor:
-                                  appConfig.chatbot?.hoverColor || "#2563eb",
                                 spotgptApiKey: e.target.value,
                               },
                             };
@@ -1716,6 +1498,72 @@ function StandardMenusContent({
                             </p>
                           </div>
                         </div>
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: "16px",
+                            marginTop: "16px",
+                          }}
+                        >
+                          <div>
+                            <label
+                              style={{
+                                display: "block",
+                                fontSize: "14px",
+                                fontWeight: "500",
+                                marginBottom: "8px",
+                                color: "#374151",
+                              }}
+                            >
+                              Name Pattern Filter
+                            </label>
+                            <input
+                              type="text"
+                              value={menu.namePattern || ""}
+                              onChange={(e) =>
+                                updateStandardMenu(
+                                  menu.id,
+                                  "namePattern",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="e.g., 'Sales', 'Q4', 'Dashboard'"
+                              style={{
+                                width: "100%",
+                                padding: "8px 12px",
+                                border: "1px solid #d1d5db",
+                                borderRadius: "6px",
+                                fontSize: "14px",
+                                backgroundColor: "#ffffff",
+                              }}
+                            />
+                            <p
+                              style={{
+                                margin: "4px 0 0 0",
+                                fontSize: "12px",
+                                color: "#6b7280",
+                              }}
+                            >
+                              Show only content with names containing this text
+                            </p>
+                          </div>
+
+                          <div>
+                            <TagFilterComponent
+                              value={menu.tagFilter || ""}
+                              onChange={(value) =>
+                                updateStandardMenu(menu.id, "tagFilter", value)
+                              }
+                              availableTags={availableTags}
+                              isLoading={isLoadingTags}
+                              error={tagsError}
+                              label="Tag Filter"
+                              description="Show only content tagged with this tag"
+                            />
+                          </div>
+                        </div>
                       </div>
                     )}
 
@@ -1806,6 +1654,102 @@ function StandardMenusContent({
                               maxHeight={800}
                               useIndexedDB={true}
                             />
+                          </div>
+                        )}
+
+                        {menu.homePageType === "image" && (
+                          <div style={{ marginBottom: "16px" }}>
+                            <label
+                              style={{
+                                display: "block",
+                                marginBottom: "8px",
+                                fontWeight: "500",
+                                fontSize: "14px",
+                              }}
+                            >
+                              Background Color
+                            </label>
+                            <ColorPicker
+                              value={menu.homePageBackgroundColor || "#f7fafc"}
+                              onChange={(color) =>
+                                updateStandardMenu(
+                                  menu.id,
+                                  "homePageBackgroundColor",
+                                  color
+                                )
+                              }
+                              label="Choose background color for image display"
+                            />
+                            <div
+                              style={{
+                                marginTop: "8px",
+                                padding: "8px 12px",
+                                backgroundColor: "#f0f9ff",
+                                border: "1px solid #0ea5e9",
+                                borderRadius: "4px",
+                                fontSize: "12px",
+                                color: "#0c4a6e",
+                              }}
+                            >
+                              💡 <strong>Tip:</strong> When you upload an image,
+                              the system will automatically analyze it and
+                              suggest a complementary background color that
+                              looks great with your image!
+                            </div>
+                          </div>
+                        )}
+
+                        {menu.homePageType === "image" && (
+                          <div style={{ marginBottom: "16px" }}>
+                            <label
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                marginBottom: "8px",
+                                fontWeight: "500",
+                                fontSize: "14px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={
+                                  menu.homePageMaintainAspectRatio !== false
+                                }
+                                onChange={(e) =>
+                                  updateStandardMenu(
+                                    menu.id,
+                                    "homePageMaintainAspectRatio",
+                                    e.target.checked
+                                  )
+                                }
+                                style={{
+                                  margin: 0,
+                                  cursor: "pointer",
+                                }}
+                              />
+                              Maintain Aspect Ratio
+                            </label>
+                            <div
+                              style={{
+                                marginTop: "4px",
+                                padding: "8px 12px",
+                                backgroundColor: "#f8fafc",
+                                border: "1px solid #e2e8f0",
+                                borderRadius: "4px",
+                                fontSize: "12px",
+                                color: "#64748b",
+                              }}
+                            >
+                              <strong>Checked:</strong> Image will maintain its
+                              original proportions and fit within the available
+                              space
+                              <br />
+                              <strong>Unchecked:</strong> Image will stretch to
+                              fill the entire available space, potentially
+                              changing its proportions
+                            </div>
                           </div>
                         )}
 
@@ -2355,7 +2299,6 @@ function CustomMenusContent({
   onUnsavedChange,
   onEditingMenuChange,
   onSaveMenu,
-  onCancelEdit,
   ref,
 }: {
   customMenus: CustomMenu[];
@@ -2386,6 +2329,9 @@ function CustomMenusContent({
   const [availableTags, setAvailableTags] = useState<
     Array<{ id: string; name: string; color: string }>
   >([]);
+  const [availableModels, setAvailableModels] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
 
   // Icon picker state is no longer needed for the new IconPicker component
@@ -2394,6 +2340,7 @@ function CustomMenusContent({
   const [liveboardFilter, setLiveboardFilter] = useState("");
   const [answerFilter, setAnswerFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
+  const [directEmbedFilter, setDirectEmbedFilter] = useState("");
 
   // Filtered lists
   const filteredLiveboards = availableLiveboards.filter((liveboard) =>
@@ -2408,19 +2355,45 @@ function CustomMenusContent({
     tag.name.toLowerCase().includes(tagFilter.toLowerCase())
   );
 
+  // Filtered lists for direct embed
+  const getFilteredDirectEmbedContent = () => {
+    const filter = directEmbedFilter.toLowerCase();
+    const embedType = editingMenu?.contentSelection?.directEmbed?.type;
+
+    if (embedType === "liveboard") {
+      return availableLiveboards.filter((liveboard) =>
+        liveboard.name.toLowerCase().includes(filter)
+      );
+    } else if (embedType === "answer") {
+      return availableAnswers.filter((answer) =>
+        answer.name.toLowerCase().includes(filter)
+      );
+    } else if (embedType === "spotter") {
+      return availableModels.filter((model) =>
+        model.name.toLowerCase().includes(filter)
+      );
+    }
+    return [];
+  };
+
+  // Clear direct embed filter when content type changes
+  useEffect(() => {
+    setDirectEmbedFilter("");
+  }, [editingMenu?.contentSelection?.directEmbed?.type]);
+
   // Load available content and tags
   useEffect(() => {
     const loadContent = async () => {
       try {
         setIsLoadingContent(true);
-        const { fetchLiveboards, fetchAnswers, fetchTags } = await import(
-          "../services/thoughtspotApi"
-        );
+        const { fetchLiveboards, fetchAnswers, fetchTags, fetchModels } =
+          await import("../services/thoughtspotApi");
 
-        const [liveboards, answers, tags] = await Promise.all([
+        const [liveboards, answers, tags, models] = await Promise.all([
           fetchLiveboards(),
           fetchAnswers(),
           fetchTags(),
+          fetchModels(),
         ]);
 
         setAvailableLiveboards(
@@ -2428,6 +2401,7 @@ function CustomMenusContent({
         );
         setAvailableAnswers(answers.map((a) => ({ id: a.id, name: a.name })));
         setAvailableTags(tags);
+        setAvailableModels(models.map((m) => ({ id: m.id, name: m.name })));
       } catch (error) {
         console.error("Failed to load content:", error);
       } finally {
@@ -2770,7 +2744,7 @@ function CustomMenusContent({
               >
                 Content Selection Method
               </label>
-              <div style={{ display: "flex", gap: "16px" }}>
+              <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
                 <label
                   style={{
                     display: "flex",
@@ -2822,6 +2796,36 @@ function CustomMenusContent({
                     style={{ cursor: "pointer" }}
                   />
                   <span style={{ fontSize: "14px" }}>Filter by tags</span>
+                </label>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="contentType"
+                    checked={editingMenu.contentSelection.type === "direct"}
+                    onChange={() =>
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          type: "direct",
+                          directEmbed: {
+                            type: "liveboard",
+                            contentId: "",
+                            contentName: "",
+                            contentDescription: "",
+                          },
+                        },
+                      })
+                    }
+                    style={{ cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: "14px" }}>Direct embed</span>
                 </label>
               </div>
             </div>
@@ -3024,6 +3028,225 @@ function CustomMenusContent({
                 </select>
               </div>
             )}
+
+            {editingMenu.contentSelection.type === "direct" && (
+              <div style={{ marginBottom: "16px" }}>
+                <div style={{ marginBottom: "16px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Content Type
+                  </label>
+                  <select
+                    value={
+                      editingMenu.contentSelection.directEmbed?.type ||
+                      "liveboard"
+                    }
+                    onChange={(e) =>
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          ...editingMenu.contentSelection,
+                          directEmbed: {
+                            ...editingMenu.contentSelection.directEmbed!,
+                            type: e.target.value as
+                              | "liveboard"
+                              | "answer"
+                              | "spotter",
+                          },
+                        },
+                      })
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    <option value="liveboard">Liveboard</option>
+                    <option value="answer">Answer</option>
+                    <option value="spotter">Spotter Model</option>
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: "16px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    {editingMenu.contentSelection.directEmbed?.type ===
+                    "liveboard"
+                      ? "Liveboard"
+                      : editingMenu.contentSelection.directEmbed?.type ===
+                        "answer"
+                      ? "Answer"
+                      : "Spotter Model"}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={`Filter ${
+                      editingMenu.contentSelection.directEmbed?.type ===
+                      "liveboard"
+                        ? "liveboards"
+                        : editingMenu.contentSelection.directEmbed?.type ===
+                          "answer"
+                        ? "answers"
+                        : "models"
+                    }...`}
+                    value={directEmbedFilter}
+                    onChange={(e) => setDirectEmbedFilter(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                      marginBottom: "8px",
+                    }}
+                  />
+                  <select
+                    value={
+                      editingMenu.contentSelection.directEmbed?.contentId || ""
+                    }
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const selectedName =
+                        e.target.selectedOptions[0]?.text || "";
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          ...editingMenu.contentSelection,
+                          directEmbed: {
+                            ...editingMenu.contentSelection.directEmbed!,
+                            contentId: selectedId,
+                            contentName: selectedName,
+                          },
+                        },
+                      });
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    <option value="">
+                      Select a{" "}
+                      {editingMenu.contentSelection.directEmbed?.type ===
+                      "liveboard"
+                        ? "liveboard"
+                        : editingMenu.contentSelection.directEmbed?.type ===
+                          "answer"
+                        ? "answer"
+                        : "model"}
+                    </option>
+                    {isLoadingContent ? (
+                      <option disabled>Loading...</option>
+                    ) : (
+                      getFilteredDirectEmbedContent().map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: "16px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Content Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Enter a display name for the content"
+                    value={
+                      editingMenu.contentSelection.directEmbed?.contentName ||
+                      ""
+                    }
+                    onChange={(e) =>
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          ...editingMenu.contentSelection,
+                          directEmbed: {
+                            ...editingMenu.contentSelection.directEmbed!,
+                            contentName: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: "16px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Content Description (Optional)
+                  </label>
+                  <textarea
+                    placeholder="Enter a description for the content"
+                    value={
+                      editingMenu.contentSelection.directEmbed
+                        ?.contentDescription || ""
+                    }
+                    onChange={(e) =>
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          ...editingMenu.contentSelection,
+                          directEmbed: {
+                            ...editingMenu.contentSelection.directEmbed!,
+                            contentDescription: e.target.value,
+                          },
+                        },
+                      })
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                      minHeight: "80px",
+                      resize: "vertical",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Save and Cancel buttons */}
@@ -3185,9 +3408,17 @@ function CustomMenusContent({
                         0
                       } answers`}
                     </>
-                  ) : (
+                  ) : menu.contentSelection.type === "tag" ? (
                     <>
                       {menu.contentSelection.tagIdentifiers?.length || 0} tags
+                    </>
+                  ) : (
+                    <>
+                      Direct{" "}
+                      {menu.contentSelection.directEmbed?.type || "embed"}:{" "}
+                      {menu.contentSelection.directEmbed?.contentName ||
+                        menu.contentSelection.directEmbed?.contentId ||
+                        "Not configured"}
                     </>
                   )}
                 </div>
@@ -3256,11 +3487,21 @@ function EventsContent({
 function StylingContent({
   stylingConfig,
   updateStylingConfig,
+  updateStandardMenu,
 }: {
   stylingConfig: StylingConfig;
   updateStylingConfig: (config: StylingConfig) => void;
+  updateStandardMenu?: (
+    id: string,
+    field: string,
+    value: string | boolean
+  ) => void;
 }) {
   const [activeSubTab, setActiveSubTab] = useState("application");
+  const [showStyleWizard, setShowStyleWizard] = useState(false);
+  const [styleDescription, setStyleDescription] = useState("");
+  const [isGeneratingStyle, setIsGeneratingStyle] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   // Ensure we always have a valid sub-tab selected
   useEffect(() => {
@@ -3384,26 +3625,164 @@ function StylingContent({
   };
 
   const updateEmbeddedContent = (field: string, value: unknown) => {
-    updateStylingConfig({
+    console.log("updateEmbeddedContent called with:", field, value);
+    console.log(
+      "Current stylingConfig.embeddedContent:",
+      stylingConfig.embeddedContent
+    );
+
+    const newConfig = {
       ...stylingConfig,
       embeddedContent: {
         ...stylingConfig.embeddedContent,
         [field]: value,
       },
-    });
+    };
+
+    console.log("New embeddedContent:", newConfig.embeddedContent);
+    console.log(
+      "updateEmbeddedContent: calling updateStylingConfig with iconSpriteUrl:",
+      newConfig.embeddedContent.iconSpriteUrl
+    );
+    console.log(
+      "updateEmbeddedContent: stringIDs after update:",
+      newConfig.embeddedContent.stringIDs
+    );
+    updateStylingConfig(newConfig);
+
+    // For iconSpriteUrl changes, the navigation menu should update immediately
+    // The user will need to click "Apply Changes" to persist the selection
+    if (field === "iconSpriteUrl") {
+      console.log(
+        "Icon selection updated - navigation menu should update immediately"
+      );
+    }
+  };
+
+  const handleGenerateStyle = async () => {
+    if (!styleDescription.trim()) {
+      setGenerationError("Please provide a style description.");
+      return;
+    }
+
+    try {
+      setIsGeneratingStyle(true);
+      setGenerationError(null);
+
+      console.log(
+        "Calling style generation API with description:",
+        styleDescription
+      );
+
+      const response = await fetch("/api/anthropic/generate-style", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ description: styleDescription }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate style");
+      }
+
+      const styleConfig = await response.json();
+
+      console.log("Received style configuration:", styleConfig);
+
+      // Update the styling configuration with the generated styles
+      const newStylingConfig: StylingConfig = {
+        ...stylingConfig,
+        application: {
+          ...stylingConfig.application,
+          topBar: styleConfig.applicationStyles.topBar,
+          sidebar: styleConfig.applicationStyles.sidebar,
+          footer: {
+            ...stylingConfig.application.footer,
+            backgroundColor:
+              styleConfig.applicationStyles.backgrounds?.contentBackground ||
+              stylingConfig.application.footer.backgroundColor,
+            foregroundColor:
+              styleConfig.applicationStyles.typography?.secondaryColor ||
+              stylingConfig.application.footer.foregroundColor,
+          },
+          dialogs: {
+            ...stylingConfig.application.dialogs,
+            backgroundColor:
+              styleConfig.applicationStyles.backgrounds?.contentBackground ||
+              stylingConfig.application.dialogs.backgroundColor,
+          },
+          buttons: styleConfig.applicationStyles.buttons,
+          backgrounds: styleConfig.applicationStyles.backgrounds,
+          typography: styleConfig.applicationStyles.typography,
+        },
+        embeddedContent: {
+          ...stylingConfig.embeddedContent,
+          customCSS: {
+            ...stylingConfig.embeddedContent.customCSS,
+            variables: styleConfig.embeddedContentVariables,
+          },
+        },
+      };
+
+      updateStylingConfig(newStylingConfig);
+
+      // Close the wizard on success
+      setShowStyleWizard(false);
+      setStyleDescription("");
+    } catch (error) {
+      console.error("Error generating style:", error);
+      setGenerationError(
+        error instanceof Error
+          ? error.message
+          : "Failed to generate style. Please try again."
+      );
+    } finally {
+      setIsGeneratingStyle(false);
+    }
   };
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <h3
+      <div
         style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
           marginBottom: "24px",
-          fontSize: "20px",
-          fontWeight: "bold",
         }}
       >
-        Styling Configuration
-      </h3>
+        <h3
+          style={{
+            margin: 0,
+            fontSize: "20px",
+            fontWeight: "bold",
+          }}
+        >
+          Styling Configuration
+        </h3>
+        <button
+          onClick={() => setShowStyleWizard(true)}
+          style={{
+            padding: "10px 20px",
+            backgroundColor: "#8b5cf6",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "14px",
+            fontWeight: "500",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+          title="Generate styles using AI based on your description"
+        >
+          <MaterialIcon icon="auto_fix_high" style={{ fontSize: "18px" }} />
+          Style Wizard
+        </button>
+      </div>
 
       {/* Sub-tabs */}
       <div
@@ -4060,6 +4439,23 @@ function StylingContent({
               />
             </div>
 
+            {/* Spotter Icon Selection */}
+            <div style={{ marginBottom: "24px" }}>
+              <SpotterIconPicker
+                selectedIcon={stylingConfig.embeddedContent.iconSpriteUrl}
+                onIconSelect={(iconUrl) =>
+                  updateEmbeddedContent("iconSpriteUrl", iconUrl)
+                }
+                onMenuIconUpdate={(menuIconUrl) => {
+                  if (updateStandardMenu) {
+                    updateStandardMenu("spotter", "icon", menuIconUrl);
+                  }
+                }}
+                title="Spotter Icon Selection"
+                description="Choose an icon for your Spotter embed. This will be used as the iconSpriteUrl in the embed configuration and will also update the Spotter menu icon."
+              />
+            </div>
+
             {/* CSS Variables */}
             <CSSVariablesEditor
               variables={
@@ -4092,6 +4488,381 @@ function StylingContent({
           </div>
         )}
       </div>
+
+      {/* Style Wizard Modal */}
+      {showStyleWizard && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+            padding: "20px",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isGeneratingStyle) {
+              setShowStyleWizard(false);
+              setStyleDescription("");
+              setGenerationError(null);
+            }
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: "12px",
+              maxWidth: "600px",
+              width: "100%",
+              maxHeight: "90vh",
+              overflow: "auto",
+              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: "24px",
+                borderBottom: "1px solid #e5e7eb",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                position: "sticky",
+                top: 0,
+                backgroundColor: "white",
+                zIndex: 1,
+              }}
+            >
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "12px" }}
+              >
+                <MaterialIcon
+                  icon="auto_fix_high"
+                  style={{ fontSize: "32px", color: "#8b5cf6" }}
+                />
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "24px",
+                    fontWeight: "600",
+                    color: "#1f2937",
+                  }}
+                >
+                  Style Wizard
+                </h2>
+              </div>
+              {!isGeneratingStyle && (
+                <button
+                  onClick={() => {
+                    setShowStyleWizard(false);
+                    setStyleDescription("");
+                    setGenerationError(null);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "8px",
+                    color: "#6b7280",
+                  }}
+                >
+                  <MaterialIcon icon="close" style={{ fontSize: "24px" }} />
+                </button>
+              )}
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: "24px" }}>
+              <p
+                style={{
+                  marginTop: 0,
+                  marginBottom: "24px",
+                  color: "#6b7280",
+                  fontSize: "14px",
+                  lineHeight: "1.6",
+                }}
+              >
+                Describe your desired style and colors, and AI will generate a
+                complete styling configuration for your application and embedded
+                ThoughtSpot content.
+              </p>
+
+              {/* Style Description */}
+              <div style={{ marginBottom: "24px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontWeight: "500",
+                    color: "#374151",
+                    fontSize: "14px",
+                  }}
+                >
+                  Style Description
+                </label>
+                <textarea
+                  value={styleDescription}
+                  onChange={(e) => setStyleDescription(e.target.value)}
+                  placeholder="Describe your desired style and colors. For example: 'Professional corporate theme with navy blue primary color (#1e3a8a), light gray backgrounds, and orange accents for buttons. Use modern, clean design with subtle shadows.'"
+                  rows={6}
+                  disabled={isGeneratingStyle}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                    fontFamily: "inherit",
+                    resize: "vertical",
+                    boxSizing: "border-box",
+                    opacity: isGeneratingStyle ? 0.6 : 1,
+                  }}
+                />
+                <p
+                  style={{
+                    marginTop: "8px",
+                    fontSize: "12px",
+                    color: "#6b7280",
+                    fontStyle: "italic",
+                  }}
+                >
+                  💡 Tip: Be specific about colors, mood, and design preferences
+                  for best results.
+                </p>
+              </div>
+
+              {/* Error Message */}
+              {generationError && (
+                <div
+                  style={{
+                    padding: "12px 16px",
+                    backgroundColor: "#fef2f2",
+                    border: "1px solid #fca5a5",
+                    borderRadius: "6px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    <MaterialIcon
+                      icon="error"
+                      style={{ fontSize: "20px", color: "#dc2626" }}
+                    />
+                    <span style={{ color: "#dc2626", fontSize: "14px" }}>
+                      {generationError}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleGenerateStyle}
+                    style={{
+                      padding: "6px 12px",
+                      backgroundColor: "#ef4444",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      fontWeight: "500",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                  >
+                    <MaterialIcon icon="refresh" style={{ fontSize: "16px" }} />
+                    Try Again
+                  </button>
+                </div>
+              )}
+
+              {/* Loading Indicator */}
+              {isGeneratingStyle && (
+                <div
+                  style={{
+                    padding: "16px",
+                    backgroundColor: "#eff6ff",
+                    border: "1px solid #bfdbfe",
+                    borderRadius: "6px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          color: "#1e40af",
+                          fontSize: "14px",
+                          fontWeight: "500",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                        }}
+                      >
+                        <span>Generating styles</span>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            gap: "2px",
+                            letterSpacing: "2px",
+                          }}
+                        >
+                          <span
+                            style={{
+                              animation: "pulse 1.4s ease-in-out infinite",
+                            }}
+                          >
+                            •
+                          </span>
+                          <span
+                            style={{
+                              animation: "pulse 1.4s ease-in-out 0.2s infinite",
+                            }}
+                          >
+                            •
+                          </span>
+                          <span
+                            style={{
+                              animation: "pulse 1.4s ease-in-out 0.4s infinite",
+                            }}
+                          >
+                            •
+                          </span>
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          color: "#60a5fa",
+                          fontSize: "12px",
+                          marginTop: "4px",
+                        }}
+                      >
+                        This may take a moment. AI is creating your custom
+                        theme.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div
+              style={{
+                padding: "24px",
+                borderTop: "1px solid #e5e7eb",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+                position: "sticky",
+                bottom: 0,
+                backgroundColor: "white",
+              }}
+            >
+              <button
+                onClick={() => {
+                  setShowStyleWizard(false);
+                  setStyleDescription("");
+                  setGenerationError(null);
+                }}
+                disabled={isGeneratingStyle}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: "white",
+                  color: "#374151",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  cursor: isGeneratingStyle ? "not-allowed" : "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  opacity: isGeneratingStyle ? 0.5 : 1,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleGenerateStyle}
+                disabled={isGeneratingStyle || !styleDescription.trim()}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor:
+                    isGeneratingStyle || !styleDescription.trim()
+                      ? "#9ca3af"
+                      : "#8b5cf6",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor:
+                    isGeneratingStyle || !styleDescription.trim()
+                      ? "not-allowed"
+                      : "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                {isGeneratingStyle ? (
+                  <>
+                    <span>Updating</span>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        gap: "2px",
+                        letterSpacing: "2px",
+                      }}
+                    >
+                      <span
+                        style={{ animation: "pulse 1.4s ease-in-out infinite" }}
+                      >
+                        •
+                      </span>
+                      <span
+                        style={{
+                          animation: "pulse 1.4s ease-in-out 0.2s infinite",
+                        }}
+                      >
+                        •
+                      </span>
+                      <span
+                        style={{
+                          animation: "pulse 1.4s ease-in-out 0.4s infinite",
+                        }}
+                      >
+                        •
+                      </span>
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <MaterialIcon
+                      icon="auto_fix_high"
+                      style={{ fontSize: "18px" }}
+                    />
+                    Generate Styles
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -5074,9 +5845,26 @@ function ConfigurationContent({
   const [selectedConfiguration, setSelectedConfiguration] =
     useState<string>("");
 
+  // Configuration Wizard state
+  const [showWizard, setShowWizard] = useState(false);
+
+  // Validate initial state on mount
+  useEffect(() => {
+    const validSubTabs = ["general", "embedFlags"];
+    if (!activeSubTab || !validSubTabs.includes(activeSubTab)) {
+      setActiveSubTab("general");
+    }
+  }, []); // Empty dependency array - runs only on mount
+
   // Update activeSubTab when initialSubTab changes
   useEffect(() => {
-    if (initialSubTab && initialSubTab !== activeSubTab) {
+    const validSubTabs = ["general", "embedFlags"];
+
+    if (
+      initialSubTab &&
+      validSubTabs.includes(initialSubTab) &&
+      initialSubTab !== activeSubTab
+    ) {
       setActiveSubTab(initialSubTab);
     }
   }, [initialSubTab, activeSubTab]);
@@ -5100,6 +5888,628 @@ function ConfigurationContent({
       });
     } finally {
       setIsLoadingConfigurations(false);
+    }
+  };
+
+  // Handle wizard completion
+  const handleWizardComplete = async (wizardConfig: WizardConfiguration) => {
+    try {
+      console.log("Wizard configuration:", wizardConfig);
+
+      // IMPORTANT: Load current configuration to preserve existing users
+      const { loadAllConfigurations } = await import(
+        "../services/configurationService"
+      );
+      const currentConfig = await loadAllConfigurations();
+      console.log("Wizard: Loaded current configuration:", {
+        hasUsers: !!currentConfig.userConfig?.users,
+        usersCount: currentConfig.userConfig?.users?.length || 0,
+        users: currentConfig.userConfig?.users?.map(
+          (u: {
+            id: string;
+            name: string;
+            access?: { customMenus?: string[] };
+          }) => ({
+            id: u.id,
+            name: u.name,
+            customMenusCount: u.access?.customMenus?.length || 0,
+          })
+        ),
+      });
+
+      // Generate AI content if descriptions provided
+      let homePageHTML =
+        DEFAULT_CONFIG.standardMenus.find((m) => m.id === "home")
+          ?.homePageValue || "<h1>Welcome</h1>";
+      let embeddedContentVariables: Record<string, string> = {};
+      let applicationStyles: {
+        topBar?: { backgroundColor: string; foregroundColor: string };
+        sidebar?: { backgroundColor: string; foregroundColor: string };
+        buttons?: {
+          primary?: {
+            backgroundColor: string;
+            foregroundColor: string;
+            hoverBackgroundColor: string;
+          };
+          secondary?: {
+            backgroundColor: string;
+            foregroundColor: string;
+            hoverBackgroundColor: string;
+          };
+        };
+        backgrounds?: {
+          mainBackground: string;
+          contentBackground: string;
+          borderColor: string;
+        };
+        typography?: {
+          primaryColor: string;
+          secondaryColor: string;
+          linkColor: string;
+        };
+      } | null = null;
+      let hasAIContent = false;
+      const aiErrors: string[] = [];
+
+      // ALWAYS generate style configuration FIRST (using app name if no description)
+      console.log("Generating style configuration with AI...");
+      try {
+        const response = await fetch("/api/anthropic/generate-style", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description: wizardConfig.styleDescription || "",
+            applicationName: wizardConfig.applicationName,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || "Failed to generate style configuration"
+          );
+        }
+
+        const data = await response.json();
+        console.log("Raw API response:", JSON.stringify(data, null, 2));
+
+        embeddedContentVariables = data.embeddedContentVariables || {};
+        applicationStyles = data.applicationStyles || null;
+
+        console.log("AFTER ASSIGNMENT:");
+        console.log(
+          "- embeddedContentVariables:",
+          Object.keys(embeddedContentVariables).length,
+          "keys"
+        );
+        console.log(
+          "- applicationStyles:",
+          applicationStyles ? "PRESENT" : "NULL"
+        );
+
+        if (Object.keys(embeddedContentVariables).length === 0) {
+          console.error(
+            "ERROR: embeddedContentVariables is empty after assignment!"
+          );
+        }
+        if (!applicationStyles) {
+          console.error("ERROR: applicationStyles is null after assignment!");
+        }
+
+        console.log(
+          "Successfully generated style configuration:",
+          Object.keys(embeddedContentVariables).length,
+          "embedded variables,",
+          applicationStyles
+            ? "application styles included"
+            : "no application styles"
+        );
+        console.log(
+          "Embedded content variables:",
+          JSON.stringify(embeddedContentVariables, null, 2)
+        );
+        if (applicationStyles) {
+          console.log(
+            "Application styles:",
+            JSON.stringify(applicationStyles, null, 2)
+          );
+        } else {
+          console.warn("WARNING: No application styles were generated!");
+        }
+        hasAIContent = true;
+      } catch (error) {
+        console.error("Failed to generate style configuration:", error);
+        const errorMsg = `Style generation failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`;
+        aiErrors.push(errorMsg);
+
+        // Show error message with option to retry or continue
+        const continueWithDefault = confirm(
+          errorMsg +
+            "\n\nWould you like to continue with default styles?\n\n" +
+            "Click OK to continue with default styles.\n" +
+            "Click Cancel to abort the configuration wizard and try again.\n\n" +
+            "Note: Make sure your Anthropic API key is configured correctly.\n" +
+            "For local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
+        );
+
+        if (!continueWithDefault) {
+          // User wants to abort and try again
+          throw new Error("Configuration cancelled by user");
+        }
+      }
+
+      // Generate home page content AFTER styles so we can use the same colors
+      console.log(
+        "Generating home page content with AI using generated style colors..."
+      );
+      try {
+        // Extract key colors from generated styles to pass to home page generation
+        const styleColors = {
+          primaryColor:
+            applicationStyles?.buttons?.primary?.backgroundColor ||
+            embeddedContentVariables["--ts-var-button--primary-background"],
+          secondaryColor: applicationStyles?.sidebar?.backgroundColor,
+          accentColor: embeddedContentVariables["--ts-var-viz-color-1"],
+          backgroundColor: applicationStyles?.backgrounds?.mainBackground,
+          textColor: applicationStyles?.typography?.primaryColor,
+        };
+
+        console.log("Using style colors for home page:", styleColors);
+
+        const response = await fetch("/api/anthropic/generate-home-page", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description: wizardConfig.homePageDescription || "",
+            applicationName: wizardConfig.applicationName,
+            styleColors: styleColors,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to generate home page");
+        }
+
+        const data = await response.json();
+        homePageHTML = data.html;
+        console.log(
+          "Successfully generated home page content with matching colors, length:",
+          homePageHTML.length
+        );
+        hasAIContent = true;
+      } catch (error) {
+        console.error("Failed to generate home page content:", error);
+        const errorMsg = `Home page generation failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`;
+        aiErrors.push(errorMsg);
+
+        // Show error message with option to retry or continue
+        const continueWithDefault = confirm(
+          errorMsg +
+            "\n\nWould you like to continue with the default home page?\n\n" +
+            "Click OK to continue with default home page.\n" +
+            "Click Cancel to abort the configuration wizard and try again.\n\n" +
+            "Note: Make sure your Anthropic API key is configured correctly.\n" +
+            "For local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
+        );
+
+        if (!continueWithDefault) {
+          // User wants to abort and try again
+          throw new Error("Configuration cancelled by user");
+        }
+      }
+
+      if (hasAIContent && aiErrors.length === 0) {
+        console.log("AI content generated successfully");
+      }
+
+      console.log("============ CREATING CONFIGURATION ============");
+      console.log("About to create configuration with:");
+      console.log(
+        "- embeddedContentVariables count:",
+        Object.keys(embeddedContentVariables).length
+      );
+      console.log(
+        "- embeddedContentVariables sample:",
+        embeddedContentVariables["--ts-var-root-background"]
+      );
+      console.log(
+        "- applicationStyles:",
+        applicationStyles ? "PRESENT" : "NULL"
+      );
+      if (applicationStyles) {
+        console.log("- applicationStyles.topBar:", applicationStyles.topBar);
+      }
+      console.log("- homePageHTML length:", homePageHTML.length);
+      if (wizardConfig.modelId) {
+        console.log("- Model ID:", wizardConfig.modelId);
+        console.log("- Will be applied to: Chatbot, Spotter, and Search");
+      }
+      console.log("================================================");
+
+      // Create new configuration
+      // IMPORTANT: Use existing userConfig to preserve current users and their settings
+      console.log("Wizard: Creating newConfig - currentConfig.userConfig:", {
+        hasUserConfig: !!currentConfig.userConfig,
+        hasUsers: !!currentConfig.userConfig?.users,
+        usersCount: currentConfig.userConfig?.users?.length || 0,
+        usersData: currentConfig.userConfig?.users,
+      });
+
+      if (wizardConfig.modelId) {
+        console.log(
+          `Wizard: Setting model ${wizardConfig.modelId} for Chatbot, Spotter, and Search`
+        );
+      }
+
+      const newConfig: ConfigurationData = {
+        ...DEFAULT_CONFIG,
+        // Preserve existing userConfig instead of using DEFAULT_CONFIG's empty users
+        userConfig: currentConfig.userConfig || DEFAULT_CONFIG.userConfig,
+        appConfig: {
+          ...DEFAULT_CONFIG.appConfig,
+          thoughtspotUrl: wizardConfig.thoughtspotUrl,
+          applicationName: wizardConfig.applicationName,
+          chatbot: {
+            enabled: DEFAULT_CONFIG.appConfig.chatbot?.enabled ?? true,
+            defaultModelId:
+              wizardConfig.modelId ||
+              DEFAULT_CONFIG.appConfig.chatbot?.defaultModelId,
+            selectedModelIds: wizardConfig.modelId
+              ? [wizardConfig.modelId] // Use the wizard's selected model
+              : DEFAULT_CONFIG.appConfig.chatbot?.selectedModelIds,
+            welcomeMessage: DEFAULT_CONFIG.appConfig.chatbot?.welcomeMessage,
+            position: DEFAULT_CONFIG.appConfig.chatbot?.position,
+            spotgptApiKey: DEFAULT_CONFIG.appConfig.chatbot?.spotgptApiKey,
+          },
+        },
+        standardMenus: DEFAULT_CONFIG.standardMenus.map((menu) => {
+          const updatedMenu = {
+            ...menu,
+            enabled: wizardConfig.enabledMenus.includes(menu.id),
+            spotterModelId:
+              menu.id === "spotter" && wizardConfig.modelId
+                ? wizardConfig.modelId
+                : menu.spotterModelId,
+            searchDataSource:
+              menu.id === "search" && wizardConfig.modelId
+                ? wizardConfig.modelId
+                : menu.searchDataSource,
+            homePageValue:
+              menu.id === "home" ? homePageHTML : menu.homePageValue,
+          };
+
+          // Ensure Spotter keeps its custom icon from DEFAULT_CONFIG
+          if (menu.id === "spotter") {
+            console.log(
+              `Wizard: Setting Spotter icon to ${menu.icon} from DEFAULT_CONFIG`
+            );
+            if (wizardConfig.modelId) {
+              console.log(
+                `Wizard: Setting Spotter model to ${wizardConfig.modelId}`
+              );
+            }
+          }
+
+          if (menu.id === "search" && wizardConfig.modelId) {
+            console.log(
+              `Wizard: Setting Search data source to ${wizardConfig.modelId}`
+            );
+          }
+
+          return updatedMenu;
+        }),
+        stylingConfig: {
+          ...DEFAULT_CONFIG.stylingConfig,
+          // Apply application styles if generated
+          application: applicationStyles
+            ? {
+                ...DEFAULT_CONFIG.stylingConfig.application,
+                topBar: {
+                  ...DEFAULT_CONFIG.stylingConfig.application.topBar,
+                  backgroundColor:
+                    applicationStyles.topBar?.backgroundColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.topBar
+                      .backgroundColor,
+                  foregroundColor:
+                    applicationStyles.topBar?.foregroundColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.topBar
+                      .foregroundColor,
+                },
+                sidebar: {
+                  ...DEFAULT_CONFIG.stylingConfig.application.sidebar,
+                  backgroundColor:
+                    applicationStyles.sidebar?.backgroundColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.sidebar
+                      .backgroundColor,
+                  foregroundColor:
+                    applicationStyles.sidebar?.foregroundColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.sidebar
+                      .foregroundColor,
+                },
+                buttons: {
+                  ...DEFAULT_CONFIG.stylingConfig.application.buttons,
+                  primary: {
+                    ...DEFAULT_CONFIG.stylingConfig.application.buttons.primary,
+                    backgroundColor:
+                      applicationStyles.buttons?.primary?.backgroundColor ||
+                      DEFAULT_CONFIG.stylingConfig.application.buttons.primary
+                        .backgroundColor,
+                    foregroundColor:
+                      applicationStyles.buttons?.primary?.foregroundColor ||
+                      DEFAULT_CONFIG.stylingConfig.application.buttons.primary
+                        .foregroundColor,
+                    hoverBackgroundColor:
+                      applicationStyles.buttons?.primary
+                        ?.hoverBackgroundColor ||
+                      DEFAULT_CONFIG.stylingConfig.application.buttons.primary
+                        .hoverBackgroundColor,
+                  },
+                  secondary: {
+                    ...DEFAULT_CONFIG.stylingConfig.application.buttons
+                      .secondary,
+                    backgroundColor:
+                      applicationStyles.buttons?.secondary?.backgroundColor ||
+                      DEFAULT_CONFIG.stylingConfig.application.buttons.secondary
+                        .backgroundColor,
+                    foregroundColor:
+                      applicationStyles.buttons?.secondary?.foregroundColor ||
+                      DEFAULT_CONFIG.stylingConfig.application.buttons.secondary
+                        .foregroundColor,
+                    hoverBackgroundColor:
+                      applicationStyles.buttons?.secondary
+                        ?.hoverBackgroundColor ||
+                      DEFAULT_CONFIG.stylingConfig.application.buttons.secondary
+                        .hoverBackgroundColor,
+                  },
+                },
+                backgrounds: {
+                  ...DEFAULT_CONFIG.stylingConfig.application.backgrounds,
+                  mainBackground:
+                    applicationStyles.backgrounds?.mainBackground ||
+                    DEFAULT_CONFIG.stylingConfig.application.backgrounds
+                      .mainBackground,
+                  contentBackground:
+                    applicationStyles.backgrounds?.contentBackground ||
+                    DEFAULT_CONFIG.stylingConfig.application.backgrounds
+                      .contentBackground,
+                  borderColor:
+                    applicationStyles.backgrounds?.borderColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.backgrounds
+                      .borderColor,
+                },
+                typography: {
+                  ...DEFAULT_CONFIG.stylingConfig.application.typography,
+                  primaryColor:
+                    applicationStyles.typography?.primaryColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.typography
+                      .primaryColor,
+                  secondaryColor:
+                    applicationStyles.typography?.secondaryColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.typography
+                      .secondaryColor,
+                  linkColor:
+                    applicationStyles.typography?.linkColor ||
+                    DEFAULT_CONFIG.stylingConfig.application.typography
+                      .linkColor,
+                },
+              }
+            : DEFAULT_CONFIG.stylingConfig.application,
+          // Apply embedded content variables
+          embeddedContent: {
+            ...DEFAULT_CONFIG.stylingConfig.embeddedContent,
+            customCSS: {
+              ...DEFAULT_CONFIG.stylingConfig.embeddedContent.customCSS,
+              variables: embeddedContentVariables,
+            },
+          },
+        },
+      };
+
+      console.log("Created new configuration with styling:", {
+        hasApplicationStyles: !!applicationStyles,
+        applicationStylesPreview: applicationStyles
+          ? {
+              topBarBg: applicationStyles.topBar?.backgroundColor,
+              sidebarBg: applicationStyles.sidebar?.backgroundColor,
+              primaryButtonBg:
+                applicationStyles.buttons?.primary?.backgroundColor,
+            }
+          : null,
+        embeddedVariablesCount: Object.keys(embeddedContentVariables).length,
+      });
+
+      console.log(
+        "Full styling config to be saved:",
+        JSON.stringify(newConfig.stylingConfig, null, 2)
+      );
+
+      // Add custom menus to configuration BEFORE saving
+      if (wizardConfig.customMenus && wizardConfig.customMenus.length > 0) {
+        console.log(
+          "Wizard: Custom menu configurations detected:",
+          wizardConfig.customMenus.length
+        );
+
+        const customMenusData: CustomMenu[] = wizardConfig.customMenus.map(
+          (menu, index) => {
+            console.log(
+              `Wizard: Processing custom menu ${index + 1}:`,
+              JSON.stringify(menu, null, 2)
+            );
+
+            // Build contentSelection based on menu type
+            const contentSelection: CustomMenu["contentSelection"] =
+              menu.type === "tag"
+                ? {
+                    type: "tag",
+                    tagIdentifiers: menu.tagIdentifiers || [],
+                  }
+                : menu.type === "direct"
+                ? {
+                    type: "direct",
+                    directEmbed: menu.directEmbed,
+                  }
+                : {
+                    // Fallback to specific type (shouldn't happen)
+                    type: "specific",
+                    specificContent: {
+                      liveboards: [],
+                      answers: [],
+                    },
+                  };
+
+            console.log(
+              `Wizard: Content selection for menu ${index + 1}:`,
+              JSON.stringify(contentSelection, null, 2)
+            );
+
+            // Use different icons based on menu type:
+            // - Tag-based menus show a collection of content, so use a folder emoji
+            // - Direct menus show a specific item, so use chart emoji
+            const iconForType = menu.type === "tag" ? "📁" : "📊";
+
+            return {
+              id: `custom-${Date.now()}-${index}`,
+              name: menu.name,
+              description: "",
+              icon: menu.icon || iconForType, // Use provided icon or default based on type
+              enabled: true,
+              contentSelection,
+            };
+          }
+        );
+
+        console.log(
+          "Wizard: Creating custom menu objects:",
+          JSON.stringify(customMenusData, null, 2)
+        );
+
+        // Add custom menus to the configuration
+        newConfig.customMenus = customMenusData;
+
+        // Also update menu order to include custom menu IDs
+        const customMenuIds = customMenusData.map((m) => m.id);
+        newConfig.menuOrder = [...newConfig.menuOrder, ...customMenuIds];
+
+        // DEBUG: Check userConfig state before updating
+        console.log("Wizard: DEBUG - Checking userConfig before update:", {
+          hasUserConfig: !!newConfig.userConfig,
+          hasUsers: !!newConfig.userConfig?.users,
+          usersCount: newConfig.userConfig?.users?.length || 0,
+          usersArray: newConfig.userConfig?.users,
+          currentUserId: newConfig.userConfig?.currentUserId,
+        });
+
+        // IMPORTANT: Add custom menu IDs to all users' access configuration
+        // so they appear in the navigation
+        if (
+          newConfig.userConfig &&
+          newConfig.userConfig.users &&
+          newConfig.userConfig.users.length > 0
+        ) {
+          console.log("Wizard: BEFORE updating user access:");
+          newConfig.userConfig.users.forEach((u, index) => {
+            console.log(`  User ${index + 1} (${u.id}):`, {
+              name: u.name,
+              currentCustomMenus: u.access?.customMenus || [],
+            });
+          });
+
+          newConfig.userConfig = {
+            ...newConfig.userConfig,
+            users: newConfig.userConfig.users.map((user) => ({
+              ...user,
+              access: {
+                ...user.access,
+                customMenus: [
+                  ...(user.access?.customMenus || []),
+                  ...customMenuIds,
+                ],
+              },
+            })),
+          };
+
+          console.log("Wizard: AFTER updating user access:");
+          newConfig.userConfig.users.forEach((u, index) => {
+            console.log(`  User ${index + 1} (${u.id}):`, {
+              name: u.name,
+              updatedCustomMenus: u.access?.customMenus || [],
+            });
+          });
+          console.log(
+            "Wizard: Updated user access configurations to include new custom menus:",
+            customMenuIds
+          );
+        } else {
+          console.error(
+            "Wizard: WARNING - userConfig or userConfig.users is missing!",
+            {
+              hasUserConfig: !!newConfig.userConfig,
+              hasUsers: !!newConfig.userConfig?.users,
+              usersCount: newConfig.userConfig?.users?.length || 0,
+            }
+          );
+        }
+
+        console.log(
+          "Wizard: Added custom menus to configuration. Total custom menus:",
+          newConfig.customMenus.length
+        );
+        console.log("Wizard: Updated menu order:", newConfig.menuOrder);
+      } else {
+        console.log("Wizard: No custom menus in wizard configuration");
+      }
+
+      // Clear current configuration and save new one
+      // Set importing flag to prevent Layout from auto-saving during this process
+      const { setIsImportingConfiguration } = await import(
+        "../services/configurationService"
+      );
+      setIsImportingConfiguration(true);
+
+      await clearAllConfigurations?.();
+
+      // Small delay to ensure clear completes
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Save the new configuration (including custom menus)
+      console.log("==== WIZARD: FINAL SAVE DEBUG ====");
+      console.log("Custom Menus Count:", newConfig.customMenus?.length || 0);
+      console.log(
+        "Custom Menu IDs:",
+        newConfig.customMenus?.map((m) => m.id)
+      );
+      console.log("Users Count:", newConfig.userConfig?.users?.length || 0);
+      console.log(
+        "Full userConfig being saved:",
+        JSON.stringify(newConfig.userConfig, null, 2)
+      );
+      console.log("==================================");
+
+      await saveAllConfigurations(newConfig);
+
+      setImportStatus({
+        message: "Configuration created successfully! Reloading...",
+        type: "success",
+      });
+
+      // Reload the page after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (error) {
+      console.error("Error applying wizard configuration:", error);
+      setImportStatus({
+        message: `Failed to create configuration: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+        type: "error",
+      });
     }
   };
 
@@ -5181,6 +6591,28 @@ function ConfigurationContent({
               }}
             >
               <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                <button
+                  onClick={() => setShowWizard(true)}
+                  style={{
+                    padding: "10px 20px",
+                    backgroundColor: "#8b5cf6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
+                  <MaterialIcon
+                    icon="auto_fix_high"
+                    style={{ fontSize: "18px" }}
+                  />
+                  Configuration Wizard
+                </button>
                 <button
                   onClick={() => {
                     setShowExportDialog(true);
@@ -5923,6 +7355,15 @@ function ConfigurationContent({
                 </div>
               </div>
             )}
+
+            {/* Configuration Wizard */}
+            <ConfigurationWizard
+              isOpen={showWizard}
+              onClose={() => setShowWizard(false)}
+              onComplete={handleWizardComplete}
+              currentThoughtSpotUrl={appConfig.thoughtspotUrl}
+              standardMenus={standardMenus || []}
+            />
           </div>
         )}
 
@@ -6548,7 +7989,8 @@ export default function SettingsModal({
       content: (
         <StylingContent
           stylingConfig={pendingStylingConfig}
-          updateStylingConfig={updatePendingStylingConfig}
+          updateStylingConfig={updateStylingConfig}
+          updateStandardMenu={updateStandardMenu}
         />
       ),
     },

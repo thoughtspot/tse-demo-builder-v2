@@ -22,9 +22,13 @@ export default function ChatBubble() {
     return null;
   }
 
-  // Get colors from configuration or use defaults
-  const primaryColor = chatbotConfig.primaryColor || "#3b82f6";
-  const primaryHoverColor = chatbotConfig.hoverColor || "#2563eb";
+  // Get colors from styling configuration (primary button styles)
+  const primaryColor =
+    context.stylingConfig.application.buttons?.primary?.backgroundColor ||
+    "#3182ce";
+  const primaryHoverColor =
+    context.stylingConfig.application.buttons?.primary?.hoverBackgroundColor ||
+    "#2c5aa0";
   const position = chatbotConfig.position || "bottom-right";
 
   // Don't render anything on the server side

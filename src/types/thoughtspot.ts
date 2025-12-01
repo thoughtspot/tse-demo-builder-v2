@@ -44,6 +44,7 @@ export interface ThoughtSpotEmbedConfig {
   hiddenActions?: string[];
   runtimeFilters?: RuntimeFilter[];
   customizations?: {
+    iconSpriteUrl?: string;
     content: {
       strings: Record<string, string>;
       stringIDs: Record<string, string>;
@@ -72,6 +73,7 @@ export interface ThoughtSpotSearchEmbedConfig {
   hiddenActions?: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
   runtimeFilters?: RuntimeFilter[];
   customizations?: {
+    iconSpriteUrl?: string;
     content: {
       strings: Record<string, string>;
       stringIDs: Record<string, string>;
@@ -95,6 +97,7 @@ export interface ThoughtSpotBaseEmbedConfig {
   locale?: string; // User locale preference
   runtimeFilters?: RuntimeFilter[];
   customizations: {
+    iconSpriteUrl?: string;
     content: {
       strings: Record<string, string>;
       stringIDs: Record<string, string>;
@@ -140,6 +143,8 @@ export interface SavedConfiguration {
 export interface HomePageConfig {
   type: "html" | "url" | "embed";
   value: string;
+  backgroundColor?: string;
+  maintainAspectRatio?: boolean;
 }
 
 export interface AppConfig {
@@ -156,8 +161,6 @@ export interface AppConfig {
     selectedModelIds?: string[];
     welcomeMessage?: string;
     position?: "bottom-right" | "bottom-left";
-    primaryColor?: string;
-    hoverColor?: string;
     spotgptApiKey?: string;
   };
 }
@@ -174,6 +177,8 @@ export interface StandardMenu {
   icon: string;
   homePageType?: string;
   homePageValue?: string;
+  homePageBackgroundColor?: string;
+  homePageMaintainAspectRatio?: boolean;
   tagFilter?: string;
   modelId?: string;
   contentId?: string;
@@ -209,13 +214,20 @@ export interface CustomMenu {
   icon: string;
   enabled: boolean;
   contentSelection: {
-    type: "specific" | "tag";
+    type: "specific" | "tag" | "direct";
     specificContent?: {
       liveboards: string[];
       answers: string[];
     };
     tagIdentifiers?: string[];
     contentType?: "answer" | "liveboard";
+    // Direct embed configuration
+    directEmbed?: {
+      type: "liveboard" | "answer" | "spotter";
+      contentId: string;
+      contentName?: string;
+      contentDescription?: string;
+    };
   };
 }
 
@@ -326,6 +338,7 @@ export interface EmbeddedContentCustomization {
   strings: Record<string, string>;
   stringIDs: Record<string, string>;
   cssUrl?: string;
+  iconSpriteUrl?: string;
   customCSS: {
     variables?: Record<string, string>;
     rules_UNSTABLE?: Record<string, Record<string, string>>;

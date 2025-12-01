@@ -252,29 +252,6 @@ export default function SearchPage({
         <div
           style={{ height: "100%", display: "flex", flexDirection: "column" }}
         >
-          <h3
-            style={{
-              fontSize: "18px",
-              fontWeight: "600",
-              marginBottom: "16px",
-              padding: "0 0 16px 0",
-            }}
-          >
-            Search your data
-            {finalSearchTokenString && (
-              <span
-                style={{
-                  fontSize: "14px",
-                  fontWeight: "400",
-                  color: "#6b7280",
-                  marginLeft: "12px",
-                }}
-              >
-                - Starting with: &quot;{finalSearchTokenString}&quot;
-              </span>
-            )}
-          </h3>
-
           {iframeError ? (
             <div
               style={{

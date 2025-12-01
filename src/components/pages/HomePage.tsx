@@ -5,6 +5,10 @@ import { useAppContext } from "../Layout";
 import { HomePageConfig, StandardMenu } from "../../types/thoughtspot";
 import ThoughtSpotEmbed from "../ThoughtSpotEmbed";
 import { ThoughtSpotContent } from "../../types/thoughtspot";
+import {
+  analyzeImageColors,
+  getBackgroundColorDescription,
+} from "../../utils/colorAnalysis";
 
 interface HomePageProps {
   onConfigUpdate?: (config: HomePageConfig) => void;
@@ -13,7 +17,12 @@ interface HomePageProps {
 export default function HomePage({ onConfigUpdate }: HomePageProps) {
   const [iframeError, setIframeError] = useState<string | null>(null);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [suggestedBackgroundColor, setSuggestedBackgroundColor] = useState<
+    string | null
+  >(null);
+  const [isAnalyzingColors, setIsAnalyzingColors] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const analyzedImageRef = useRef<string | null>(null);
 
   // Always call the hook to follow React rules
   const context = useAppContext();
@@ -112,6 +121,54 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
     }
   }, [mappedValue]);
 
+  // Effect to analyze image colors when image changes
+  useEffect(() => {
+    const analyzeImage = async () => {
+      if (imageSrc) {
+        // Check if we've already analyzed this image to prevent infinite loops
+        if (analyzedImageRef.current === imageSrc) {
+          return;
+        }
+
+        analyzedImageRef.current = imageSrc;
+        setIsAnalyzingColors(true);
+        try {
+          const analysis = await analyzeImageColors(imageSrc);
+          setSuggestedBackgroundColor(analysis.suggestedBackground);
+
+          // Auto-apply the suggested background color only if no background color is already set
+          if (
+            context?.updateStandardMenu &&
+            !homeMenu?.homePageBackgroundColor
+          ) {
+            context.updateStandardMenu(
+              "home",
+              "homePageBackgroundColor",
+              analysis.suggestedBackground
+            );
+          }
+        } catch (error) {
+          console.error("Failed to analyze image colors:", error);
+          setSuggestedBackgroundColor(null);
+        } finally {
+          setIsAnalyzingColors(false);
+        }
+      } else {
+        // Clear background color when image is removed, but only if it was auto-applied
+        analyzedImageRef.current = null;
+        setSuggestedBackgroundColor(null);
+        // Only clear if the current background color matches a suggested color
+        // Don't clear manually set or imported background colors
+        if (context?.updateStandardMenu && !homeMenu?.homePageBackgroundColor) {
+          context.updateStandardMenu("home", "homePageBackgroundColor", "");
+        }
+      }
+    };
+
+    analyzeImage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageSrc]);
+
   // Effect to handle iframe errors
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -154,17 +211,107 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
     ) {
       if (imageSrc) {
         return (
-          <div style={{ textAlign: "center" }}>
-            <img
-              src={imageSrc}
-              alt="Uploaded content"
+          <div
+            style={{
+              flex: 1,
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor:
+                homeMenu?.homePageBackgroundColor ||
+                homePageConfig.backgroundColor ||
+                "#f7fafc",
+              position: "relative",
+            }}
+          >
+            {isAnalyzingColors && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "20px",
+                  right: "20px",
+                  backgroundColor: "rgba(0, 0, 0, 0.7)",
+                  color: "white",
+                  padding: "8px 12px",
+                  borderRadius: "4px",
+                  fontSize: "12px",
+                  zIndex: 10,
+                }}
+              >
+                🎨 Analyzing colors...
+              </div>
+            )}
+            <div
               style={{
-                maxWidth: "100%",
-                maxHeight: "600px",
-                borderRadius: "8px",
-                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                width: "100%",
+                height: "calc(100vh - 200px)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
               }}
-            />
+            >
+              <img
+                src={imageSrc}
+                alt="Uploaded content"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit:
+                    homeMenu?.homePageMaintainAspectRatio !== false &&
+                    homePageConfig.maintainAspectRatio !== false
+                      ? "contain"
+                      : "cover",
+                  borderRadius: "8px",
+                  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                }}
+              />
+            </div>
+            {suggestedBackgroundColor &&
+              !homeMenu?.homePageBackgroundColor &&
+              !homePageConfig.backgroundColor && (
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: "20px",
+                    left: "20px",
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    color: "white",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                    maxWidth: "300px",
+                    zIndex: 10,
+                  }}
+                >
+                  <div style={{ marginBottom: "8px", fontWeight: "600" }}>
+                    🎨 Suggested Background Color
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "24px",
+                        height: "24px",
+                        backgroundColor: suggestedBackgroundColor,
+                        borderRadius: "4px",
+                        border: "2px solid white",
+                      }}
+                    />
+                    <span>{suggestedBackgroundColor}</span>
+                  </div>
+                  <div style={{ fontSize: "12px", opacity: 0.8 }}>
+                    {getBackgroundColorDescription(suggestedBackgroundColor)}
+                  </div>
+                </div>
+              )}
           </div>
         );
       }
@@ -186,17 +333,41 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
     switch (mappedType) {
       case "html":
         if (mappedValue && mappedValue.trim()) {
+          // Create a data URL for the iframe to isolate HTML content
+          const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                  body {
+                    margin: 0;
+                    padding: 0;
+                    overflow: auto;
+                  }
+                </style>
+              </head>
+              <body>
+                ${mappedValue}
+              </body>
+            </html>
+          `;
+          const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(
+            htmlContent
+          )}`;
+
           return (
-            <div
-              dangerouslySetInnerHTML={{ __html: mappedValue }}
+            <iframe
+              src={dataUrl}
               style={{
-                backgroundColor: "white",
-                padding: "20px",
-                borderRadius: "8px",
-                border: "1px solid #e2e8f0",
+                flex: 1,
+                width: "100%",
                 height: "100%",
-                overflow: "auto",
+                border: "none",
               }}
+              title="HTML Content"
+              sandbox="allow-scripts allow-same-origin"
             />
           );
         }
@@ -419,8 +590,7 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
             style={{
               flex: 1,
               width: "100%",
-              height: "calc(100vh - 200px)",
-              minHeight: "400px",
+              minHeight: 0,
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
@@ -464,12 +634,9 @@ export default function HomePage({ onConfigUpdate }: HomePageProps) {
     <div
       style={{
         flex: 1,
-        width: "100%",
-        height: "100%",
-        overflow: "hidden",
         display: "flex",
-        minHeight: 0,
         flexDirection: "column",
+        minHeight: 0,
       }}
     >
       {renderContent()}

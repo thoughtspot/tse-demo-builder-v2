@@ -122,6 +122,7 @@ const migrateStandardMenus = (menus: StandardMenu[]): StandardMenu[] => {
     "/icons/favorites.png": "favorites",
     "/icons/my-reports.png": "my-reports",
     "/icons/spotter-custom.svg": "spotter-custom.svg",
+    "/icons/spotter-preview-custom.svg": "spotter-preview-custom.svg",
     "/icons/search.png": "search",
     "/icons/full-app.png": "full-app",
   };
@@ -633,6 +634,14 @@ export default function Layout({ children }: LayoutProps) {
             "Loaded currentUserId:",
             configs.userConfig.currentUserId
           );
+          console.log(
+            "[Layout] IMMEDIATELY after loadConfiguration, userConfig.users:",
+            configs.userConfig.users?.map((u) => ({
+              id: u.id,
+              name: u.name,
+              customMenus: u.access?.customMenus || [],
+            })) || []
+          );
           if (
             !configs.userConfig.users ||
             configs.userConfig.users.length === 0
@@ -699,6 +708,14 @@ export default function Layout({ children }: LayoutProps) {
               "Setting userConfig from loaded config, currentUserId:",
               configs.userConfig.currentUserId
             );
+            console.log("[Layout] LOADED userConfig detail:", {
+              users:
+                configs.userConfig.users?.map((u) => ({
+                  id: u.id,
+                  name: u.name,
+                  customMenus: u.access?.customMenus || [],
+                })) || [],
+            });
             setUserConfig(configs.userConfig);
           }
         });
@@ -968,10 +985,17 @@ export default function Layout({ children }: LayoutProps) {
       home: "/icons/home.png",
       favorites: "/icons/favorites.png",
       "my-reports": "/icons/my-reports.png",
-      spotter: "/icons/spotter-custom.svg",
+      spotter:
+        stylingConfig.embeddedContent.iconSpriteUrl ||
+        "/icons/spotter-custom.svg",
       search: "/icons/search.png",
       "full-app": "/icons/full-app.png",
     };
+
+    console.log(
+      "Layout: stylingConfig.embeddedContent.iconSpriteUrl =",
+      stylingConfig.embeddedContent.iconSpriteUrl
+    );
 
     // Return the mapped path or fallback to default
     return iconPathMap[cleanIcon] || "/ts.png";
@@ -1408,10 +1432,10 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleSessionStatusChange = (_hasSession: boolean) => {
+  const handleSessionStatusChange = useCallback((_hasSession: boolean) => {
     // Session status is tracked by the SessionChecker component
     // We can use this for future features if needed
-  };
+  }, []);
 
   const handleClusterChangeConfirm = () => {
     // Create new app config with the new cluster URL but keep other default values
@@ -1552,9 +1576,9 @@ export default function Layout({ children }: LayoutProps) {
     setPendingClusterUrl("");
   };
 
-  const handleConfigureSettings = () => {
+  const handleConfigureSettings = useCallback(() => {
     openSettingsWithTab("configuration");
-  };
+  }, []);
 
   const updateStandardMenu = (
     id: string,
@@ -1715,6 +1739,10 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const updateStylingConfig = (config: StylingConfig) => {
+    console.log(
+      "Layout updateStylingConfig: received config with iconSpriteUrl:",
+      config.embeddedContent.iconSpriteUrl
+    );
     setStylingConfig(config);
 
     // Save to storage immediately when loading from configuration
@@ -2255,12 +2283,61 @@ export default function Layout({ children }: LayoutProps) {
   //   });
   // }
 
+  // Debug: Log userConfig users before filtering
+  if (process.env.NODE_ENV === "development" && customMenus.length > 0) {
+    console.log("[Layout] BEFORE filtering - userConfig state:", {
+      hasUsers: !!userConfig.users,
+      usersCount: userConfig.users?.length || 0,
+      currentUserId: userConfig.currentUserId,
+      allUsers:
+        userConfig.users?.map((u) => ({
+          id: u.id,
+          name: u.name,
+          customMenus: u.access?.customMenus || [],
+        })) || [],
+    });
+    // Log the raw userConfig.users to see actual structure
+    console.log(
+      "[Layout] RAW userConfig.users:",
+      JSON.stringify(userConfig.users, null, 2)
+    );
+  }
+
   const accessibleCustomMenus = customMenus.filter((menu) => {
     const currentUser = userConfig.users.find(
       (u) => u.id === userConfig.currentUserId
     );
+
+    // Debug logging
+    if (process.env.NODE_ENV === "development") {
+      console.log("[Layout] Filtering custom menu:", {
+        menuId: menu.id,
+        menuName: menu.name,
+        currentUserId: userConfig.currentUserId,
+        currentUser: currentUser
+          ? {
+              id: currentUser.id,
+              name: currentUser.name,
+              access: currentUser.access,
+            }
+          : null,
+        userCustomMenuAccess: currentUser?.access?.customMenus || [],
+        hasAccess: currentUser?.access?.customMenus?.includes(menu.id) || false,
+      });
+    }
+
     return currentUser?.access?.customMenus?.includes(menu.id);
   });
+
+  // Debug: Log final accessible custom menus
+  if (process.env.NODE_ENV === "development" && customMenus.length > 0) {
+    console.log("[Layout] Custom menus filtering complete:", {
+      totalCustomMenus: customMenus.length,
+      accessibleCustomMenus: accessibleCustomMenus.length,
+      customMenuIds: customMenus.map((m) => m.id),
+      accessibleIds: accessibleCustomMenus.map((m) => m.id),
+    });
+  }
 
   const contextValue: AppContextType = {
     homePageConfig,
@@ -2354,12 +2431,20 @@ export default function Layout({ children }: LayoutProps) {
                     "#ffffff",
                   overflow: "auto",
                   overflowX: "hidden",
-                  padding: "24px",
                   display: "flex",
                   flexDirection: "column",
                 }}
               >
-                <div style={{ flex: 1 }}>{children}</div>
+                <div
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    minHeight: 0,
+                  }}
+                >
+                  {children}
+                </div>
                 {(appConfig.showFooter ?? true) && (
                   <Footer
                     backgroundColor={

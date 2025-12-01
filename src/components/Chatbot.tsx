@@ -15,7 +15,7 @@ interface Message {
   type: "user" | "bot" | "system";
   content: string;
   timestamp: Date;
-  source?: "spotter" | "spotgpt" | "system";
+  source?: "spotter" | "anthropic" | "system";
   modelId?: string;
   container?: HTMLElement;
   metadata?: {
@@ -26,8 +26,8 @@ interface Message {
       suggestedModel?: string;
     };
     usage?: {
-      prompt_tokens: number;
-      completion_tokens: number;
+      input_tokens: number;
+      output_tokens: number;
       total_tokens: number;
     };
   };
@@ -378,8 +378,13 @@ export default function Chatbot({ isOpen, onClose }: ChatbotProps) {
     context.stylingConfig.application.dialogs.backgroundColor;
   const dialogFgColor =
     context.stylingConfig.application.dialogs.foregroundColor;
-  const primaryColor = "#3b82f6";
-  const primaryHoverColor = "#2563eb";
+  // Use primary button styles for consistency
+  const primaryColor =
+    context.stylingConfig.application.buttons?.primary?.backgroundColor ||
+    "#3182ce";
+  const primaryHoverColor =
+    context.stylingConfig.application.buttons?.primary?.hoverBackgroundColor ||
+    "#2c5aa0";
 
   return (
     <>

@@ -5,16 +5,16 @@ import {
 import {
   classifyQuestion,
   generateGeneralResponse,
-  isSpotGPTAvailable,
+  isAnthropicAvailable,
   QuestionClassification,
-} from "./spotgptClient";
+} from "./anthropicClient";
 
 export interface ConversationMessage {
   id: string;
   type: "user" | "bot" | "system";
   content: string;
   timestamp: Date;
-  source?: "spotter" | "spotgpt" | "system";
+  source?: "spotter" | "anthropic" | "system";
   modelId?: string;
   metadata?: {
     classification?: {
@@ -24,8 +24,8 @@ export interface ConversationMessage {
       suggestedModel?: string;
     };
     usage?: {
-      prompt_tokens: number;
-      completion_tokens: number;
+      input_tokens: number;
+      output_tokens: number;
       total_tokens: number;
     };
   };
@@ -163,11 +163,30 @@ export class ConversationManager {
     // Find the best model to use
     let modelToUse: ThoughtSpotContent | null = null;
 
-    // If a preferred model is provided (for follow-up questions), use it
-    if (preferredModel && availableModelIds.includes(preferredModel.id)) {
+    // PRIORITY 1: If we already have an active model from this conversation, keep using it
+    if (this.activeModelId) {
+      const activeModel = this.context.availableModels.find(
+        (m) => m.id === this.activeModelId && availableModelIds.includes(m.id)
+      );
+      if (activeModel) {
+        modelToUse = activeModel;
+        console.log("Using active model from conversation:", activeModel.name);
+      }
+    }
+
+    // PRIORITY 2: If a preferred model is provided (from smart selection), use it
+    if (
+      !modelToUse &&
+      preferredModel &&
+      availableModelIds.includes(preferredModel.id)
+    ) {
       modelToUse = preferredModel;
       console.log("Using preferred model for follow-up:", preferredModel.name);
-    } else if (
+    }
+
+    // PRIORITY 3: Use the classification's suggested model
+    if (
+      !modelToUse &&
       suggestedModelId &&
       availableModelIds.includes(suggestedModelId)
     ) {
@@ -176,8 +195,8 @@ export class ConversationManager {
         null;
     }
 
+    // PRIORITY 4: Use the first available model if no specific suggestion
     if (!modelToUse && availableModelIds.length > 0) {
-      // Use the first available model if no specific suggestion
       modelToUse =
         this.context.availableModels.find(
           (m) => m.id === availableModelIds[0]
@@ -190,6 +209,10 @@ export class ConversationManager {
       );
       return;
     }
+
+    // Set this as the active model for the conversation
+    this.activeModelId = modelToUse.id;
+    console.log("Active model set to:", modelToUse.name, "ID:", modelToUse.id);
 
     // Get or create conversation for this model
     let conversation = this.context.activeConversations.get(modelToUse.id);
@@ -414,7 +437,7 @@ export class ConversationManager {
   }
 
   /**
-   * Handle general questions using SpotGPT
+   * Handle general questions using Anthropic
    */
   private async handleGeneralQuestion(content: string): Promise<void> {
     console.log(
@@ -422,10 +445,10 @@ export class ConversationManager {
       content
     );
 
-    if (!isSpotGPTAvailable()) {
-      console.log("ConversationService - SpotGPT not available");
+    if (!isAnthropicAvailable()) {
+      console.log("ConversationService - Anthropic not available");
       await this.addSystemMessage(
-        "I can help with general questions, but SpotGPT is not configured. Please set up a SpotGPT API key in the chatbot settings."
+        "I can help with general questions, but Anthropic is not configured. Please set up an Anthropic API key in the chatbot settings."
       );
       return;
     }
@@ -440,12 +463,12 @@ export class ConversationManager {
         type: "bot",
         content: response.content || response.response || "",
         timestamp: new Date(),
-        source: "spotgpt",
+        source: "anthropic",
         metadata: {
           usage: response.usage
             ? {
-                prompt_tokens: response.usage.prompt_tokens || 0,
-                completion_tokens: response.usage.completion_tokens || 0,
+                input_tokens: response.usage.input_tokens || 0,
+                output_tokens: response.usage.output_tokens || 0,
                 total_tokens: response.usage.total_tokens || 0,
               }
             : undefined,
@@ -463,7 +486,7 @@ export class ConversationManager {
       );
       this.notifyUpdate();
     } catch (error) {
-      console.error("Error generating SpotGPT response:", error);
+      console.error("Error generating Anthropic response:", error);
       await this.addSystemMessage(
         `Failed to generate response: ${
           error instanceof Error ? error.message : "Unknown error"

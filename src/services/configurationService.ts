@@ -18,6 +18,66 @@ const INDEXEDDB_VERSION = 1;
 const STORE_NAME = "configurations";
 const LARGE_OBJECT_THRESHOLD = 1024 * 1024; // 1MB threshold for using IndexedDB
 
+// Save queue to prevent race conditions
+// Multiple components may try to save simultaneously (e.g., wizard + styling updates),
+// which causes data loss when one save overwrites another's changes.
+// This queue ensures all saves happen sequentially, preserving data integrity.
+let saveQueue: Promise<void> = Promise.resolve();
+let queuedSaveOperation: (() => Promise<void>) | null = null;
+
+/**
+ * Ensures saves happen sequentially by queueing them.
+ * This prevents race conditions where multiple saves overwrite each other.
+ *
+ * Implementation details:
+ * - Maintains a promise chain (saveQueue) that ensures sequential execution
+ * - Coalesces rapid saves: if a new save is queued before the previous starts,
+ *   only the latest save executes (useful for rapid UI updates)
+ * - Each save waits for the previous one to complete before starting
+ *
+ * Example race condition this prevents:
+ * 1. Wizard saves config with custom menus
+ * 2. Styling update saves config (without custom menus if it loaded before wizard saved)
+ * 3. Result: custom menus get overwritten
+ *
+ * With queue:
+ * 1. Wizard save queued
+ * 2. Styling save queued (waits for wizard)
+ * 3. Wizard completes
+ * 4. Styling reloads fresh config (with custom menus) and saves
+ * 5. Result: both changes preserved
+ */
+function queueSave(saveOperation: () => Promise<void>): Promise<void> {
+  const saveId = Date.now();
+  console.log(`[SaveQueue] Queuing save operation ${saveId}`);
+
+  // Cancel any pending queued operation that hasn't started yet
+  queuedSaveOperation = saveOperation;
+
+  // Chain this save to happen after the current one completes
+  saveQueue = saveQueue.then(async () => {
+    // Only execute if this is still the latest queued operation
+    if (queuedSaveOperation === saveOperation) {
+      console.log(`[SaveQueue] Executing save operation ${saveId}`);
+      try {
+        await saveOperation();
+        console.log(`[SaveQueue] Completed save operation ${saveId}`);
+      } finally {
+        // Clear if we're still the active operation
+        if (queuedSaveOperation === saveOperation) {
+          queuedSaveOperation = null;
+        }
+      }
+    } else {
+      console.log(
+        `[SaveQueue] Skipping save operation ${saveId} (superseded by newer save)`
+      );
+    }
+  });
+
+  return saveQueue;
+}
+
 // Default configuration
 export const DEFAULT_CONFIG: ConfigurationData = {
   standardMenus: [
@@ -27,7 +87,10 @@ export const DEFAULT_CONFIG: ConfigurationData = {
       enabled: true,
       icon: "home",
       homePageType: "html",
-      homePageValue: "<h1>Welcome to TSE Demo Builder</h1>",
+      homePageValue:
+        "<div style=\"display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 0;\"><div style=\"text-align: center; padding: 60px 40px; background: rgba(255, 255, 255, 0.95); border-radius: 24px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); max-width: 800px; margin: 20px;\"><h1 style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 48px; font-weight: 700; margin: 0 0 20px 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -0.02em;\">Welcome to TSE Demo Builder</h1><p style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 20px; color: #4a5568; margin: 0; line-height: 1.6; font-weight: 400;\">Build and customize your ThoughtSpot embedded demos with ease</p></div></div>",
+      homePageBackgroundColor: "#667eea",
+      homePageMaintainAspectRatio: true,
     },
     {
       id: "favorites",
@@ -91,7 +154,10 @@ export const DEFAULT_CONFIG: ConfigurationData = {
   ],
   homePageConfig: {
     type: "html",
-    value: "<h1>Welcome to TSE Demo Builder</h1>",
+    value:
+      "<div style=\"display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 0;\"><div style=\"text-align: center; padding: 60px 40px; background: rgba(255, 255, 255, 0.95); border-radius: 24px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); max-width: 800px; margin: 20px;\"><h1 style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 48px; font-weight: 700; margin: 0 0 20px 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -0.02em;\">Welcome to TSE Demo Builder</h1><p style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 20px; color: #4a5568; margin: 0; line-height: 1.6; font-weight: 400;\">Build and customize your ThoughtSpot embedded demos with ease</p></div></div>",
+    backgroundColor: "#667eea",
+    maintainAspectRatio: true,
   },
   appConfig: {
     thoughtspotUrl: "https://se-thoughtspot-cloud.thoughtspot.cloud/",
@@ -103,11 +169,10 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     chatbot: {
       enabled: true,
       defaultModelId: undefined,
+      selectedModelIds: [],
       welcomeMessage:
         "Hello! I'm your AI assistant. What would you like to know about your data?",
       position: "bottom-right",
-      primaryColor: "#3b82f6",
-      hoverColor: "#2563eb",
     },
   },
   fullAppConfig: {
@@ -165,14 +230,27 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     },
     embeddedContent: {
       strings: {},
-      stringIDs: {},
+      stringIDs: {
+        "liveboard.highlights.title": "Shopper Highlights",
+        "convAssist.landingpage.description2": "Ask a question about sales.",
+      },
       cssUrl: "",
+      iconSpriteUrl: "",
       customCSS: {
         variables: {},
         rules_UNSTABLE: {},
       },
     },
-    embedFlags: {},
+    embedFlags: {
+      liveboardEmbed: {
+        enable2ColumnLayout: true,
+        isLiveboardStylingAndGroupingEnabled: true,
+      },
+      appEmbed: {
+        enable2ColumnLayout: true,
+        isLiveboardStylingAndGroupingEnabled: true,
+      },
+    },
     embedDisplay: {
       hideTitle: false,
       hideDescription: false,
@@ -393,6 +471,14 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
         usersCount: parsed.userConfig?.users?.length || 0,
         currentUserId: parsed.userConfig?.currentUserId,
       });
+      console.log(
+        "[ConfigService] RAW parsed.userConfig.users from localStorage:",
+        JSON.stringify(parsed.userConfig?.users, null, 2)
+      );
+      console.log(
+        "Loaded iconSpriteUrl from localStorage:",
+        parsed.stylingConfig?.embeddedContent?.iconSpriteUrl
+      );
 
       // For existing configurations, only add missing fields from DEFAULT_CONFIG, don't overwrite existing values
       const mergedConfig = {
@@ -421,6 +507,10 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
         usersCount: mergedConfig.userConfig?.users?.length || 0,
         currentUserId: mergedConfig.userConfig?.currentUserId,
       });
+      console.log(
+        "Final merged config iconSpriteUrl:",
+        mergedConfig.stylingConfig?.embeddedContent?.iconSpriteUrl
+      );
 
       return mergedConfig;
     }
@@ -481,7 +571,9 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
   }
 };
 
-const saveToStorage = async (config: ConfigurationData): Promise<void> => {
+const saveToStorageInternal = async (
+  config: ConfigurationData
+): Promise<void> => {
   if (typeof window === "undefined") return;
 
   try {
@@ -492,6 +584,12 @@ const saveToStorage = async (config: ConfigurationData): Promise<void> => {
       hasUsers: !!config.userConfig?.users,
       usersCount: config.userConfig?.users?.length || 0,
       currentUserId: config.userConfig?.currentUserId,
+      customMenusCount: config.customMenus?.length || 0,
+      userCustomMenuAccess: config.userConfig?.users?.map((u) => ({
+        userId: u.id,
+        userName: u.name,
+        customMenusAccess: u.access?.customMenus || [],
+      })),
       isLarge,
     });
 
@@ -509,6 +607,13 @@ const saveToStorage = async (config: ConfigurationData): Promise<void> => {
     } else {
       // Save to localStorage for small configurations
       const serializedValue = JSON.stringify(config);
+
+      // Debug: Log what we're writing to localStorage
+      console.log(
+        "[saveToStorage] WRITING to localStorage - userConfig.users:",
+        JSON.stringify(config.userConfig.users, null, 2)
+      );
+
       localStorage.setItem(STORAGE_KEY, serializedValue);
 
       // Remove from IndexedDB if it exists there
@@ -536,6 +641,16 @@ const saveToStorage = async (config: ConfigurationData): Promise<void> => {
       }
     }
   }
+};
+
+/**
+ * Save configuration to storage with queue to prevent race conditions.
+ * All saves are queued and executed sequentially to ensure data integrity.
+ */
+const saveToStorage = async (config: ConfigurationData): Promise<void> => {
+  return queueSave(async () => {
+    await saveToStorageInternal(config);
+  });
 };
 
 // Global flag to prevent storage operations during import
@@ -720,12 +835,26 @@ export const saveStylingConfig = async (
       JSON.stringify(currentConfig.stylingConfig) !==
       JSON.stringify(stylingConfig);
 
-    if (!hasChanged) {
+    // Force save for iconSpriteUrl changes to avoid race conditions
+    const iconSpriteUrlChanged =
+      currentConfig.stylingConfig.embeddedContent?.iconSpriteUrl !==
+      stylingConfig.embeddedContent?.iconSpriteUrl;
+
+    if (!hasChanged && !iconSpriteUrlChanged) {
+      console.log("saveStylingConfig: No changes detected, skipping save");
       return;
     }
 
-    const updatedConfig = { ...currentConfig, stylingConfig };
+    // CRITICAL: Reload config RIGHT BEFORE saving to avoid race conditions
+    // This is a defense-in-depth measure. Even though saveToStorage now uses
+    // a queue, we reload here to ensure we merge with the absolute latest data.
+    // Multiple components may be saving simultaneously (wizard + styling updates).
+    const freshConfig = await loadFromStorage();
+
+    const updatedConfig = { ...freshConfig, stylingConfig };
     await saveToStorage(updatedConfig);
+    console.log("saveStylingConfig: Configuration saved successfully");
+
     // saveStylingConfig completed successfully
   } catch (error) {
     const message = `Failed to save styling config: ${
@@ -1015,12 +1144,19 @@ export const loadConfigurationFromSource = async (
 
     // Update stored menus with any new properties from DEFAULT_CONFIG
     mergedStandardMenus.forEach((mergedMenu) => {
+      const storedMenu = storedStandardMenus.find(
+        (m) => m.id === mergedMenu.id
+      );
       const defaultMenu = DEFAULT_CONFIG.standardMenus.find(
         (m) => m.id === mergedMenu.id
       );
-      if (defaultMenu) {
-        // Merge properties, keeping stored values but adding new default properties
-        Object.assign(mergedMenu, defaultMenu, mergedMenu);
+
+      if (storedMenu) {
+        // If we have stored values, use them and merge with defaults for missing properties
+        Object.assign(mergedMenu, defaultMenu, storedMenu);
+      } else if (defaultMenu) {
+        // If no stored values, use defaults
+        Object.assign(mergedMenu, defaultMenu);
       }
     });
 
@@ -1210,6 +1346,10 @@ export const applyConfiguration = async (
   // Apply styling config with safety checks
   console.log("=== Applying Styling Configuration ===");
   console.log("Styling config to apply:", config.stylingConfig);
+  console.log(
+    "String IDs in config:",
+    config.stylingConfig.embeddedContent?.stringIDs
+  );
 
   // Ensure the styling config has proper structure
   const safeStylingConfig = {
@@ -1218,6 +1358,7 @@ export const applyConfiguration = async (
       strings: config.stylingConfig.embeddedContent?.strings || {},
       stringIDs: config.stylingConfig.embeddedContent?.stringIDs || {},
       cssUrl: config.stylingConfig.embeddedContent?.cssUrl || "",
+      iconSpriteUrl: config.stylingConfig.embeddedContent?.iconSpriteUrl || "",
       customCSS: {
         variables:
           config.stylingConfig.embeddedContent?.customCSS?.variables || {},
@@ -1250,6 +1391,10 @@ export const applyConfiguration = async (
   config.standardMenus.forEach((menu, index) => {
     if (menu.id && menu.name) {
       console.log(`Applying standard menu ${index + 1}:`, menu.name, menu.id);
+      console.log(
+        `Full menu object for ${menu.id}:`,
+        JSON.stringify(menu, null, 2)
+      );
 
       // Apply all updates for this menu - the debounced save mechanism will batch them
       updateFunctions.updateStandardMenu(menu.id, "name", menu.name);
@@ -1273,6 +1418,20 @@ export const applyConfiguration = async (
           menu.id,
           "homePageValue",
           menu.homePageValue
+        );
+      }
+      if (menu.homePageBackgroundColor !== undefined) {
+        updateFunctions.updateStandardMenu(
+          menu.id,
+          "homePageBackgroundColor",
+          menu.homePageBackgroundColor
+        );
+      }
+      if (menu.homePageMaintainAspectRatio !== undefined) {
+        updateFunctions.updateStandardMenu(
+          menu.id,
+          "homePageMaintainAspectRatio",
+          menu.homePageMaintainAspectRatio
         );
       }
       if (menu.modelId) {
@@ -1832,10 +1991,12 @@ export const loadConfigurationSimplified = async (
     onProgress?.("Validating configuration...", 60);
 
     // Step 3: Validate and merge configuration
+    const importedStandardMenus =
+      (configData.standardMenus as StandardMenu[]) ||
+      DEFAULT_CONFIG.standardMenus;
+
     const mergedConfig: ConfigurationData = {
-      standardMenus:
-        (configData.standardMenus as StandardMenu[]) ||
-        DEFAULT_CONFIG.standardMenus,
+      standardMenus: importedStandardMenus,
       customMenus:
         (configData.customMenus as CustomMenu[]) || DEFAULT_CONFIG.customMenus,
       menuOrder: (() => {

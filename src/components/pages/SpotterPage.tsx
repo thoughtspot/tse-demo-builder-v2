@@ -94,6 +94,8 @@ export default function SpotterPage({
           // Get custom CSS configuration from styling config
           const customCSS = context.stylingConfig.embeddedContent.customCSS;
           const cssUrl = context.stylingConfig.embeddedContent.cssUrl;
+          const iconSpriteUrl =
+            context.stylingConfig.embeddedContent.iconSpriteUrl;
           const strings = context.stylingConfig.embeddedContent.strings;
           const stringIDs = context.stylingConfig.embeddedContent.stringIDs;
 
@@ -113,6 +115,7 @@ export default function SpotterPage({
               hiddenActions: hiddenActions,
             }),
             customizations: {
+              iconSpriteUrl: iconSpriteUrl || undefined,
               content: {
                 strings: strings || {},
                 stringIDs: stringIDs || {},
@@ -173,6 +176,7 @@ export default function SpotterPage({
     finalEmbedFlags,
     context.stylingConfig.embeddedContent.customCSS,
     context.stylingConfig.embeddedContent.cssUrl,
+    context.stylingConfig.embeddedContent.iconSpriteUrl,
     context.stylingConfig.embeddedContent.strings,
     context.stylingConfig.embeddedContent.stringIDs,
     context.userConfig.currentUserId,
@@ -253,29 +257,6 @@ export default function SpotterPage({
         <div
           style={{ height: "100%", display: "flex", flexDirection: "column" }}
         >
-          <h3
-            style={{
-              fontSize: "16px",
-              fontWeight: "600",
-              marginBottom: "12px",
-              padding: "0 0 12px 0",
-            }}
-          >
-            AI Analyst
-            {finalSpotterSearchQuery && (
-              <span
-                style={{
-                  fontSize: "14px",
-                  fontWeight: "400",
-                  color: "#6b7280",
-                  marginLeft: "12px",
-                }}
-              >
-                - Starting with: &quot;{finalSpotterSearchQuery}&quot;
-              </span>
-            )}
-          </h3>
-
           {iframeError ? (
             <div
               style={{
