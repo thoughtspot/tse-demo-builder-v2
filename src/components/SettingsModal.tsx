@@ -6140,6 +6140,12 @@ function ConfigurationContent({
         usersData: currentConfig.userConfig?.users,
       });
 
+      if (wizardConfig.modelId) {
+        console.log(
+          `Wizard: Setting model ${wizardConfig.modelId} for Chatbot, Spotter, and Search`
+        );
+      }
+
       const newConfig: ConfigurationData = {
         ...DEFAULT_CONFIG,
         // Preserve existing userConfig instead of using DEFAULT_CONFIG's empty users
@@ -6153,8 +6159,9 @@ function ConfigurationContent({
             defaultModelId:
               wizardConfig.modelId ||
               DEFAULT_CONFIG.appConfig.chatbot?.defaultModelId,
-            selectedModelIds:
-              DEFAULT_CONFIG.appConfig.chatbot?.selectedModelIds,
+            selectedModelIds: wizardConfig.modelId
+              ? [wizardConfig.modelId] // Use the wizard's selected model
+              : DEFAULT_CONFIG.appConfig.chatbot?.selectedModelIds,
             welcomeMessage: DEFAULT_CONFIG.appConfig.chatbot?.welcomeMessage,
             position: DEFAULT_CONFIG.appConfig.chatbot?.position,
             spotgptApiKey: DEFAULT_CONFIG.appConfig.chatbot?.spotgptApiKey,
@@ -6361,11 +6368,16 @@ function ConfigurationContent({
               JSON.stringify(contentSelection, null, 2)
             );
 
+            // Use different icons based on menu type:
+            // - Tag-based menus show a collection of content, so use a folder emoji
+            // - Direct menus show a specific item, so use chart emoji
+            const iconForType = menu.type === "tag" ? "📁" : "📊";
+
             return {
               id: `custom-${Date.now()}-${index}`,
               name: menu.name,
               description: "",
-              icon: menu.icon,
+              icon: menu.icon || iconForType, // Use provided icon or default based on type
               enabled: true,
               contentSelection,
             };

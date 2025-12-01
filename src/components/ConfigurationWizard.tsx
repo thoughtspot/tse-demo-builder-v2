@@ -73,7 +73,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
   const [editingMenuIndex, setEditingMenuIndex] = useState<number | null>(null);
   const [showMenuEditor, setShowMenuEditor] = useState(false);
   const [customMenuName, setCustomMenuName] = useState("");
-  const [customMenuIcon, setCustomMenuIcon] = useState("dashboard");
+  const [customMenuIcon, setCustomMenuIcon] = useState("📁"); // Default to folder emoji for tag-based collections
   const [customMenuType, setCustomMenuType] = useState<"tag" | "direct">("tag");
   const [customMenuTags, setCustomMenuTags] = useState<string[]>([]);
   const [customMenuDirectType, setCustomMenuDirectType] = useState<
@@ -114,7 +114,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
       setEditingMenuIndex(null);
       setShowMenuEditor(false);
       setCustomMenuName("");
-      setCustomMenuIcon("dashboard");
+      setCustomMenuIcon("📁"); // Default to folder emoji for tag-based collections
       setCustomMenuType("tag");
       setCustomMenuTags([]);
       setCustomMenuDirectType("liveboard");
@@ -205,7 +205,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
   const handleAddNewCustomMenu = () => {
     setEditingMenuIndex(null);
     setCustomMenuName("");
-    setCustomMenuIcon("dashboard");
+    setCustomMenuIcon("📁"); // Default to folder emoji for tag-based collections
     setCustomMenuType("tag");
     setCustomMenuTags([]);
     setCustomMenuDirectType("liveboard");
@@ -283,7 +283,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
     setShowMenuEditor(false);
     setEditingMenuIndex(null);
     setCustomMenuName("");
-    setCustomMenuIcon("dashboard");
+    setCustomMenuIcon("📁"); // Default to folder emoji for tag-based collections
     setCustomMenuType("tag");
     setCustomMenuTags([]);
     setCustomMenuDirectType("liveboard");
@@ -295,7 +295,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
     setShowMenuEditor(false);
     setEditingMenuIndex(null);
     setCustomMenuName("");
-    setCustomMenuIcon("dashboard");
+    setCustomMenuIcon("📁"); // Default to folder emoji for tag-based collections
     setCustomMenuType("tag");
     setCustomMenuTags([]);
     setCustomMenuDirectType("liveboard");
@@ -865,7 +865,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                       type="text"
                       value={customMenuIcon}
                       onChange={(e) => setCustomMenuIcon(e.target.value)}
-                      placeholder="Material icon name (e.g., dashboard, analytics)"
+                      placeholder="Icon or emoji (e.g., 📊, 📁, dashboard)"
                       style={{
                         width: "100%",
                         padding: "8px 12px",
@@ -901,7 +901,10 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                         <input
                           type="radio"
                           checked={customMenuType === "tag"}
-                          onChange={() => setCustomMenuType("tag")}
+                          onChange={() => {
+                            setCustomMenuType("tag");
+                            setCustomMenuIcon("📁"); // Tag-based menus show a collection (folder emoji)
+                          }}
                           style={{ marginRight: "6px" }}
                         />
                         <span style={{ fontSize: "14px" }}>Tag-based List</span>
@@ -916,7 +919,10 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                         <input
                           type="radio"
                           checked={customMenuType === "direct"}
-                          onChange={() => setCustomMenuType("direct")}
+                          onChange={() => {
+                            setCustomMenuType("direct");
+                            setCustomMenuIcon("📊"); // Direct menus show a specific item (chart emoji)
+                          }}
                           style={{ marginRight: "6px" }}
                         />
                         <span style={{ fontSize: "14px" }}>Direct Embed</span>

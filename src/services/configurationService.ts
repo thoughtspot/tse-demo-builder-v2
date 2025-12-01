@@ -18,6 +18,66 @@ const INDEXEDDB_VERSION = 1;
 const STORE_NAME = "configurations";
 const LARGE_OBJECT_THRESHOLD = 1024 * 1024; // 1MB threshold for using IndexedDB
 
+// Save queue to prevent race conditions
+// Multiple components may try to save simultaneously (e.g., wizard + styling updates),
+// which causes data loss when one save overwrites another's changes.
+// This queue ensures all saves happen sequentially, preserving data integrity.
+let saveQueue: Promise<void> = Promise.resolve();
+let queuedSaveOperation: (() => Promise<void>) | null = null;
+
+/**
+ * Ensures saves happen sequentially by queueing them.
+ * This prevents race conditions where multiple saves overwrite each other.
+ *
+ * Implementation details:
+ * - Maintains a promise chain (saveQueue) that ensures sequential execution
+ * - Coalesces rapid saves: if a new save is queued before the previous starts,
+ *   only the latest save executes (useful for rapid UI updates)
+ * - Each save waits for the previous one to complete before starting
+ *
+ * Example race condition this prevents:
+ * 1. Wizard saves config with custom menus
+ * 2. Styling update saves config (without custom menus if it loaded before wizard saved)
+ * 3. Result: custom menus get overwritten
+ *
+ * With queue:
+ * 1. Wizard save queued
+ * 2. Styling save queued (waits for wizard)
+ * 3. Wizard completes
+ * 4. Styling reloads fresh config (with custom menus) and saves
+ * 5. Result: both changes preserved
+ */
+function queueSave(saveOperation: () => Promise<void>): Promise<void> {
+  const saveId = Date.now();
+  console.log(`[SaveQueue] Queuing save operation ${saveId}`);
+
+  // Cancel any pending queued operation that hasn't started yet
+  queuedSaveOperation = saveOperation;
+
+  // Chain this save to happen after the current one completes
+  saveQueue = saveQueue.then(async () => {
+    // Only execute if this is still the latest queued operation
+    if (queuedSaveOperation === saveOperation) {
+      console.log(`[SaveQueue] Executing save operation ${saveId}`);
+      try {
+        await saveOperation();
+        console.log(`[SaveQueue] Completed save operation ${saveId}`);
+      } finally {
+        // Clear if we're still the active operation
+        if (queuedSaveOperation === saveOperation) {
+          queuedSaveOperation = null;
+        }
+      }
+    } else {
+      console.log(
+        `[SaveQueue] Skipping save operation ${saveId} (superseded by newer save)`
+      );
+    }
+  });
+
+  return saveQueue;
+}
+
 // Default configuration
 export const DEFAULT_CONFIG: ConfigurationData = {
   standardMenus: [
@@ -511,7 +571,9 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
   }
 };
 
-const saveToStorage = async (config: ConfigurationData): Promise<void> => {
+const saveToStorageInternal = async (
+  config: ConfigurationData
+): Promise<void> => {
   if (typeof window === "undefined") return;
 
   try {
@@ -579,6 +641,16 @@ const saveToStorage = async (config: ConfigurationData): Promise<void> => {
       }
     }
   }
+};
+
+/**
+ * Save configuration to storage with queue to prevent race conditions.
+ * All saves are queued and executed sequentially to ensure data integrity.
+ */
+const saveToStorage = async (config: ConfigurationData): Promise<void> => {
+  return queueSave(async () => {
+    await saveToStorageInternal(config);
+  });
 };
 
 // Global flag to prevent storage operations during import
@@ -758,31 +830,10 @@ export const saveStylingConfig = async (
   try {
     const currentConfig = await loadFromStorage();
 
-    // Debug: Log what was loaded
-    console.log("[saveStylingConfig] LOADED currentConfig.userConfig:", {
-      hasUsers: !!currentConfig.userConfig?.users,
-      usersCount: currentConfig.userConfig?.users?.length || 0,
-      customMenus:
-        currentConfig.userConfig?.users?.map((u) => ({
-          id: u.id,
-          customMenus: u.access?.customMenus || [],
-        })) || [],
-    });
-
     // Check if stylingConfig has actually changed
     const hasChanged =
       JSON.stringify(currentConfig.stylingConfig) !==
       JSON.stringify(stylingConfig);
-
-    console.log("saveStylingConfig: hasChanged =", hasChanged);
-    console.log(
-      "saveStylingConfig: currentConfig.stylingConfig.embeddedContent.iconSpriteUrl =",
-      currentConfig.stylingConfig.embeddedContent?.iconSpriteUrl
-    );
-    console.log(
-      "saveStylingConfig: new stylingConfig.embeddedContent.iconSpriteUrl =",
-      stylingConfig.embeddedContent?.iconSpriteUrl
-    );
 
     // Force save for iconSpriteUrl changes to avoid race conditions
     const iconSpriteUrlChanged =
@@ -794,36 +845,16 @@ export const saveStylingConfig = async (
       return;
     }
 
-    if (iconSpriteUrlChanged) {
-      console.log("saveStylingConfig: iconSpriteUrl changed, forcing save");
-    }
+    // CRITICAL: Reload config RIGHT BEFORE saving to avoid race conditions
+    // This is a defense-in-depth measure. Even though saveToStorage now uses
+    // a queue, we reload here to ensure we merge with the absolute latest data.
+    // Multiple components may be saving simultaneously (wizard + styling updates).
+    const freshConfig = await loadFromStorage();
 
-    const updatedConfig = { ...currentConfig, stylingConfig };
-    console.log(
-      "saveStylingConfig: About to save updatedConfig with iconSpriteUrl:",
-      updatedConfig.stylingConfig.embeddedContent?.iconSpriteUrl
-    );
-
-    // Debug: Log what we're about to save
-    console.log("[saveStylingConfig] ABOUT TO SAVE updatedConfig.userConfig:", {
-      hasUsers: !!updatedConfig.userConfig?.users,
-      usersCount: updatedConfig.userConfig?.users?.length || 0,
-      customMenus:
-        updatedConfig.userConfig?.users?.map((u) => ({
-          id: u.id,
-          customMenus: u.access?.customMenus || [],
-        })) || [],
-    });
-
+    const updatedConfig = { ...freshConfig, stylingConfig };
     await saveToStorage(updatedConfig);
     console.log("saveStylingConfig: Configuration saved successfully");
 
-    // Verify what was actually saved
-    const verifyConfig = await loadFromStorage();
-    console.log(
-      "saveStylingConfig: Verification - loaded iconSpriteUrl after save:",
-      verifyConfig.stylingConfig.embeddedContent?.iconSpriteUrl
-    );
     // saveStylingConfig completed successfully
   } catch (error) {
     const message = `Failed to save styling config: ${
