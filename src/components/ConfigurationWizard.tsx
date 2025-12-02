@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import MaterialIcon from "./MaterialIcon";
 import LoadingDialog from "./LoadingDialog";
 import SearchableDropdown from "./SearchableDropdown";
+import ImageUpload from "./ImageUpload";
 import { DEFAULT_CONFIG } from "../services/configurationService";
 import { StandardMenu } from "../types/thoughtspot";
 
@@ -35,7 +36,9 @@ export interface WizardConfiguration {
   enabledMenus: string[];
   modelId?: string;
   homePageDescription?: string;
+  homePageImage?: string; // Base64 image data
   styleDescription?: string;
+  styleImage?: string; // Base64 image data
   customMenus?: WizardCustomMenu[];
 }
 
@@ -57,7 +60,9 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
   );
   const [modelId, setModelId] = useState<string>("");
   const [homePageDescription, setHomePageDescription] = useState("");
+  const [homePageImage, setHomePageImage] = useState<string>("");
   const [styleDescription, setStyleDescription] = useState("");
+  const [styleImage, setStyleImage] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState("");
   const [processingProgress, setProcessingProgress] = useState(0);
@@ -109,7 +114,9 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
       );
       setModelId("");
       setHomePageDescription("");
+      setHomePageImage("");
       setStyleDescription("");
+      setStyleImage("");
       setCustomMenus([]);
       setEditingMenuIndex(null);
       setShowMenuEditor(false);
@@ -131,7 +138,11 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
       const fetchModels = async () => {
         try {
           setIsLoadingModels(true);
-          const { fetchModels } = await import("../services/thoughtspotApi");
+          const { fetchModels, setThoughtSpotBaseUrl } = await import(
+            "../services/thoughtspotApi"
+          );
+          // Set the cluster URL before fetching
+          setThoughtSpotBaseUrl(thoughtspotUrl);
           const modelsData = await fetchModels();
           setModelOptions(
             modelsData.map((model) => ({ id: model.id, name: model.name }))
@@ -144,7 +155,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
       };
       fetchModels();
     }
-  }, [isOpen]);
+  }, [isOpen, thoughtspotUrl]);
 
   // Fetch tags when wizard opens
   useEffect(() => {
@@ -152,7 +163,11 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
       const fetchTags = async () => {
         try {
           setIsLoadingTags(true);
-          const { fetchTags } = await import("../services/thoughtspotApi");
+          const { fetchTags, setThoughtSpotBaseUrl } = await import(
+            "../services/thoughtspotApi"
+          );
+          // Set the cluster URL before fetching
+          setThoughtSpotBaseUrl(thoughtspotUrl);
           const tagsData = await fetchTags();
           setAvailableTags(tagsData);
         } catch (error) {
@@ -163,7 +178,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
       };
       fetchTags();
     }
-  }, [isOpen]);
+  }, [isOpen, thoughtspotUrl]);
 
   // Fetch content (liveboards and answers) when wizard opens
   useEffect(() => {
@@ -171,9 +186,10 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
       const fetchContent = async () => {
         try {
           setIsLoadingContent(true);
-          const { fetchLiveboards, fetchAnswers } = await import(
-            "../services/thoughtspotApi"
-          );
+          const { fetchLiveboards, fetchAnswers, setThoughtSpotBaseUrl } =
+            await import("../services/thoughtspotApi");
+          // Set the cluster URL before fetching
+          setThoughtSpotBaseUrl(thoughtspotUrl);
           const [liveboardsData, answersData] = await Promise.all([
             fetchLiveboards(),
             fetchAnswers(),
@@ -192,7 +208,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
       };
       fetchContent();
     }
-  }, [isOpen]);
+  }, [isOpen, thoughtspotUrl]);
 
   const handleMenuToggle = (menuId: string) => {
     setEnabledMenus((prev) =>
@@ -315,7 +331,9 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
         enabledMenus,
         modelId: modelId || undefined,
         homePageDescription: homePageDescription || undefined,
+        homePageImage: homePageImage || undefined,
         styleDescription: styleDescription || undefined,
+        styleImage: styleImage || undefined,
         customMenus: customMenus.length > 0 ? customMenus : undefined,
       };
 
@@ -616,6 +634,48 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
               </div>
             )}
 
+            {/* Home Page Image Upload */}
+            {enabledMenus.includes("home") && (
+              <div style={{ marginBottom: "24px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontWeight: "500",
+                    color: "#374151",
+                    fontSize: "14px",
+                  }}
+                >
+                  Home Page Reference Image{" "}
+                  <span style={{ color: "#6b7280", fontWeight: "normal" }}>
+                    (Optional - AI will use this for design inspiration)
+                  </span>
+                </label>
+                <ImageUpload
+                  value={homePageImage}
+                  onChange={setHomePageImage}
+                  label=""
+                  placeholder="Upload or paste a PNG/JPG image"
+                  maxSizeMB={5}
+                  maxWidth={2000}
+                  maxHeight={2000}
+                  useIndexedDB={false}
+                />
+                <p
+                  style={{
+                    marginTop: "8px",
+                    fontSize: "12px",
+                    color: "#6b7280",
+                    fontStyle: "italic",
+                  }}
+                >
+                  💡 Tip: Upload a design mockup or screenshot and AI will
+                  create a similar home page, combining the image style with
+                  your description above.
+                </p>
+              </div>
+            )}
+
             {/* Style Description */}
             <div style={{ marginBottom: "24px" }}>
               <label
@@ -658,6 +718,46 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
               >
                 Note: If you leave this blank, default ThoughtSpot styling will
                 be used.
+              </p>
+            </div>
+
+            {/* Style Reference Image */}
+            <div style={{ marginBottom: "24px" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  fontWeight: "500",
+                  color: "#374151",
+                  fontSize: "14px",
+                }}
+              >
+                Style Reference Image{" "}
+                <span style={{ color: "#6b7280", fontWeight: "normal" }}>
+                  (Optional - AI will extract colors and style)
+                </span>
+              </label>
+              <ImageUpload
+                value={styleImage}
+                onChange={setStyleImage}
+                label=""
+                placeholder="Upload or paste a PNG/JPG image"
+                maxSizeMB={5}
+                maxWidth={2000}
+                maxHeight={2000}
+                useIndexedDB={false}
+              />
+              <p
+                style={{
+                  marginTop: "8px",
+                  fontSize: "12px",
+                  color: "#6b7280",
+                  fontStyle: "italic",
+                }}
+              >
+                💡 Tip: Upload a brand style guide, logo, or design reference
+                and AI will extract the color palette and styling, combining it
+                with your description above.
               </p>
             </div>
 

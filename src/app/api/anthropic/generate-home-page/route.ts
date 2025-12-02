@@ -3,7 +3,8 @@ import { generateHomePageContent } from "../../../../services/anthropicService";
 
 export async function POST(request: NextRequest) {
   try {
-    const { description, applicationName, styleColors } = await request.json();
+    const { description, applicationName, styleColors, imageData } =
+      await request.json();
 
     console.log(
       "Generate Home Page API - Description length:",
@@ -17,6 +18,7 @@ export async function POST(request: NextRequest) {
       "Generate Home Page API - Style colors provided:",
       !!styleColors
     );
+    console.log("Generate Home Page API - Image provided:", !!imageData);
     if (styleColors) {
       console.log("Generate Home Page API - Colors:", styleColors);
     }
@@ -43,7 +45,8 @@ export async function POST(request: NextRequest) {
       description || "",
       applicationName,
       styleColors,
-      process.env.ANTHROPIC_API_KEY
+      process.env.ANTHROPIC_API_KEY,
+      imageData
     );
 
     console.log("Successfully generated home page, HTML length:", html.length);

@@ -43,6 +43,7 @@ import {
   clearStorageAndReloadDefaults,
   saveConfigurationToStorage,
   setIsImportingConfiguration,
+  getIsImportingConfiguration,
   redirectFromCustomMenu,
   DEFAULT_CONFIG,
 } from "../services/configurationService";
@@ -382,6 +383,14 @@ export default function Layout({ children }: LayoutProps) {
   const [hasInitialLoadCompleted, setHasInitialLoadCompleted] = useState(false);
   const [isInitialLoadInProgress, setIsInitialLoadInProgress] = useState(true);
 
+  // Ref to track if we're actively loading configuration
+  // This prevents auto-saves from overwriting data during loads
+  const isLoadingRef = useRef(true);
+
+  // Ref to track if we're importing/applying a configuration
+  // This prevents auto-saves during imports
+  const isImportingRef = useRef(false);
+
   const [previousThoughtspotUrl, setPreviousThoughtspotUrl] =
     useState<string>("");
   const [showClusterChangeWarning, setShowClusterChangeWarning] =
@@ -511,6 +520,7 @@ export default function Layout({ children }: LayoutProps) {
         // Set import flag to prevent auto-save loops during initial load
         setIsImportingConfiguration(true);
         setIsInitialLoadInProgress(true);
+        isLoadingRef.current = true; // Set ref to prevent auto-saves
 
         const configs = await loadAllConfigurations();
 
@@ -724,7 +734,13 @@ export default function Layout({ children }: LayoutProps) {
 
         // Mark initial load as completed
         setHasInitialLoadCompleted(true);
-        setIsInitialLoadInProgress(false);
+
+        // Defer setting flags to false until after all state updates
+        // This ensures the auto-save useEffect doesn't fire with stale state
+        setTimeout(() => {
+          setIsInitialLoadInProgress(false);
+          isLoadingRef.current = false; // Clear ref to allow auto-saves
+        }, 0);
 
         // Clear import flag after initial load
         setTimeout(() => {
@@ -891,7 +907,16 @@ export default function Layout({ children }: LayoutProps) {
 
   // Consolidated auto-save effect for all configurations
   useEffect(() => {
-    if (isImportingConfiguration || isInitialLoadInProgress) {
+    // Check both local state and global service flag for importing
+    const serviceIsImporting = getIsImportingConfiguration();
+
+    if (
+      isImportingConfiguration ||
+      serviceIsImporting ||
+      isInitialLoadInProgress ||
+      isLoadingRef.current ||
+      isImportingRef.current
+    ) {
       return;
     }
 
@@ -1869,6 +1894,26 @@ export default function Layout({ children }: LayoutProps) {
       });
       return filtered;
     });
+
+    // Remove from all users' access configuration
+    setUserConfig((prev) => {
+      const updatedUserConfig = {
+        ...prev,
+        users: prev.users.map((user) => ({
+          ...user,
+          access: {
+            ...user.access,
+            customMenus: user.access.customMenus.filter(
+              (menuId) => menuId !== id
+            ),
+          },
+        })),
+      };
+      saveUserConfig(updatedUserConfig).catch((error) => {
+        console.error("Failed to save user config after menu deletion:", error);
+      });
+      return updatedUserConfig;
+    });
   };
 
   const clearCustomMenus = () => {
@@ -1889,6 +1934,27 @@ export default function Layout({ children }: LayoutProps) {
         console.error("Failed to save menu order after clearing:", error);
       });
       return filtered;
+    });
+
+    // Clear custom menu IDs from all users' access configuration
+    setUserConfig((prev) => {
+      const updatedUserConfig = {
+        ...prev,
+        users: prev.users.map((user) => ({
+          ...user,
+          access: {
+            ...user.access,
+            customMenus: [],
+          },
+        })),
+      };
+      saveUserConfig(updatedUserConfig).catch((error) => {
+        console.error(
+          "Failed to save user config after clearing custom menus:",
+          error
+        );
+      });
+      return updatedUserConfig;
     });
   };
 
