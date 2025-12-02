@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 interface TopBarProps {
   title: string;
   logoUrl?: string;
+  showLogo?: boolean; // If false, hide the logo and only show the application name
   users?: Array<{ id: string; name: string; avatar?: string }>;
   currentUser?: { id: string; name: string; avatar?: string };
   onUserChange?: (userId: string) => void;
@@ -16,6 +17,7 @@ interface TopBarProps {
 export default function TopBar({
   title,
   logoUrl = "/ts.png",
+  showLogo = true,
   users = [
     { id: "1", name: "John Doe" },
     { id: "2", name: "Jane Smith" },
@@ -157,73 +159,77 @@ export default function TopBar({
     >
       {/* Logo and Title */}
       <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-        {isLogoProcessing ? (
-          // Show loading state while processing logo
-          <div
-            style={{
-              height: "32px",
-              width: "32px",
-              backgroundColor: "#f3f4f6",
-              borderRadius: "4px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <span style={{ fontSize: "12px", color: "#9ca3af" }}>...</span>
-          </div>
-        ) : processedLogoUrl && processedLogoUrl !== "/ts.png" ? (
-          // Safety check: if processedLogoUrl is still an IndexedDB reference, something went wrong
-          processedLogoUrl.startsWith("indexeddb://") ? (
-            <img
-              src="/ts.png"
-              alt="Logo (fallback)"
-              style={{ height: "32px", width: "auto" }}
-              onError={(e) => {
-                console.error("Fallback logo failed to load:", e);
-              }}
-            />
-          ) : processedLogoUrl.startsWith("data:") ||
-            processedLogoUrl.startsWith("blob:") ? (
-            // For data URLs and blob URLs, use regular img tag
-            <img
-              src={processedLogoUrl}
-              alt="Logo"
-              style={{ height: "32px", width: "auto" }}
-              onError={(e) => {
-                console.error(
-                  "Data/blob img failed to load:",
-                  processedLogoUrl,
-                  e
-                );
-              }}
-            />
-          ) : (
-            // For regular URLs, use Next.js Image component
-            <Image
-              src={processedLogoUrl}
-              alt="Logo"
-              height={32}
-              width={32}
-              style={{ height: "32px", width: "auto" }}
-              onError={(e) => {
-                console.error(
-                  "Next.js Image failed to load:",
-                  processedLogoUrl,
-                  e
-                );
-              }}
-            />
-          )
-        ) : (
-          <img
-            src={processedLogoUrl}
-            alt="Logo"
-            style={{ height: "32px", width: "auto" }}
-            onError={(e) => {
-              console.error("Regular img failed to load:", processedLogoUrl, e);
-            }}
-          />
+        {showLogo && (
+          <>
+            {isLogoProcessing ? (
+              // Show loading state while processing logo
+              <div
+                style={{
+                  height: "32px",
+                  width: "32px",
+                  backgroundColor: "#f3f4f6",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <span style={{ fontSize: "12px", color: "#9ca3af" }}>...</span>
+              </div>
+            ) : processedLogoUrl && processedLogoUrl !== "/ts.png" ? (
+              // Safety check: if processedLogoUrl is still an IndexedDB reference, something went wrong
+              processedLogoUrl.startsWith("indexeddb://") ? (
+                <img
+                  src="/ts.png"
+                  alt="Logo (fallback)"
+                  style={{ height: "32px", width: "auto" }}
+                  onError={(e) => {
+                    console.error("Fallback logo failed to load:", e);
+                  }}
+                />
+              ) : processedLogoUrl.startsWith("data:") ||
+                processedLogoUrl.startsWith("blob:") ? (
+                // For data URLs and blob URLs, use regular img tag
+                <img
+                  src={processedLogoUrl}
+                  alt="Logo"
+                  style={{ height: "32px", width: "auto" }}
+                  onError={(e) => {
+                    console.error(
+                      "Data/blob img failed to load:",
+                      processedLogoUrl,
+                      e
+                    );
+                  }}
+                />
+              ) : (
+                // For regular URLs, use Next.js Image component
+                <Image
+                  src={processedLogoUrl}
+                  alt="Logo"
+                  height={32}
+                  width={32}
+                  style={{ height: "32px", width: "auto" }}
+                  onError={(e) => {
+                    console.error(
+                      "Next.js Image failed to load:",
+                      processedLogoUrl,
+                      e
+                    );
+                  }}
+                />
+              )
+            ) : (
+              <img
+                src={processedLogoUrl}
+                alt="Logo"
+                style={{ height: "32px", width: "auto" }}
+                onError={(e) => {
+                  console.error("Regular img failed to load:", processedLogoUrl, e);
+                }}
+              />
+            )}
+          </>
         )}
         <h1
           style={{

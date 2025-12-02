@@ -155,6 +155,7 @@ export interface AppConfig {
   favicon?: string;
   faviconSyncEnabled?: boolean;
   showFooter: boolean;
+  showLogo?: boolean; // If false, hide the logo and only show the application name
   chatbot?: {
     enabled: boolean;
     defaultModelId?: string;

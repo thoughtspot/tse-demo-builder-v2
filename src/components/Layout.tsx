@@ -524,6 +524,16 @@ export default function Layout({ children }: LayoutProps) {
 
         const configs = await loadAllConfigurations();
 
+        // Set ThoughtSpot base URL IMMEDIATELY after loading config, before any other operations
+        // This ensures the SessionChecker and other components use the correct server
+        if (configs.appConfig?.thoughtspotUrl) {
+          setThoughtSpotBaseUrl(configs.appConfig.thoughtspotUrl);
+          console.log(
+            "[Layout] Set ThoughtSpot base URL during initial load:",
+            configs.appConfig.thoughtspotUrl
+          );
+        }
+
         // Process all configurations first, then batch state updates
         startTransition(() => {
           // Load standard menus
@@ -782,6 +792,16 @@ export default function Layout({ children }: LayoutProps) {
 
       // Now load the configuration from storage to ensure consistency
       const loadedConfig = await loadAllConfigurations();
+
+      // Set ThoughtSpot base URL IMMEDIATELY after loading config
+      // This ensures the SessionChecker and other components use the correct server
+      if (loadedConfig.appConfig?.thoughtspotUrl) {
+        setThoughtSpotBaseUrl(loadedConfig.appConfig.thoughtspotUrl);
+        console.log(
+          "[Layout] Set ThoughtSpot base URL during config load:",
+          loadedConfig.appConfig.thoughtspotUrl
+        );
+      }
 
       onProgress?.(80, "Applying configuration to UI...");
       setLoadingProgress(80);
@@ -2450,6 +2470,7 @@ export default function Layout({ children }: LayoutProps) {
             <TopBar
               title={appConfig.applicationName || "TSE Demo Builder"}
               logoUrl={stylingConfig.application.topBar.logoUrl || "/ts.png"}
+              showLogo={appConfig.showLogo !== false}
               users={userConfig.users.map((user) => ({
                 id: user.id,
                 name: user.name,

@@ -166,6 +166,7 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     earlyAccessFlags: "enable-modular-home\nenable-custom-styling",
     favicon: "/ts.png",
     showFooter: true,
+    showLogo: true,
     chatbot: {
       enabled: true,
       defaultModelId: undefined,
@@ -2175,6 +2176,20 @@ export const loadConfigurationSimplified = async (
 
     // Step 5: Save configuration to storage
     await saveToStorage(configWithIndexedDB);
+
+    // CRITICAL: Set the ThoughtSpot base URL immediately after saving
+    // This ensures that any session checks or API calls after reload use the correct server
+    // Import and call setThoughtSpotBaseUrl from thoughtspotApi
+    const { setThoughtSpotBaseUrl: setBaseUrl } = await import(
+      "./thoughtspotApi"
+    );
+    if (configWithIndexedDB.appConfig?.thoughtspotUrl) {
+      setBaseUrl(configWithIndexedDB.appConfig.thoughtspotUrl);
+      console.log(
+        "[ConfigService] Set ThoughtSpot base URL after loading configuration:",
+        configWithIndexedDB.appConfig.thoughtspotUrl
+      );
+    }
 
     onProgress?.("Configuration loaded successfully!", 100);
 

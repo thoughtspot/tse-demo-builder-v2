@@ -7109,6 +7109,46 @@ function ConfigurationContent({
                     Upload an image or provide a URL for your application logo.
                     This logo will be displayed in the top bar.
                   </p>
+
+                  <div style={{ marginTop: "12px" }}>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={appConfig.showLogo !== false}
+                        onChange={(e) => {
+                          updateAppConfig({
+                            ...appConfig,
+                            showLogo: e.target.checked,
+                          });
+                        }}
+                        style={{
+                          width: "16px",
+                          height: "16px",
+                          cursor: "pointer",
+                        }}
+                      />
+                      <span style={{ color: "#374151" }}>Show Logo</span>
+                    </label>
+                    <p
+                      style={{
+                        margin: "4px 0 0 0",
+                        fontSize: "12px",
+                        color: "#6b7280",
+                        paddingLeft: "24px",
+                      }}
+                    >
+                      Uncheck to hide the logo and only show the application
+                      name.
+                    </p>
+                  </div>
                 </div>
 
                 <div style={{ marginBottom: "24px" }}>
