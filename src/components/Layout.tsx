@@ -15,6 +15,7 @@ import SettingsModal from "./SettingsModal";
 import Footer from "./Footer";
 import SessionChecker from "./SessionChecker";
 import ChatBubble from "./ChatBubble";
+import VizPickerModal from "./VizPickerModal";
 import {
   CustomMenu,
   StylingConfig,
@@ -26,7 +27,11 @@ import {
   FullAppConfig,
   StandardMenu,
 } from "../types/thoughtspot";
-import { setThoughtSpotBaseUrl } from "../services/thoughtspotApi";
+import {
+  setThoughtSpotBaseUrl,
+  fetchLiveboards,
+  fetchLiveboardWithVisualizations,
+} from "../services/thoughtspotApi";
 import {
   loadAllConfigurations,
   saveStandardMenus,
@@ -373,6 +378,10 @@ export default function Layout({ children }: LayoutProps) {
     string | undefined
   >();
   const [storageError, setStorageError] = useState<string | null>(null);
+  const [isVizPickerOpen, setIsVizPickerOpen] = useState(false);
+  const [liveboards, setLiveboards] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [isLoadingConfiguration, setIsLoadingConfiguration] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState(
@@ -1625,6 +1634,25 @@ export default function Layout({ children }: LayoutProps) {
     openSettingsWithTab("configuration");
   }, []);
 
+  // Viz Picker handlers
+  const handleVizPickerClick = useCallback(() => {
+    setIsVizPickerOpen(true);
+    // Fetch liveboards when opening the modal
+    fetchLiveboards()
+      .then((lbs) => {
+        setLiveboards(lbs.map((lb) => ({ id: lb.id, name: lb.name })));
+      })
+      .catch((error) => {
+        console.error("Failed to fetch liveboards:", error);
+        setLiveboards([]);
+      });
+  }, []);
+
+  const handleFetchVisualizations = useCallback(async (liveboardId: string) => {
+    const vizs = await fetchLiveboardWithVisualizations(liveboardId);
+    return vizs;
+  }, []);
+
   const updateStandardMenu = (
     id: string,
     field: string,
@@ -2484,6 +2512,7 @@ export default function Layout({ children }: LayoutProps) {
               onUserChange={handleUserChange}
               backgroundColor={stylingConfig.application.topBar.backgroundColor}
               foregroundColor={stylingConfig.application.topBar.foregroundColor}
+              onVizPickerClick={handleVizPickerClick}
             />
 
             {/* Main Content Area */}
@@ -2585,6 +2614,14 @@ export default function Layout({ children }: LayoutProps) {
                   setSettingsInitialSubTab(subTab);
                 }
               }}
+            />
+
+            {/* Viz Picker Modal */}
+            <VizPickerModal
+              isOpen={isVizPickerOpen}
+              onClose={() => setIsVizPickerOpen(false)}
+              liveboards={liveboards}
+              onFetchVisualizations={handleFetchVisualizations}
             />
 
             {/* Cluster Change Warning Dialog */}

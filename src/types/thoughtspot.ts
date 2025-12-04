@@ -122,6 +122,7 @@ export interface ThoughtSpotContent {
   created?: number;
   modified?: number;
   lastAccessed?: number;
+  vizId?: string; // Optional viz ID for embedding specific visualizations from a liveboard
 }
 
 export interface ThoughtSpotModelDetails extends ThoughtSpotContent {

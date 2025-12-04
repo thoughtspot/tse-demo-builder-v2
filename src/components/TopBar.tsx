@@ -12,6 +12,7 @@ interface TopBarProps {
   onUserChange?: (userId: string) => void;
   backgroundColor?: string;
   foregroundColor?: string;
+  onVizPickerClick?: () => void;
 }
 
 export default function TopBar({
@@ -27,6 +28,7 @@ export default function TopBar({
   onUserChange,
   backgroundColor = "white",
   foregroundColor = "#1a202c",
+  onVizPickerClick,
 }: TopBarProps) {
   const [thoughtSpotVersion, setThoughtSpotVersion] = useState<string | null>(
     null
@@ -225,7 +227,11 @@ export default function TopBar({
                 alt="Logo"
                 style={{ height: "32px", width: "auto" }}
                 onError={(e) => {
-                  console.error("Regular img failed to load:", processedLogoUrl, e);
+                  console.error(
+                    "Regular img failed to load:",
+                    processedLogoUrl,
+                    e
+                  );
                 }}
               />
             )}
@@ -245,6 +251,40 @@ export default function TopBar({
 
       {/* User Menu */}
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        {/* Viz Picker Button */}
+        {onVizPickerClick && (
+          <button
+            onClick={onVizPickerClick}
+            style={{
+              background: "none",
+              border: "2px solid #3b82f6",
+              cursor: "pointer",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              backgroundColor: "#eff6ff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "14px",
+              fontWeight: "600",
+              color: "#3b82f6",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#dbeafe";
+              e.currentTarget.style.borderColor = "#2563eb";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#eff6ff";
+              e.currentTarget.style.borderColor = "#3b82f6";
+            }}
+            title="Visualization Picker"
+          >
+            <span style={{ marginRight: "6px" }}>📊</span>
+            Viz Picker
+          </button>
+        )}
+
         <div style={{ position: "relative" }}>
           <button
             onClick={() => {
