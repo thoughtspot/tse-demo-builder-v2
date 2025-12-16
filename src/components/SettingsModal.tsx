@@ -7194,7 +7194,7 @@ function ConfigurationContent({
                         checked={appConfig.faviconSyncEnabled ?? false}
                         disabled={
                           !stylingConfig.application.topBar.logoUrl ||
-                          stylingConfig.application.topBar.logoUrl === "/ts.png"
+                          stylingConfig.application.topBar.logoUrl === "/ts.svg"
                         }
                         onChange={(e) => {
                           const isChecked = e.target.checked;
@@ -7215,14 +7215,14 @@ function ConfigurationContent({
                               faviconSyncEnabled: true,
                               favicon:
                                 stylingConfig.application.topBar.logoUrl ||
-                                "/ts.png",
+                                "/ts.svg",
                             });
                           } else {
                             // Disable favicon sync and reset favicon to default
                             updateAppConfig({
                               ...appConfig,
                               faviconSyncEnabled: false,
-                              favicon: "/ts.png",
+                              favicon: "/ts.svg",
                             });
                           }
                         }}
@@ -7241,7 +7241,7 @@ function ConfigurationContent({
                       application logo. Uncheck to set them independently.
                       {(!Boolean(stylingConfig.application.topBar.logoUrl) ||
                         stylingConfig.application.topBar.logoUrl ===
-                          "/ts.png") && (
+                          "/ts.svg") && (
                         <span style={{ color: "#ef4444", fontWeight: "500" }}>
                           {" "}
                           First set an application logo above to enable this

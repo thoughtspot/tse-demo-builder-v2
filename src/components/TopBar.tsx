@@ -17,7 +17,7 @@ interface TopBarProps {
 
 export default function TopBar({
   title,
-  logoUrl = "/ts.png",
+  logoUrl = "/ts.svg",
   showLogo = true,
   users = [
     { id: "1", name: "John Doe" },
@@ -33,7 +33,7 @@ export default function TopBar({
   const [thoughtSpotVersion, setThoughtSpotVersion] = useState<string | null>(
     null
   );
-  const [processedLogoUrl, setProcessedLogoUrl] = useState<string>("/ts.png");
+  const [processedLogoUrl, setProcessedLogoUrl] = useState<string>("/ts.svg");
   const [isLogoProcessing, setIsLogoProcessing] = useState<boolean>(false);
 
   useEffect(() => {
@@ -59,9 +59,9 @@ export default function TopBar({
       setIsLogoProcessing(true);
 
       try {
-        if (!logoUrl || logoUrl === "/ts.png") {
+        if (!logoUrl || logoUrl === "/ts.svg") {
           console.log("[TopBar] Using default logo");
-          setProcessedLogoUrl("/ts.png");
+          setProcessedLogoUrl("/ts.svg");
           return;
         }
 
@@ -85,14 +85,14 @@ export default function TopBar({
                 "[TopBar] Failed to load image from IndexedDB:",
                 imageId
               );
-              setProcessedLogoUrl("/ts.png");
+              setProcessedLogoUrl("/ts.svg");
             }
           } catch (error) {
             console.error(
               "[TopBar] Failed to load image from IndexedDB:",
               error
             );
-            setProcessedLogoUrl("/ts.png");
+            setProcessedLogoUrl("/ts.svg");
           }
         } else {
           // For other URL types, validate and use as-is
@@ -113,7 +113,7 @@ export default function TopBar({
                 "[TopBar] Unexpected IndexedDB reference, using default:",
                 logoUrl
               );
-              setProcessedLogoUrl("/ts.png");
+              setProcessedLogoUrl("/ts.svg");
             } else if (logoUrl.startsWith("http")) {
               // Validate HTTP URLs
               new URL(logoUrl);
@@ -123,7 +123,7 @@ export default function TopBar({
                 "[TopBar] Invalid logo URL format, using default:",
                 logoUrl
               );
-              setProcessedLogoUrl("/ts.png");
+              setProcessedLogoUrl("/ts.svg");
             }
           } catch (urlError) {
             console.error(
@@ -131,7 +131,7 @@ export default function TopBar({
               logoUrl,
               urlError
             );
-            setProcessedLogoUrl("/ts.png");
+            setProcessedLogoUrl("/ts.svg");
           }
         }
       } finally {
@@ -178,11 +178,11 @@ export default function TopBar({
               >
                 <span style={{ fontSize: "12px", color: "#9ca3af" }}>...</span>
               </div>
-            ) : processedLogoUrl && processedLogoUrl !== "/ts.png" ? (
+            ) : processedLogoUrl && processedLogoUrl !== "/ts.svg" ? (
               // Safety check: if processedLogoUrl is still an IndexedDB reference, something went wrong
               processedLogoUrl.startsWith("indexeddb://") ? (
                 <img
-                  src="/ts.png"
+                  src="/ts.svg"
                   alt="Logo (fallback)"
                   style={{ height: "32px", width: "auto" }}
                   onError={(e) => {

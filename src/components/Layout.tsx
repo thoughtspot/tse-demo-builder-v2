@@ -1008,13 +1008,13 @@ export default function Layout({ children }: LayoutProps) {
   const getIconImagePath = (icon: string): string => {
     // Handle empty or invalid icons
     if (!icon || typeof icon !== "string") {
-      return "/ts.png";
+      return "/ts.svg";
     }
 
     // Clean up the icon string - remove any whitespace or invalid characters
     const cleanIcon = icon.trim();
     if (!cleanIcon) {
-      return "/ts.png";
+      return "/ts.svg";
     }
 
     // If it's already a valid image path or URL, return as is
@@ -1052,7 +1052,7 @@ export default function Layout({ children }: LayoutProps) {
     );
 
     // Return the mapped path or fallback to default
-    return iconPathMap[cleanIcon] || "/ts.png";
+    return iconPathMap[cleanIcon] || "/ts.svg";
   };
 
   // Auto-sync favicon with logo when favicon sync is enabled
@@ -1060,7 +1060,7 @@ export default function Layout({ children }: LayoutProps) {
     if (
       appConfig.faviconSyncEnabled &&
       stylingConfig.application.topBar.logoUrl &&
-      stylingConfig.application.topBar.logoUrl !== "/ts.png"
+      stylingConfig.application.topBar.logoUrl !== "/ts.svg"
     ) {
       console.log(
         "[Layout] Auto-syncing favicon with logo:",
@@ -1076,14 +1076,14 @@ export default function Layout({ children }: LayoutProps) {
       // Update favicon in DOM only, don't modify React state to avoid loops
     } else if (
       !appConfig.faviconSyncEnabled &&
-      appConfig.favicon !== "/ts.png"
+      appConfig.favicon !== "/ts.svg"
     ) {
       // Reset favicon to default when sync is disabled
       const faviconElement = document.getElementById(
         "favicon"
       ) as HTMLLinkElement;
       if (faviconElement) {
-        faviconElement.href = "/ts.png";
+        faviconElement.href = "/ts.svg";
       }
       // Update favicon in DOM only, don't modify React state to avoid loops
     }
@@ -1113,7 +1113,7 @@ export default function Layout({ children }: LayoutProps) {
             "favicon"
           ) as HTMLLinkElement;
           if (faviconElement) {
-            faviconElement.href = "/ts.png";
+            faviconElement.href = "/ts.svg";
           }
           return;
         }
@@ -1131,14 +1131,14 @@ export default function Layout({ children }: LayoutProps) {
               console.warn(
                 "[Layout] Failed to get image data from IndexedDB, using default"
               );
-              favicon = "/ts.png";
+              favicon = "/ts.svg";
             }
           } catch (indexedDBError) {
             console.error(
               "[Layout] Error getting image from IndexedDB:",
               indexedDBError
             );
-            favicon = "/ts.png";
+            favicon = "/ts.svg";
           }
         }
 
@@ -1167,7 +1167,7 @@ export default function Layout({ children }: LayoutProps) {
           } catch (urlError) {
             console.warn("Invalid favicon URL:", favicon, urlError);
             // Fallback to default favicon
-            faviconElement.href = "/ts.png";
+            faviconElement.href = "/ts.svg";
           }
         }
       } catch (error) {
@@ -1177,7 +1177,7 @@ export default function Layout({ children }: LayoutProps) {
           "favicon"
         ) as HTMLLinkElement;
         if (faviconElement) {
-          faviconElement.href = "/ts.png";
+          faviconElement.href = "/ts.svg";
         }
       }
     };
@@ -1498,7 +1498,7 @@ export default function Layout({ children }: LayoutProps) {
       applicationName: "TSE Demo Builder",
       logo: "",
       earlyAccessFlags: "",
-      favicon: "/ts.png",
+      favicon: "/ts.svg",
       showFooter: true,
     } as AppConfig;
 
@@ -2480,7 +2480,7 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <AppContext.Provider value={contextValue}>
       {/* Dynamic favicon */}
-      <link rel="icon" href="/ts.png" id="favicon" />
+      <link rel="icon" href="/ts.svg" id="favicon" />
       <StylingProvider stylingConfig={stylingConfig}>
         <SessionChecker
           thoughtspotUrl={appConfig.thoughtspotUrl}
@@ -2497,7 +2497,7 @@ export default function Layout({ children }: LayoutProps) {
             {/* Top Bar */}
             <TopBar
               title={appConfig.applicationName || "TSE Demo Builder"}
-              logoUrl={stylingConfig.application.topBar.logoUrl || "/ts.png"}
+              logoUrl={stylingConfig.application.topBar.logoUrl || "/ts.svg"}
               showLogo={appConfig.showLogo !== false}
               users={userConfig.users.map((user) => ({
                 id: user.id,
