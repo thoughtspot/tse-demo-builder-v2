@@ -15,6 +15,7 @@ import SettingsModal from "./SettingsModal";
 import Footer from "./Footer";
 import SessionChecker from "./SessionChecker";
 import ChatBubble from "./ChatBubble";
+import VizPickerModal from "./VizPickerModal";
 import {
   CustomMenu,
   StylingConfig,
@@ -26,7 +27,11 @@ import {
   FullAppConfig,
   StandardMenu,
 } from "../types/thoughtspot";
-import { setThoughtSpotBaseUrl } from "../services/thoughtspotApi";
+import {
+  setThoughtSpotBaseUrl,
+  fetchLiveboards,
+  fetchLiveboardWithVisualizations,
+} from "../services/thoughtspotApi";
 import {
   loadAllConfigurations,
   saveStandardMenus,
@@ -43,6 +48,7 @@ import {
   clearStorageAndReloadDefaults,
   saveConfigurationToStorage,
   setIsImportingConfiguration,
+  getIsImportingConfiguration,
   redirectFromCustomMenu,
   DEFAULT_CONFIG,
 } from "../services/configurationService";
@@ -372,6 +378,10 @@ export default function Layout({ children }: LayoutProps) {
     string | undefined
   >();
   const [storageError, setStorageError] = useState<string | null>(null);
+  const [isVizPickerOpen, setIsVizPickerOpen] = useState(false);
+  const [liveboards, setLiveboards] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [isLoadingConfiguration, setIsLoadingConfiguration] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState(
@@ -381,6 +391,14 @@ export default function Layout({ children }: LayoutProps) {
     useState(false);
   const [hasInitialLoadCompleted, setHasInitialLoadCompleted] = useState(false);
   const [isInitialLoadInProgress, setIsInitialLoadInProgress] = useState(true);
+
+  // Ref to track if we're actively loading configuration
+  // This prevents auto-saves from overwriting data during loads
+  const isLoadingRef = useRef(true);
+
+  // Ref to track if we're importing/applying a configuration
+  // This prevents auto-saves during imports
+  const isImportingRef = useRef(false);
 
   const [previousThoughtspotUrl, setPreviousThoughtspotUrl] =
     useState<string>("");
@@ -511,8 +529,19 @@ export default function Layout({ children }: LayoutProps) {
         // Set import flag to prevent auto-save loops during initial load
         setIsImportingConfiguration(true);
         setIsInitialLoadInProgress(true);
+        isLoadingRef.current = true; // Set ref to prevent auto-saves
 
         const configs = await loadAllConfigurations();
+
+        // Set ThoughtSpot base URL IMMEDIATELY after loading config, before any other operations
+        // This ensures the SessionChecker and other components use the correct server
+        if (configs.appConfig?.thoughtspotUrl) {
+          setThoughtSpotBaseUrl(configs.appConfig.thoughtspotUrl);
+          console.log(
+            "[Layout] Set ThoughtSpot base URL during initial load:",
+            configs.appConfig.thoughtspotUrl
+          );
+        }
 
         // Process all configurations first, then batch state updates
         startTransition(() => {
@@ -724,7 +753,13 @@ export default function Layout({ children }: LayoutProps) {
 
         // Mark initial load as completed
         setHasInitialLoadCompleted(true);
-        setIsInitialLoadInProgress(false);
+
+        // Defer setting flags to false until after all state updates
+        // This ensures the auto-save useEffect doesn't fire with stale state
+        setTimeout(() => {
+          setIsInitialLoadInProgress(false);
+          isLoadingRef.current = false; // Clear ref to allow auto-saves
+        }, 0);
 
         // Clear import flag after initial load
         setTimeout(() => {
@@ -766,6 +801,16 @@ export default function Layout({ children }: LayoutProps) {
 
       // Now load the configuration from storage to ensure consistency
       const loadedConfig = await loadAllConfigurations();
+
+      // Set ThoughtSpot base URL IMMEDIATELY after loading config
+      // This ensures the SessionChecker and other components use the correct server
+      if (loadedConfig.appConfig?.thoughtspotUrl) {
+        setThoughtSpotBaseUrl(loadedConfig.appConfig.thoughtspotUrl);
+        console.log(
+          "[Layout] Set ThoughtSpot base URL during config load:",
+          loadedConfig.appConfig.thoughtspotUrl
+        );
+      }
 
       onProgress?.(80, "Applying configuration to UI...");
       setLoadingProgress(80);
@@ -891,7 +936,16 @@ export default function Layout({ children }: LayoutProps) {
 
   // Consolidated auto-save effect for all configurations
   useEffect(() => {
-    if (isImportingConfiguration || isInitialLoadInProgress) {
+    // Check both local state and global service flag for importing
+    const serviceIsImporting = getIsImportingConfiguration();
+
+    if (
+      isImportingConfiguration ||
+      serviceIsImporting ||
+      isInitialLoadInProgress ||
+      isLoadingRef.current ||
+      isImportingRef.current
+    ) {
       return;
     }
 
@@ -954,13 +1008,13 @@ export default function Layout({ children }: LayoutProps) {
   const getIconImagePath = (icon: string): string => {
     // Handle empty or invalid icons
     if (!icon || typeof icon !== "string") {
-      return "/ts.png";
+      return "/ts.svg";
     }
 
     // Clean up the icon string - remove any whitespace or invalid characters
     const cleanIcon = icon.trim();
     if (!cleanIcon) {
-      return "/ts.png";
+      return "/ts.svg";
     }
 
     // If it's already a valid image path or URL, return as is
@@ -998,7 +1052,7 @@ export default function Layout({ children }: LayoutProps) {
     );
 
     // Return the mapped path or fallback to default
-    return iconPathMap[cleanIcon] || "/ts.png";
+    return iconPathMap[cleanIcon] || "/ts.svg";
   };
 
   // Auto-sync favicon with logo when favicon sync is enabled
@@ -1006,7 +1060,7 @@ export default function Layout({ children }: LayoutProps) {
     if (
       appConfig.faviconSyncEnabled &&
       stylingConfig.application.topBar.logoUrl &&
-      stylingConfig.application.topBar.logoUrl !== "/ts.png"
+      stylingConfig.application.topBar.logoUrl !== "/ts.svg"
     ) {
       console.log(
         "[Layout] Auto-syncing favicon with logo:",
@@ -1022,14 +1076,14 @@ export default function Layout({ children }: LayoutProps) {
       // Update favicon in DOM only, don't modify React state to avoid loops
     } else if (
       !appConfig.faviconSyncEnabled &&
-      appConfig.favicon !== "/ts.png"
+      appConfig.favicon !== "/ts.svg"
     ) {
       // Reset favicon to default when sync is disabled
       const faviconElement = document.getElementById(
         "favicon"
       ) as HTMLLinkElement;
       if (faviconElement) {
-        faviconElement.href = "/ts.png";
+        faviconElement.href = "/ts.svg";
       }
       // Update favicon in DOM only, don't modify React state to avoid loops
     }
@@ -1059,7 +1113,7 @@ export default function Layout({ children }: LayoutProps) {
             "favicon"
           ) as HTMLLinkElement;
           if (faviconElement) {
-            faviconElement.href = "/ts.png";
+            faviconElement.href = "/ts.svg";
           }
           return;
         }
@@ -1077,14 +1131,14 @@ export default function Layout({ children }: LayoutProps) {
               console.warn(
                 "[Layout] Failed to get image data from IndexedDB, using default"
               );
-              favicon = "/ts.png";
+              favicon = "/ts.svg";
             }
           } catch (indexedDBError) {
             console.error(
               "[Layout] Error getting image from IndexedDB:",
               indexedDBError
             );
-            favicon = "/ts.png";
+            favicon = "/ts.svg";
           }
         }
 
@@ -1113,7 +1167,7 @@ export default function Layout({ children }: LayoutProps) {
           } catch (urlError) {
             console.warn("Invalid favicon URL:", favicon, urlError);
             // Fallback to default favicon
-            faviconElement.href = "/ts.png";
+            faviconElement.href = "/ts.svg";
           }
         }
       } catch (error) {
@@ -1123,7 +1177,7 @@ export default function Layout({ children }: LayoutProps) {
           "favicon"
         ) as HTMLLinkElement;
         if (faviconElement) {
-          faviconElement.href = "/ts.png";
+          faviconElement.href = "/ts.svg";
         }
       }
     };
@@ -1444,7 +1498,7 @@ export default function Layout({ children }: LayoutProps) {
       applicationName: "TSE Demo Builder",
       logo: "",
       earlyAccessFlags: "",
-      favicon: "/ts.png",
+      favicon: "/ts.svg",
       showFooter: true,
     } as AppConfig;
 
@@ -1578,6 +1632,25 @@ export default function Layout({ children }: LayoutProps) {
 
   const handleConfigureSettings = useCallback(() => {
     openSettingsWithTab("configuration");
+  }, []);
+
+  // Viz Picker handlers
+  const handleVizPickerClick = useCallback(() => {
+    setIsVizPickerOpen(true);
+    // Fetch liveboards when opening the modal
+    fetchLiveboards()
+      .then((lbs) => {
+        setLiveboards(lbs.map((lb) => ({ id: lb.id, name: lb.name })));
+      })
+      .catch((error) => {
+        console.error("Failed to fetch liveboards:", error);
+        setLiveboards([]);
+      });
+  }, []);
+
+  const handleFetchVisualizations = useCallback(async (liveboardId: string) => {
+    const vizs = await fetchLiveboardWithVisualizations(liveboardId);
+    return vizs;
   }, []);
 
   const updateStandardMenu = (
@@ -1869,6 +1942,26 @@ export default function Layout({ children }: LayoutProps) {
       });
       return filtered;
     });
+
+    // Remove from all users' access configuration
+    setUserConfig((prev) => {
+      const updatedUserConfig = {
+        ...prev,
+        users: prev.users.map((user) => ({
+          ...user,
+          access: {
+            ...user.access,
+            customMenus: user.access.customMenus.filter(
+              (menuId) => menuId !== id
+            ),
+          },
+        })),
+      };
+      saveUserConfig(updatedUserConfig).catch((error) => {
+        console.error("Failed to save user config after menu deletion:", error);
+      });
+      return updatedUserConfig;
+    });
   };
 
   const clearCustomMenus = () => {
@@ -1889,6 +1982,27 @@ export default function Layout({ children }: LayoutProps) {
         console.error("Failed to save menu order after clearing:", error);
       });
       return filtered;
+    });
+
+    // Clear custom menu IDs from all users' access configuration
+    setUserConfig((prev) => {
+      const updatedUserConfig = {
+        ...prev,
+        users: prev.users.map((user) => ({
+          ...user,
+          access: {
+            ...user.access,
+            customMenus: [],
+          },
+        })),
+      };
+      saveUserConfig(updatedUserConfig).catch((error) => {
+        console.error(
+          "Failed to save user config after clearing custom menus:",
+          error
+        );
+      });
+      return updatedUserConfig;
     });
   };
 
@@ -2366,7 +2480,7 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <AppContext.Provider value={contextValue}>
       {/* Dynamic favicon */}
-      <link rel="icon" href="/ts.png" id="favicon" />
+      <link rel="icon" href="/ts.svg" id="favicon" />
       <StylingProvider stylingConfig={stylingConfig}>
         <SessionChecker
           thoughtspotUrl={appConfig.thoughtspotUrl}
@@ -2383,7 +2497,8 @@ export default function Layout({ children }: LayoutProps) {
             {/* Top Bar */}
             <TopBar
               title={appConfig.applicationName || "TSE Demo Builder"}
-              logoUrl={stylingConfig.application.topBar.logoUrl || "/ts.png"}
+              logoUrl={stylingConfig.application.topBar.logoUrl || "/ts.svg"}
+              showLogo={appConfig.showLogo !== false}
               users={userConfig.users.map((user) => ({
                 id: user.id,
                 name: user.name,
@@ -2397,6 +2512,7 @@ export default function Layout({ children }: LayoutProps) {
               onUserChange={handleUserChange}
               backgroundColor={stylingConfig.application.topBar.backgroundColor}
               foregroundColor={stylingConfig.application.topBar.foregroundColor}
+              onVizPickerClick={handleVizPickerClick}
             />
 
             {/* Main Content Area */}
@@ -2498,6 +2614,14 @@ export default function Layout({ children }: LayoutProps) {
                   setSettingsInitialSubTab(subTab);
                 }
               }}
+            />
+
+            {/* Viz Picker Modal */}
+            <VizPickerModal
+              isOpen={isVizPickerOpen}
+              onClose={() => setIsVizPickerOpen(false)}
+              liveboards={liveboards}
+              onFetchVisualizations={handleFetchVisualizations}
             />
 
             {/* Cluster Change Warning Dialog */}

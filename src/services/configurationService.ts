@@ -162,10 +162,11 @@ export const DEFAULT_CONFIG: ConfigurationData = {
   appConfig: {
     thoughtspotUrl: "https://se-thoughtspot-cloud.thoughtspot.cloud/",
     applicationName: "TSE Demo Builder",
-    logo: "/ts.png",
+    logo: "/ts.svg",
     earlyAccessFlags: "enable-modular-home\nenable-custom-styling",
-    favicon: "/ts.png",
+    favicon: "/ts.svg",
     showFooter: true,
+    showLogo: true,
     chatbot: {
       enabled: true,
       defaultModelId: undefined,
@@ -184,7 +185,7 @@ export const DEFAULT_CONFIG: ConfigurationData = {
       topBar: {
         backgroundColor: "#ffffff",
         foregroundColor: "#333333",
-        logoUrl: "/ts.png",
+        logoUrl: "/ts.svg",
       },
       sidebar: {
         backgroundColor: "#f5f5f5",
@@ -494,6 +495,23 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
         stylingConfig: {
           ...DEFAULT_CONFIG.stylingConfig,
           ...parsed.stylingConfig,
+          application: {
+            ...DEFAULT_CONFIG.stylingConfig.application,
+            ...parsed.stylingConfig?.application,
+          },
+          embeddedContent: {
+            ...DEFAULT_CONFIG.stylingConfig.embeddedContent,
+            ...parsed.stylingConfig?.embeddedContent,
+            customCSS: {
+              ...DEFAULT_CONFIG.stylingConfig.embeddedContent.customCSS,
+              ...parsed.stylingConfig?.embeddedContent?.customCSS,
+              variables: {
+                ...DEFAULT_CONFIG.stylingConfig.embeddedContent.customCSS
+                  .variables,
+                ...parsed.stylingConfig?.embeddedContent?.customCSS?.variables,
+              },
+            },
+          },
         },
         userConfig: {
           ...DEFAULT_CONFIG.userConfig,
@@ -501,12 +519,47 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
         },
       };
 
+      // Clean up user custom menu access to only include existing custom menus
+      const validCustomMenuIds = new Set(
+        (mergedConfig.customMenus || []).map((m: CustomMenu) => m.id)
+      );
+      if (mergedConfig.userConfig?.users) {
+        mergedConfig.userConfig = {
+          ...mergedConfig.userConfig,
+          users: mergedConfig.userConfig.users.map(
+            (user: UserConfig["users"][number]) => ({
+              ...user,
+              access: {
+                ...user.access,
+                customMenus: (user.access?.customMenus || []).filter(
+                  (menuId: string) => validCustomMenuIds.has(menuId)
+                ),
+              },
+            })
+          ),
+        };
+      }
+
       // Debug logging for merged config
       console.log("Merged config userConfig details (localStorage):", {
         hasUsers: !!mergedConfig.userConfig?.users,
         usersCount: mergedConfig.userConfig?.users?.length || 0,
         currentUserId: mergedConfig.userConfig?.currentUserId,
       });
+
+      console.log("Merged config stylingConfig details (localStorage):", {
+        hasVariables:
+          !!mergedConfig.stylingConfig?.embeddedContent?.customCSS?.variables,
+        variablesCount: Object.keys(
+          mergedConfig.stylingConfig?.embeddedContent?.customCSS?.variables ||
+            {}
+        ).length,
+        sampleVariable:
+          mergedConfig.stylingConfig?.embeddedContent?.customCSS?.variables?.[
+            "--ts-var-root-background"
+          ],
+      });
+
       console.log(
         "Final merged config iconSpriteUrl:",
         mergedConfig.stylingConfig?.embeddedContent?.iconSpriteUrl
@@ -546,6 +599,24 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
         stylingConfig: {
           ...DEFAULT_CONFIG.stylingConfig,
           ...indexedDBData.stylingConfig,
+          application: {
+            ...DEFAULT_CONFIG.stylingConfig.application,
+            ...indexedDBData.stylingConfig?.application,
+          },
+          embeddedContent: {
+            ...DEFAULT_CONFIG.stylingConfig.embeddedContent,
+            ...indexedDBData.stylingConfig?.embeddedContent,
+            customCSS: {
+              ...DEFAULT_CONFIG.stylingConfig.embeddedContent.customCSS,
+              ...indexedDBData.stylingConfig?.embeddedContent?.customCSS,
+              variables: {
+                ...DEFAULT_CONFIG.stylingConfig.embeddedContent.customCSS
+                  .variables,
+                ...indexedDBData.stylingConfig?.embeddedContent?.customCSS
+                  ?.variables,
+              },
+            },
+          },
         },
         userConfig: {
           ...DEFAULT_CONFIG.userConfig,
@@ -553,11 +624,45 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
         },
       };
 
+      // Clean up user custom menu access to only include existing custom menus
+      const validCustomMenuIds = new Set(
+        (mergedConfig.customMenus || []).map((m: CustomMenu) => m.id)
+      );
+      if (mergedConfig.userConfig?.users) {
+        mergedConfig.userConfig = {
+          ...mergedConfig.userConfig,
+          users: mergedConfig.userConfig.users.map(
+            (user: UserConfig["users"][number]) => ({
+              ...user,
+              access: {
+                ...user.access,
+                customMenus: (user.access?.customMenus || []).filter(
+                  (menuId: string) => validCustomMenuIds.has(menuId)
+                ),
+              },
+            })
+          ),
+        };
+      }
+
       // Debug logging for merged config
       console.log("Merged config userConfig details (IndexedDB):", {
         hasUsers: !!mergedConfig.userConfig?.users,
         usersCount: mergedConfig.userConfig?.users?.length || 0,
         currentUserId: mergedConfig.userConfig?.currentUserId,
+      });
+
+      console.log("Merged config stylingConfig details (IndexedDB):", {
+        hasVariables:
+          !!mergedConfig.stylingConfig?.embeddedContent?.customCSS?.variables,
+        variablesCount: Object.keys(
+          mergedConfig.stylingConfig?.embeddedContent?.customCSS?.variables ||
+            {}
+        ).length,
+        sampleVariable:
+          mergedConfig.stylingConfig?.embeddedContent?.customCSS?.variables?.[
+            "--ts-var-root-background"
+          ],
       });
 
       return mergedConfig;
@@ -593,6 +698,21 @@ const saveToStorageInternal = async (
       isLarge,
     });
 
+    console.log("[ConfigurationService] Styling config before save:", {
+      hasVariables:
+        !!config.stylingConfig?.embeddedContent?.customCSS?.variables,
+      variablesCount: Object.keys(
+        config.stylingConfig?.embeddedContent?.customCSS?.variables || {}
+      ).length,
+      sampleVariable:
+        config.stylingConfig?.embeddedContent?.customCSS?.variables?.[
+          "--ts-var-root-background"
+        ],
+      firstFiveKeys: Object.keys(
+        config.stylingConfig?.embeddedContent?.customCSS?.variables || {}
+      ).slice(0, 5),
+    });
+
     if (isLarge) {
       // Save to IndexedDB for large configurations
       await saveToIndexedDB(STORAGE_KEY, config);
@@ -612,6 +732,22 @@ const saveToStorageInternal = async (
       console.log(
         "[saveToStorage] WRITING to localStorage - userConfig.users:",
         JSON.stringify(config.userConfig.users, null, 2)
+      );
+
+      console.log(
+        "[saveToStorage] WRITING to localStorage - stylingConfig.embeddedContent.customCSS.variables keys:",
+        Object.keys(
+          config.stylingConfig?.embeddedContent?.customCSS?.variables || {}
+        ).length
+      );
+
+      // Double-check what's in the serialized string
+      const parsedBack = JSON.parse(serializedValue);
+      console.log(
+        "[saveToStorage] After JSON.parse of serialized - variables count:",
+        Object.keys(
+          parsedBack.stylingConfig?.embeddedContent?.customCSS?.variables || {}
+        ).length
       );
 
       localStorage.setItem(STORAGE_KEY, serializedValue);
@@ -658,6 +794,10 @@ let isImportingConfiguration = false;
 
 export const setIsImportingConfiguration = (importing: boolean) => {
   isImportingConfiguration = importing;
+};
+
+export const getIsImportingConfiguration = () => {
+  return isImportingConfiguration;
 };
 
 // Load all configurations from storage
@@ -2036,6 +2176,20 @@ export const loadConfigurationSimplified = async (
 
     // Step 5: Save configuration to storage
     await saveToStorage(configWithIndexedDB);
+
+    // CRITICAL: Set the ThoughtSpot base URL immediately after saving
+    // This ensures that any session checks or API calls after reload use the correct server
+    // Import and call setThoughtSpotBaseUrl from thoughtspotApi
+    const { setThoughtSpotBaseUrl: setBaseUrl } = await import(
+      "./thoughtspotApi"
+    );
+    if (configWithIndexedDB.appConfig?.thoughtspotUrl) {
+      setBaseUrl(configWithIndexedDB.appConfig.thoughtspotUrl);
+      console.log(
+        "[ConfigService] Set ThoughtSpot base URL after loading configuration:",
+        configWithIndexedDB.appConfig.thoughtspotUrl
+      );
+    }
 
     onProgress?.("Configuration loaded successfully!", 100);
 

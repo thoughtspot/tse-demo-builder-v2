@@ -3,7 +3,7 @@ import { generateStyleConfiguration } from "../../../../services/anthropicServic
 
 export async function POST(request: NextRequest) {
   try {
-    const { description, applicationName } = await request.json();
+    const { description, applicationName, imageData } = await request.json();
 
     console.log(
       "Generate Style API - Description length:",
@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
       "Generate Style API - Application name:",
       applicationName || "Not provided"
     );
+    console.log("Generate Style API - Image provided:", !!imageData);
     console.log(
       "Generate Style API - Has API key:",
       !!process.env.ANTHROPIC_API_KEY
@@ -35,7 +36,8 @@ export async function POST(request: NextRequest) {
     const styleConfig = await generateStyleConfiguration(
       description || "",
       applicationName,
-      process.env.ANTHROPIC_API_KEY
+      process.env.ANTHROPIC_API_KEY,
+      imageData
     );
 
     console.log(

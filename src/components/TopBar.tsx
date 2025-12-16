@@ -6,16 +6,19 @@ import { useState, useEffect } from "react";
 interface TopBarProps {
   title: string;
   logoUrl?: string;
+  showLogo?: boolean; // If false, hide the logo and only show the application name
   users?: Array<{ id: string; name: string; avatar?: string }>;
   currentUser?: { id: string; name: string; avatar?: string };
   onUserChange?: (userId: string) => void;
   backgroundColor?: string;
   foregroundColor?: string;
+  onVizPickerClick?: () => void;
 }
 
 export default function TopBar({
   title,
-  logoUrl = "/ts.png",
+  logoUrl = "/ts.svg",
+  showLogo = true,
   users = [
     { id: "1", name: "John Doe" },
     { id: "2", name: "Jane Smith" },
@@ -25,11 +28,12 @@ export default function TopBar({
   onUserChange,
   backgroundColor = "white",
   foregroundColor = "#1a202c",
+  onVizPickerClick,
 }: TopBarProps) {
   const [thoughtSpotVersion, setThoughtSpotVersion] = useState<string | null>(
     null
   );
-  const [processedLogoUrl, setProcessedLogoUrl] = useState<string>("/ts.png");
+  const [processedLogoUrl, setProcessedLogoUrl] = useState<string>("/ts.svg");
   const [isLogoProcessing, setIsLogoProcessing] = useState<boolean>(false);
 
   useEffect(() => {
@@ -55,9 +59,9 @@ export default function TopBar({
       setIsLogoProcessing(true);
 
       try {
-        if (!logoUrl || logoUrl === "/ts.png") {
+        if (!logoUrl || logoUrl === "/ts.svg") {
           console.log("[TopBar] Using default logo");
-          setProcessedLogoUrl("/ts.png");
+          setProcessedLogoUrl("/ts.svg");
           return;
         }
 
@@ -81,14 +85,14 @@ export default function TopBar({
                 "[TopBar] Failed to load image from IndexedDB:",
                 imageId
               );
-              setProcessedLogoUrl("/ts.png");
+              setProcessedLogoUrl("/ts.svg");
             }
           } catch (error) {
             console.error(
               "[TopBar] Failed to load image from IndexedDB:",
               error
             );
-            setProcessedLogoUrl("/ts.png");
+            setProcessedLogoUrl("/ts.svg");
           }
         } else {
           // For other URL types, validate and use as-is
@@ -109,7 +113,7 @@ export default function TopBar({
                 "[TopBar] Unexpected IndexedDB reference, using default:",
                 logoUrl
               );
-              setProcessedLogoUrl("/ts.png");
+              setProcessedLogoUrl("/ts.svg");
             } else if (logoUrl.startsWith("http")) {
               // Validate HTTP URLs
               new URL(logoUrl);
@@ -119,7 +123,7 @@ export default function TopBar({
                 "[TopBar] Invalid logo URL format, using default:",
                 logoUrl
               );
-              setProcessedLogoUrl("/ts.png");
+              setProcessedLogoUrl("/ts.svg");
             }
           } catch (urlError) {
             console.error(
@@ -127,7 +131,7 @@ export default function TopBar({
               logoUrl,
               urlError
             );
-            setProcessedLogoUrl("/ts.png");
+            setProcessedLogoUrl("/ts.svg");
           }
         }
       } finally {
@@ -157,73 +161,81 @@ export default function TopBar({
     >
       {/* Logo and Title */}
       <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-        {isLogoProcessing ? (
-          // Show loading state while processing logo
-          <div
-            style={{
-              height: "32px",
-              width: "32px",
-              backgroundColor: "#f3f4f6",
-              borderRadius: "4px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <span style={{ fontSize: "12px", color: "#9ca3af" }}>...</span>
-          </div>
-        ) : processedLogoUrl && processedLogoUrl !== "/ts.png" ? (
-          // Safety check: if processedLogoUrl is still an IndexedDB reference, something went wrong
-          processedLogoUrl.startsWith("indexeddb://") ? (
-            <img
-              src="/ts.png"
-              alt="Logo (fallback)"
-              style={{ height: "32px", width: "auto" }}
-              onError={(e) => {
-                console.error("Fallback logo failed to load:", e);
-              }}
-            />
-          ) : processedLogoUrl.startsWith("data:") ||
-            processedLogoUrl.startsWith("blob:") ? (
-            // For data URLs and blob URLs, use regular img tag
-            <img
-              src={processedLogoUrl}
-              alt="Logo"
-              style={{ height: "32px", width: "auto" }}
-              onError={(e) => {
-                console.error(
-                  "Data/blob img failed to load:",
-                  processedLogoUrl,
-                  e
-                );
-              }}
-            />
-          ) : (
-            // For regular URLs, use Next.js Image component
-            <Image
-              src={processedLogoUrl}
-              alt="Logo"
-              height={32}
-              width={32}
-              style={{ height: "32px", width: "auto" }}
-              onError={(e) => {
-                console.error(
-                  "Next.js Image failed to load:",
-                  processedLogoUrl,
-                  e
-                );
-              }}
-            />
-          )
-        ) : (
-          <img
-            src={processedLogoUrl}
-            alt="Logo"
-            style={{ height: "32px", width: "auto" }}
-            onError={(e) => {
-              console.error("Regular img failed to load:", processedLogoUrl, e);
-            }}
-          />
+        {showLogo && (
+          <>
+            {isLogoProcessing ? (
+              // Show loading state while processing logo
+              <div
+                style={{
+                  height: "32px",
+                  width: "32px",
+                  backgroundColor: "#f3f4f6",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <span style={{ fontSize: "12px", color: "#9ca3af" }}>...</span>
+              </div>
+            ) : processedLogoUrl && processedLogoUrl !== "/ts.svg" ? (
+              // Safety check: if processedLogoUrl is still an IndexedDB reference, something went wrong
+              processedLogoUrl.startsWith("indexeddb://") ? (
+                <img
+                  src="/ts.svg"
+                  alt="Logo (fallback)"
+                  style={{ height: "32px", width: "auto" }}
+                  onError={(e) => {
+                    console.error("Fallback logo failed to load:", e);
+                  }}
+                />
+              ) : processedLogoUrl.startsWith("data:") ||
+                processedLogoUrl.startsWith("blob:") ? (
+                // For data URLs and blob URLs, use regular img tag
+                <img
+                  src={processedLogoUrl}
+                  alt="Logo"
+                  style={{ height: "32px", width: "auto" }}
+                  onError={(e) => {
+                    console.error(
+                      "Data/blob img failed to load:",
+                      processedLogoUrl,
+                      e
+                    );
+                  }}
+                />
+              ) : (
+                // For regular URLs, use Next.js Image component
+                <Image
+                  src={processedLogoUrl}
+                  alt="Logo"
+                  height={32}
+                  width={32}
+                  style={{ height: "32px", width: "auto" }}
+                  onError={(e) => {
+                    console.error(
+                      "Next.js Image failed to load:",
+                      processedLogoUrl,
+                      e
+                    );
+                  }}
+                />
+              )
+            ) : (
+              <img
+                src={processedLogoUrl}
+                alt="Logo"
+                style={{ height: "32px", width: "auto" }}
+                onError={(e) => {
+                  console.error(
+                    "Regular img failed to load:",
+                    processedLogoUrl,
+                    e
+                  );
+                }}
+              />
+            )}
+          </>
         )}
         <h1
           style={{
@@ -239,6 +251,40 @@ export default function TopBar({
 
       {/* User Menu */}
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        {/* Viz Picker Button */}
+        {onVizPickerClick && (
+          <button
+            onClick={onVizPickerClick}
+            style={{
+              background: "none",
+              border: "2px solid #3b82f6",
+              cursor: "pointer",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              backgroundColor: "#eff6ff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "14px",
+              fontWeight: "600",
+              color: "#3b82f6",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#dbeafe";
+              e.currentTarget.style.borderColor = "#2563eb";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#eff6ff";
+              e.currentTarget.style.borderColor = "#3b82f6";
+            }}
+            title="Visualization Picker"
+          >
+            <span style={{ marginRight: "6px" }}>📊</span>
+            Viz Picker
+          </button>
+        )}
+
         <div style={{ position: "relative" }}>
           <button
             onClick={() => {

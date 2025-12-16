@@ -283,10 +283,15 @@ export default function ThoughtSpotEmbed({
         if (content.type === "liveboard") {
           console.log(
             "[ThoughtSpotEmbed] Creating LiveboardEmbed with config:",
-            { liveboardId: content.id, ...baseEmbedConfig }
+            {
+              liveboardId: content.id,
+              vizId: content.vizId,
+              ...baseEmbedConfig,
+            }
           );
           embedInstance = new LiveboardEmbed(embedRef.current, {
             liveboardId: content.id,
+            ...(content.vizId && { vizId: content.vizId }),
             ...baseEmbedConfig,
           });
         } else if (content.type === "answer") {
@@ -405,6 +410,7 @@ export default function ThoughtSpotEmbed({
   }, [
     content.id,
     content.type,
+    content.vizId,
     width,
     height,
     onLoad,

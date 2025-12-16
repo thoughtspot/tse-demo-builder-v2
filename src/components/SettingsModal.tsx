@@ -249,6 +249,207 @@ function SearchQueryInput({
   );
 }
 
+// AI Generator component for home pages
+function HomePageAIGenerator({
+  applicationName,
+  onGenerate,
+  stylingConfig,
+}: {
+  applicationName: string;
+  onGenerate: (html: string) => void;
+  stylingConfig: StylingConfig;
+}) {
+  const [description, setDescription] = useState("");
+  const [imageData, setImageData] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGenerate = async () => {
+    if (!description && !imageData) {
+      alert(
+        "Please provide either a description or an image to generate the home page."
+      );
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      // Extract colors from styling config
+      const styleColors = {
+        primaryColor:
+          stylingConfig.application?.buttons?.primary?.backgroundColor,
+        secondaryColor: stylingConfig.application?.sidebar?.backgroundColor,
+        accentColor:
+          stylingConfig.embeddedContent?.customCSS?.variables?.[
+            "--ts-var-viz-color-1"
+          ],
+        backgroundColor: stylingConfig.application?.backgrounds?.mainBackground,
+        textColor: stylingConfig.application?.typography?.primaryColor,
+      };
+
+      const response = await fetch("/api/anthropic/generate-home-page", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description,
+          applicationName,
+          styleColors,
+          imageData: imageData || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate home page");
+      }
+
+      const data = await response.json();
+      onGenerate(data.html);
+
+      // Clear inputs after successful generation
+      setDescription("");
+      setImageData("");
+    } catch (err) {
+      console.error("Failed to generate home page:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ marginBottom: "12px" }}>
+        <label
+          style={{
+            display: "block",
+            marginBottom: "6px",
+            fontSize: "13px",
+            fontWeight: "500",
+            color: "#374151",
+          }}
+        >
+          Description
+        </label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Describe your ideal home page (e.g., 'Modern dashboard with hero section and feature cards')"
+          rows={3}
+          disabled={isGenerating}
+          style={{
+            width: "100%",
+            padding: "8px 12px",
+            border: "1px solid #d1d5db",
+            borderRadius: "4px",
+            fontSize: "13px",
+            fontFamily: "inherit",
+            resize: "vertical",
+            boxSizing: "border-box",
+            opacity: isGenerating ? 0.6 : 1,
+          }}
+        />
+      </div>
+
+      <div style={{ marginBottom: "12px" }}>
+        <label
+          style={{
+            display: "block",
+            marginBottom: "6px",
+            fontSize: "13px",
+            fontWeight: "500",
+            color: "#374151",
+          }}
+        >
+          Reference Image
+        </label>
+        <ImageUpload
+          value={imageData}
+          onChange={setImageData}
+          label=""
+          placeholder="Upload or paste a design reference"
+          maxSizeMB={5}
+          maxWidth={2000}
+          maxHeight={2000}
+          useIndexedDB={false}
+        />
+        <p
+          style={{
+            marginTop: "6px",
+            fontSize: "11px",
+            color: "#6b7280",
+            fontStyle: "italic",
+          }}
+        >
+          💡 Upload a design mockup for AI to use as inspiration
+        </p>
+      </div>
+
+      {error && (
+        <div
+          style={{
+            marginBottom: "12px",
+            padding: "8px 12px",
+            backgroundColor: "#fef2f2",
+            border: "1px solid #ef4444",
+            borderRadius: "4px",
+            fontSize: "12px",
+            color: "#991b1b",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <button
+        onClick={handleGenerate}
+        disabled={isGenerating || (!description && !imageData)}
+        style={{
+          width: "100%",
+          padding: "10px 16px",
+          backgroundColor:
+            isGenerating || (!description && !imageData)
+              ? "#9ca3af"
+              : "#8b5cf6",
+          color: "white",
+          border: "none",
+          borderRadius: "6px",
+          cursor:
+            isGenerating || (!description && !imageData)
+              ? "not-allowed"
+              : "pointer",
+          fontSize: "14px",
+          fontWeight: "500",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "8px",
+        }}
+      >
+        <MaterialIcon
+          icon={isGenerating ? "hourglass_empty" : "auto_fix_high"}
+          style={{ fontSize: "18px" }}
+        />
+        {isGenerating ? "Generating..." : "Generate Home Page"}
+      </button>
+
+      <p
+        style={{
+          marginTop: "8px",
+          fontSize: "11px",
+          color: "#6b7280",
+          fontStyle: "italic",
+        }}
+      >
+        Note: This will replace your current HTML content with AI-generated
+        content.
+      </p>
+    </div>
+  );
+}
+
 function StandardMenusContent({
   standardMenus,
   updateStandardMenu,
@@ -258,6 +459,7 @@ function StandardMenusContent({
   onSubTabChange,
   appConfig,
   updateAppConfig,
+  stylingConfig,
 }: {
   standardMenus: StandardMenu[];
   updateStandardMenu: (
@@ -272,6 +474,7 @@ function StandardMenusContent({
   onSubTabChange?: (subTab: string) => void;
   appConfig: AppConfig;
   updateAppConfig: (config: AppConfig, bypassClusterWarning?: boolean) => void;
+  stylingConfig: StylingConfig;
 }) {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "home");
 
@@ -1786,6 +1989,53 @@ function StandardMenusContent({
                                 resize: "vertical",
                               }}
                             />
+
+                            {/* AI Generation Section */}
+                            <div
+                              style={{
+                                marginTop: "16px",
+                                padding: "16px",
+                                border: "2px dashed #8b5cf6",
+                                borderRadius: "8px",
+                                backgroundColor: "#faf5ff",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "8px",
+                                  marginBottom: "12px",
+                                }}
+                              >
+                                <MaterialIcon
+                                  icon="auto_fix_high"
+                                  style={{ fontSize: "20px", color: "#8b5cf6" }}
+                                />
+                                <h6
+                                  style={{
+                                    margin: 0,
+                                    fontSize: "14px",
+                                    fontWeight: "600",
+                                    color: "#374151",
+                                  }}
+                                >
+                                  AI-Generate Home Page
+                                </h6>
+                              </div>
+
+                              <HomePageAIGenerator
+                                applicationName={appConfig.applicationName}
+                                onGenerate={(html: string) => {
+                                  updateStandardMenu(
+                                    menu.id,
+                                    "homePageValue",
+                                    html
+                                  );
+                                }}
+                                stylingConfig={stylingConfig}
+                              />
+                            </div>
                           </div>
                         )}
 
@@ -5960,6 +6210,7 @@ function ConfigurationContent({
           body: JSON.stringify({
             description: wizardConfig.styleDescription || "",
             applicationName: wizardConfig.applicationName,
+            imageData: wizardConfig.styleImage || undefined,
           }),
         });
 
@@ -6065,6 +6316,7 @@ function ConfigurationContent({
             description: wizardConfig.homePageDescription || "",
             applicationName: wizardConfig.applicationName,
             styleColors: styleColors,
+            imageData: wizardConfig.homePageImage || undefined,
           }),
         });
 
@@ -6304,11 +6556,29 @@ function ConfigurationContent({
             ...DEFAULT_CONFIG.stylingConfig.embeddedContent,
             customCSS: {
               ...DEFAULT_CONFIG.stylingConfig.embeddedContent.customCSS,
-              variables: embeddedContentVariables,
+              variables:
+                Object.keys(embeddedContentVariables).length > 0
+                  ? embeddedContentVariables
+                  : DEFAULT_CONFIG.stylingConfig.embeddedContent.customCSS
+                      .variables || {},
             },
           },
         },
       };
+
+      console.log("CONFIGURATION DEBUG - After newConfig creation:");
+      console.log(
+        "- newConfig.stylingConfig.embeddedContent.customCSS.variables keys:",
+        Object.keys(
+          newConfig.stylingConfig.embeddedContent.customCSS.variables || {}
+        ).length
+      );
+      console.log(
+        "- Sample variable:",
+        newConfig.stylingConfig.embeddedContent.customCSS.variables?.[
+          "--ts-var-root-background"
+        ]
+      );
 
       console.log("Created new configuration with styling:", {
         hasApplicationStyles: !!applicationStyles,
@@ -6426,10 +6696,8 @@ function ConfigurationContent({
               ...user,
               access: {
                 ...user.access,
-                customMenus: [
-                  ...(user.access?.customMenus || []),
-                  ...customMenuIds,
-                ],
+                // Replace custom menus instead of appending to avoid stale menu IDs
+                customMenus: customMenuIds,
               },
             })),
           };
@@ -6841,6 +7109,46 @@ function ConfigurationContent({
                     Upload an image or provide a URL for your application logo.
                     This logo will be displayed in the top bar.
                   </p>
+
+                  <div style={{ marginTop: "12px" }}>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={appConfig.showLogo !== false}
+                        onChange={(e) => {
+                          updateAppConfig({
+                            ...appConfig,
+                            showLogo: e.target.checked,
+                          });
+                        }}
+                        style={{
+                          width: "16px",
+                          height: "16px",
+                          cursor: "pointer",
+                        }}
+                      />
+                      <span style={{ color: "#374151" }}>Show Logo</span>
+                    </label>
+                    <p
+                      style={{
+                        margin: "4px 0 0 0",
+                        fontSize: "12px",
+                        color: "#6b7280",
+                        paddingLeft: "24px",
+                      }}
+                    >
+                      Uncheck to hide the logo and only show the application
+                      name.
+                    </p>
+                  </div>
                 </div>
 
                 <div style={{ marginBottom: "24px" }}>
@@ -6886,7 +7194,7 @@ function ConfigurationContent({
                         checked={appConfig.faviconSyncEnabled ?? false}
                         disabled={
                           !stylingConfig.application.topBar.logoUrl ||
-                          stylingConfig.application.topBar.logoUrl === "/ts.png"
+                          stylingConfig.application.topBar.logoUrl === "/ts.svg"
                         }
                         onChange={(e) => {
                           const isChecked = e.target.checked;
@@ -6907,14 +7215,14 @@ function ConfigurationContent({
                               faviconSyncEnabled: true,
                               favicon:
                                 stylingConfig.application.topBar.logoUrl ||
-                                "/ts.png",
+                                "/ts.svg",
                             });
                           } else {
                             // Disable favicon sync and reset favicon to default
                             updateAppConfig({
                               ...appConfig,
                               faviconSyncEnabled: false,
-                              favicon: "/ts.png",
+                              favicon: "/ts.svg",
                             });
                           }
                         }}
@@ -6933,7 +7241,7 @@ function ConfigurationContent({
                       application logo. Uncheck to set them independently.
                       {(!Boolean(stylingConfig.application.topBar.logoUrl) ||
                         stylingConfig.application.topBar.logoUrl ===
-                          "/ts.png") && (
+                          "/ts.svg") && (
                         <span style={{ color: "#ef4444", fontWeight: "500" }}>
                           {" "}
                           First set an application logo above to enable this
@@ -7940,6 +8248,7 @@ export default function SettingsModal({
           onSubTabChange={(subTab) => onTabChange?.("standard-menus", subTab)}
           appConfig={pendingAppConfig}
           updateAppConfig={updatePendingAppConfig}
+          stylingConfig={pendingStylingConfig}
         />
       ),
     },

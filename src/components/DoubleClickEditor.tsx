@@ -387,7 +387,7 @@ if (modal) {
       overflow: auto;
       position: relative;
     ">
-      <button onclick="this.closest('[id=\\"double-click-modal\\"]').remove()" 
+      <button onclick="this.closest('[id=double-click-modal]').remove()" 
               style="
                 position: absolute;
                 top: 10px;

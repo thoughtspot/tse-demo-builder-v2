@@ -37,7 +37,7 @@ export interface AnthropicResponseWithUsage extends AnthropicResponse {
 }
 
 export class AnthropicClient {
-  private client: Anthropic;
+  public client: Anthropic;
   private apiKey: string;
 
   constructor(apiKey?: string) {
@@ -504,6 +504,7 @@ export const testAnthropicAPI = async (
  * Generates HTML/CSS content for a home page based on a description
  * If no description is provided, creates an analytics-focused home page based on the application name
  * Uses provided colors to match the application styling
+ * Optionally accepts an image for visual reference (base64 encoded)
  */
 export const generateHomePageContent = async (
   description: string,
@@ -515,7 +516,8 @@ export const generateHomePageContent = async (
     backgroundColor?: string;
     textColor?: string;
   },
-  apiKey?: string
+  apiKey?: string,
+  imageData?: string
 ): Promise<string> => {
   const client = initializeAnthropic(apiKey);
 
@@ -551,7 +553,7 @@ export const generateHomePageContent = async (
       "\n\nThese colors are from the application's main styling and MUST be used to ensure visual consistency. Create gradients using variations of these colors.";
   }
 
-  const prompt = `You are an expert web developer creating an analytics home page. Create a beautiful, modern HTML page with inline CSS based on the following description:
+  const promptText = `You are an expert web developer creating an analytics home page. Create a beautiful, modern HTML page with inline CSS based on the following description:
 
 Description: "${effectiveDescription}"
 ${colorGuidance}
@@ -576,18 +578,74 @@ Requirements:
       ? "MANDATORY: Use ONLY the provided colors (and their lighter/darker variations) to ensure the page matches the application styling"
       : "Use professional, cohesive colors"
   }
+${
+  imageData
+    ? "\n14. IMPORTANT: Use the provided image as a design reference. Match the layout style, color scheme, and overall aesthetic of the image while creating the HTML/CSS. The goal is to create something that looks similar to the image."
+    : ""
+}
 
 Return ONLY the HTML code, nothing else. The HTML should be ready to use as-is.`;
 
   try {
-    const response = await client.chat(prompt, {
-      model: DEFAULT_CLAUDE_MODEL,
-      maxTokens: 4000,
-      temperature: 0.7,
+    // Build the message content array
+    const messageContent: Array<
+      | { type: "text"; text: string }
+      | {
+          type: "image";
+          source: {
+            type: "base64";
+            media_type: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+            data: string;
+          };
+        }
+    > = [];
+
+    // Add image first if provided
+    if (imageData) {
+      // Extract the media type and base64 data from the data URL
+      const matches = imageData.match(/^data:(image\/[^;]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const mediaType = matches[1] as
+          | "image/png"
+          | "image/jpeg"
+          | "image/webp"
+          | "image/gif";
+        const base64Data = matches[2];
+        messageContent.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: mediaType,
+            data: base64Data,
+          },
+        });
+      }
+    }
+
+    // Add the text prompt
+    messageContent.push({
+      type: "text",
+      text: promptText,
     });
 
+    const response = await client.client.messages.create({
+      model: DEFAULT_CLAUDE_MODEL,
+      max_tokens: 4000,
+      temperature: 0.7,
+      messages: [
+        {
+          role: "user",
+          content: messageContent,
+        },
+      ],
+    });
+
+    // Extract text content from response
+    const textContent = response.content.find((c) => c.type === "text");
+    let html = textContent && "text" in textContent ? textContent.text : "";
+
     // Clean the response to extract just the HTML
-    let html = response.trim();
+    html = html.trim();
 
     // Remove markdown code blocks if present
     if (html.includes("```html")) {
@@ -610,11 +668,13 @@ Return ONLY the HTML code, nothing else. The HTML should be ready to use as-is.`
 /**
  * Generates both application and ThoughtSpot CSS styles based on a style description
  * If no description is provided, creates professional default styles
+ * Optionally accepts an image for color extraction (base64 encoded)
  */
 export const generateStyleConfiguration = async (
   description: string,
   applicationName?: string,
-  apiKey?: string
+  apiKey?: string,
+  imageData?: string
 ): Promise<{
   applicationStyles: {
     topBar: { backgroundColor: string; foregroundColor: string };
@@ -654,9 +714,14 @@ export const generateStyleConfiguration = async (
     }. Use contemporary colors that work well for data visualizations. Ensure good contrast and a clean, professional appearance suitable for business intelligence applications.`;
   }
 
-  const prompt = `You are an expert in web application styling and CSS. Based on the following style description, generate a complete styling configuration for BOTH the application UI AND ThoughtSpot embedded content.
+  const promptText = `You are an expert in web application styling and CSS. Based on the following style description, generate a complete styling configuration for BOTH the application UI AND ThoughtSpot embedded content.
 
 Style Description: "${effectiveDescription}"
+${
+  imageData
+    ? "\n\nIMPORTANT: An image has been provided as a visual reference. Extract the color palette from this image and use it to create the styling configuration. Analyze the image's primary colors, accent colors, and overall aesthetic to create a cohesive color scheme."
+    : ""
+}
 
 YOU MUST generate styling for TWO sections:
 
@@ -722,6 +787,11 @@ Requirements:
 4. Make the styling cohesive and professional
 5. Visualization colors MUST form a cohesive, professional palette for data charts
 6. Button colors should be vibrant and actionable
+${
+  imageData
+    ? "7. CRITICAL: Extract and use colors from the provided image to create the color palette"
+    : ""
+}
 
 CRITICAL: You MUST return a JSON object with EXACTLY this structure (all fields are required):
 {
@@ -780,16 +850,67 @@ CRITICAL: You MUST return a JSON object with EXACTLY this structure (all fields 
 Return ONLY the JSON object, no additional text or explanation.`;
 
   try {
-    const response = await client.chat(prompt, {
-      model: DEFAULT_CLAUDE_MODEL,
-      maxTokens: 3000,
-      temperature: 0.7,
+    // Build the message content array
+    const messageContent: Array<
+      | { type: "text"; text: string }
+      | {
+          type: "image";
+          source: {
+            type: "base64";
+            media_type: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+            data: string;
+          };
+        }
+    > = [];
+
+    // Add image first if provided
+    if (imageData) {
+      // Extract the media type and base64 data from the data URL
+      const matches = imageData.match(/^data:(image\/[^;]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const mediaType = matches[1] as
+          | "image/png"
+          | "image/jpeg"
+          | "image/webp"
+          | "image/gif";
+        const base64Data = matches[2];
+        messageContent.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: mediaType,
+            data: base64Data,
+          },
+        });
+      }
+    }
+
+    // Add the text prompt
+    messageContent.push({
+      type: "text",
+      text: promptText,
     });
 
-    console.log("Raw Claude response for styles:", response.substring(0, 500));
+    const response = await client.client.messages.create({
+      model: DEFAULT_CLAUDE_MODEL,
+      max_tokens: 3000,
+      temperature: 0.7,
+      messages: [
+        {
+          role: "user",
+          content: messageContent,
+        },
+      ],
+    });
+
+    // Extract text content from response
+    const textContent = response.content.find((c) => c.type === "text");
+    let jsonStr = textContent && "text" in textContent ? textContent.text : "";
+
+    console.log("Raw Claude response for styles:", jsonStr.substring(0, 500));
 
     // Clean the response to extract just the JSON
-    let jsonStr = response.trim();
+    jsonStr = jsonStr.trim();
 
     // Remove markdown code blocks if present
     if (jsonStr.includes("```json")) {

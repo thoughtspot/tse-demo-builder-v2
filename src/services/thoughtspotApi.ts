@@ -1113,3 +1113,336 @@ export async function fetchThoughtSpotVersion(): Promise<string | null> {
     return null;
   }
 }
+
+export async function importVisualizationToLiveboard(
+  toLiveboardId: string,
+  vizAnswerTML: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // First, get the target liveboard TML
+    const tmlResponse = await makeThoughtSpotApiCall("/metadata/tml/export", {
+      metadata: [
+        {
+          identifier: toLiveboardId,
+        },
+      ],
+      export_associated: false,
+      export_fqn: false,
+      edoc_format: "JSON",
+      export_schema_version: "DEFAULT",
+      export_dependent: false,
+      export_connection_as_dependent: false,
+      all_orgs_override: false,
+    });
+
+    if (
+      !tmlResponse ||
+      !Array.isArray(tmlResponse) ||
+      tmlResponse.length === 0
+    ) {
+      return { success: false, error: "Failed to export target liveboard TML" };
+    }
+
+    const tmlObject = tmlResponse[0] as { edoc?: string };
+    if (!tmlObject.edoc) {
+      return { success: false, error: "No edoc found in target liveboard" };
+    }
+
+    // Parse the liveboard edoc
+    const edocData = JSON.parse(tmlObject.edoc) as {
+      liveboard?: {
+        visualizations?: Array<{
+          id?: string;
+          viz_guid?: string;
+          answer?: unknown;
+        }>;
+      };
+    };
+
+    if (!edocData.liveboard) {
+      return { success: false, error: "Invalid liveboard structure" };
+    }
+
+    // Initialize visualizations array if it doesn't exist
+    if (!edocData.liveboard.visualizations) {
+      edocData.liveboard.visualizations = [];
+    }
+
+    // Parse the viz answer TML
+    const vizAnswer = JSON.parse(vizAnswerTML);
+
+    // Calculate the new Viz_n ID (1-indexed)
+    const vizCount = edocData.liveboard.visualizations.length;
+    const newVizId = `Viz_${vizCount + 1}`;
+
+    // Add the new visualization to the end of the array
+    edocData.liveboard.visualizations.push({
+      id: newVizId,
+      answer: vizAnswer,
+    });
+
+    // Convert the modified edoc back to a string
+    const modifiedEdoc = JSON.stringify(edocData);
+
+    // Import the modified TML
+    const importResponse = await makeThoughtSpotApiCall(
+      "/metadata/tml/import",
+      {
+        metadata_tmls: [modifiedEdoc],
+        import_policy: "PARTIAL",
+        create_new: false,
+        all_orgs_override: false,
+        skip_diff_check: false,
+        enable_large_metadata_validation: false,
+      }
+    );
+
+    console.log("Import response:", JSON.stringify(importResponse, null, 2));
+
+    // Check if import was successful
+    if (
+      importResponse &&
+      Array.isArray(importResponse) &&
+      importResponse.length > 0
+    ) {
+      const result = importResponse[0] as {
+        status?: { status_code?: string };
+        response?: { status?: { status_code?: string } };
+      };
+
+      // Check for status in multiple possible locations
+      const statusCode =
+        result.status?.status_code || result.response?.status?.status_code;
+
+      if (statusCode === "OK" || statusCode === "WARNING") {
+        // Both OK and WARNING are considered successful imports
+        return { success: true };
+      } else if (statusCode === "ERROR") {
+        return { success: false, error: "Import failed with ERROR status" };
+      } else {
+        // If we got a response but no clear status, log it but assume success
+        console.warn("Unclear import status:", statusCode, result);
+        return { success: true };
+      }
+    }
+
+    return { success: false, error: "Invalid import response" };
+  } catch (error) {
+    console.error("Failed to import visualization to liveboard:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    };
+  }
+}
+
+export interface VisualizationHeader {
+  id: string;
+  name: string;
+  vizType: string;
+  size: string;
+}
+
+export async function exportVisualizationTML(
+  liveboardId: string,
+  visualizationId: string
+): Promise<string | null> {
+  try {
+    // Export the entire liveboard TML
+    const response = await makeThoughtSpotApiCall("/metadata/tml/export", {
+      metadata: [
+        {
+          identifier: liveboardId,
+        },
+      ],
+      export_associated: false,
+      export_fqn: false,
+      edoc_format: "JSON",
+      export_schema_version: "DEFAULT",
+      export_dependent: false,
+      export_connection_as_dependent: false,
+      all_orgs_override: false,
+    });
+
+    if (!response || !Array.isArray(response) || response.length === 0) {
+      console.warn("No TML data returned for liveboard:", liveboardId);
+      return null;
+    }
+
+    const tmlObject = response[0] as { edoc?: string };
+    if (!tmlObject.edoc) {
+      console.warn("No edoc field found in TML response:", liveboardId);
+      return null;
+    }
+
+    // Parse the edoc JSON to get the visualizations
+    const edocData = JSON.parse(tmlObject.edoc) as {
+      liveboard?: {
+        visualizations?: Array<{
+          id?: string;
+          viz_guid?: string;
+          answer?: unknown;
+        }>;
+      };
+    };
+
+    if (
+      !edocData.liveboard ||
+      !edocData.liveboard.visualizations ||
+      !Array.isArray(edocData.liveboard.visualizations)
+    ) {
+      console.warn("No visualizations found in liveboard edoc:", liveboardId);
+      return null;
+    }
+
+    // Find the specific visualization by viz_guid
+    const visualization = edocData.liveboard.visualizations.find(
+      (viz) => viz.viz_guid === visualizationId
+    );
+
+    if (!visualization || !visualization.answer) {
+      console.warn(
+        "Visualization not found or has no answer:",
+        visualizationId
+      );
+      return null;
+    }
+
+    // Return the answer as a JSON string
+    return JSON.stringify(visualization.answer);
+  } catch (error) {
+    console.error(
+      "Failed to export visualization TML:",
+      liveboardId,
+      visualizationId,
+      error
+    );
+    return null;
+  }
+}
+
+export async function fetchLiveboardWithVisualizations(
+  liveboardId: string
+): Promise<VisualizationHeader[]> {
+  try {
+    // First, get the liveboard TML to extract the Viz_nnn IDs
+    const tmlResponse = await makeThoughtSpotApiCall("/metadata/tml/export", {
+      metadata: [
+        {
+          identifier: liveboardId,
+        },
+      ],
+      export_associated: false,
+      export_fqn: false,
+      edoc_format: "JSON",
+      export_schema_version: "DEFAULT",
+      export_dependent: false,
+      export_connection_as_dependent: false,
+      all_orgs_override: false,
+    });
+
+    // Parse the TML to get the Viz_nnn IDs
+    const vizIdMap = new Map<string, string>(); // GUID -> Viz_nnn
+    if (tmlResponse && Array.isArray(tmlResponse) && tmlResponse.length > 0) {
+      const tmlObject = tmlResponse[0] as { edoc?: string };
+      if (tmlObject.edoc) {
+        const edocData = JSON.parse(tmlObject.edoc) as {
+          liveboard?: {
+            visualizations?: Array<{
+              id?: string;
+              viz_guid?: string;
+              answer?: {
+                guid?: string;
+              };
+            }>;
+          };
+        };
+
+        if (
+          edocData.liveboard &&
+          edocData.liveboard.visualizations &&
+          Array.isArray(edocData.liveboard.visualizations)
+        ) {
+          edocData.liveboard.visualizations.forEach((viz) => {
+            // Map the answer GUID to the viz_guid (which we'll use for lookup)
+            if (
+              viz.viz_guid &&
+              viz.answer &&
+              typeof viz.answer === "object" &&
+              "guid" in viz.answer
+            ) {
+              const answerGuid = (viz.answer as { guid?: string }).guid;
+              if (answerGuid) {
+                // Map answer GUID -> viz_guid
+                vizIdMap.set(answerGuid, viz.viz_guid);
+              }
+            }
+          });
+        }
+      }
+    }
+
+    // Now get the visualization headers with metadata
+    const response = await makeThoughtSpotApiCall("/metadata/search", {
+      dependent_object_version: "V1",
+      include_details: false,
+      include_headers: true,
+      include_visualization_headers: true,
+      record_offset: 0,
+      record_size: 1,
+      include_stats: false,
+      include_discoverable_objects: true,
+      show_resolved_parameters: false,
+      metadata: [
+        {
+          identifier: liveboardId,
+          type: "LIVEBOARD",
+        },
+      ],
+    });
+
+    if (!response || !Array.isArray(response) || response.length === 0) {
+      console.warn("No liveboard found with ID:", liveboardId);
+      return [];
+    }
+
+    const liveboard = response[0];
+    const vizHeaders = (
+      liveboard as {
+        visualization_headers?: Array<{
+          id?: string;
+          name?: string;
+          vizType?: string;
+          size?: string;
+        }>;
+      }
+    ).visualization_headers;
+
+    if (!vizHeaders || !Array.isArray(vizHeaders)) {
+      console.warn("No visualization headers found in liveboard:", liveboardId);
+      return [];
+    }
+
+    // Filter to only show CHART type visualizations (exclude filters and other types)
+    return vizHeaders
+      .filter((viz) => viz.vizType === "CHART")
+      .map((viz) => {
+        const guid = viz.id || "";
+        // Use the viz_guid from the map if available, otherwise use the GUID
+        const vizId = vizIdMap.get(guid) || guid;
+        return {
+          id: vizId,
+          name: viz.name || "Unnamed Visualization",
+          vizType: viz.vizType || "UNKNOWN",
+          size: viz.size || "M",
+        };
+      });
+  } catch (error) {
+    console.error(
+      "Failed to fetch liveboard with visualizations:",
+      liveboardId,
+      error
+    );
+    return [];
+  }
+}
