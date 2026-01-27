@@ -243,6 +243,9 @@ export const DEFAULT_CONFIG: ConfigurationData = {
       },
     },
     embedFlags: {
+      spotterEmbed: {
+        updatedSpotterChatPrompt: true,
+      },
       liveboardEmbed: {
         enable2ColumnLayout: true,
         isLiveboardStylingAndGroupingEnabled: true,

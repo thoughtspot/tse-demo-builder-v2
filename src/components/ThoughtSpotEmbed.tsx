@@ -7,10 +7,9 @@ import {
   VizPointDoubleClickEvent,
   ThoughtSpotBaseEmbedConfig,
 } from "../types/thoughtspot";
-import { VizPointClickDataType } from "../types/data-classes-types";
+import { VizPointClickDataType, VizPointClickData } from "tse-data-classes";
 import { useAppContext } from "./Layout";
 import DoubleClickModal from "./DoubleClickModal";
-import { VizPointClick } from "../types/data-classes";
 
 interface ThoughtSpotEmbedProps {
   content: ThoughtSpotContent;
@@ -33,7 +32,7 @@ export default function ThoughtSpotEmbed({
   const [doubleClickEventData, setDoubleClickEventData] =
     useState<VizPointDoubleClickEvent | null>(null);
   const [vizPointClickData, setVizPointClickData] =
-    useState<VizPointClick | null>(null);
+    useState<VizPointClickData | null>(null);
   const embedRef = useRef<HTMLDivElement>(null);
   const embedInstanceRef = useRef<{ destroy?: () => void } | null>(null);
   const context = useAppContext();
@@ -44,8 +43,8 @@ export default function ThoughtSpotEmbed({
 
       if (!doubleClickConfig?.enabled) return;
 
-      // Create VizPointClick instance from the event data
-      const vizPointClick = VizPointClick.createFromJSON(
+      // Create VizPointClickData instance from the event data
+      const vizPointClick = VizPointClickData.createFromJSON(
         event as VizPointClickDataType
       );
 

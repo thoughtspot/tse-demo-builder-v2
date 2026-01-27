@@ -18,7 +18,8 @@
     "@thoughtspot/visual-embed-sdk": "^1.39.3",
     "next": "^15.5.7",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "tse-data-classes": "^1.0.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

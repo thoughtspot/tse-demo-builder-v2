@@ -2,13 +2,13 @@
 
 import React, { useState } from "react";
 import { VizPointDoubleClickEvent } from "../types/thoughtspot";
-import { VizPointClick } from "../types/data-classes";
+import { VizPointClickData } from "tse-data-classes";
 
 interface DoubleClickModalProps {
   isOpen: boolean;
   onClose: () => void;
   eventData: VizPointDoubleClickEvent | null;
-  vizPointClickData: VizPointClick | null;
+  vizPointClickData: VizPointClickData | null;
   title?: string;
 }
 
@@ -37,7 +37,7 @@ export default function DoubleClickModal({
 
   const renderSummaryView = () => {
     // Extract viz information from embedAnswerData
-    const embedAnswerData = vizPointClick.getEmbedAnswerData() as {
+    const embedAnswerData = vizPointClick.embedAnswerData as {
       id?: string;
       name?: string;
     } | null;
@@ -149,11 +149,11 @@ export default function DoubleClickModal({
 
   const renderTabularView = () => {
     // Extract viz information from embedAnswerData
-    const embedAnswerData = vizPointClick.getEmbedAnswerData() as {
+    const embedAnswerData = vizPointClick.embedAnswerData as {
       id?: string;
       name?: string;
     } | null;
-    const vizId = embedAnswerData?.id || vizPointClick.getVizId() || "Unknown";
+    const vizId = embedAnswerData?.id || vizPointClick.vizId || "Unknown";
     const vizName = embedAnswerData?.name || "Unknown";
 
     return (
@@ -181,7 +181,7 @@ export default function DoubleClickModal({
               Event Type:
             </span>
             <span style={{ fontFamily: "monospace" }}>
-              {vizPointClick.getEventType()}
+              {vizPointClick.clickType}
             </span>
             <span style={{ fontWeight: "500", color: "#6b7280" }}>Viz ID:</span>
             <span style={{ fontFamily: "monospace" }}>{vizId}</span>
