@@ -600,12 +600,33 @@ registerPrebuiltHandler(
     document.body.appendChild(loadingDiv);
 
     try {
-      // Get the ThoughtSpot base URL from the current location
-      const thoughtSpotHost =
-        window.location.hostname === "localhost"
-          ? localStorage.getItem("thoughtspot_host") ||
-            "https://training.thoughtspot.cloud"
-          : window.location.origin;
+      // Get the ThoughtSpot URL from the enhanced payload (most reliable)
+      // Falls back to localStorage or default for backwards compatibility
+      let thoughtSpotHost = payloadData.thoughtSpotUrl as string | undefined;
+
+      if (!thoughtSpotHost) {
+        // Fallback: try embedContext
+        const embedContext = payloadData.embedContext as
+          | Record<string, unknown>
+          | undefined;
+        thoughtSpotHost = embedContext?.thoughtSpotUrl as string | undefined;
+      }
+
+      if (!thoughtSpotHost) {
+        // Final fallback: localStorage or default
+        thoughtSpotHost =
+          localStorage.getItem("thoughtspot_host") ||
+          "https://training.thoughtspot.cloud";
+        console.warn(
+          "[Download PDF] ThoughtSpot URL not found in payload, using fallback:",
+          thoughtSpotHost
+        );
+      }
+
+      // Ensure the URL doesn't have a trailing slash
+      thoughtSpotHost = thoughtSpotHost.replace(/\/$/, "");
+
+      console.log("[Download PDF] Using ThoughtSpot URL:", thoughtSpotHost);
 
       // Call the ThoughtSpot report/liveboard API
       const response = await fetch(

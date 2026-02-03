@@ -169,7 +169,7 @@ export default function ThoughtSpotEmbed({
             };
 
             // Enhance the payload with the current content context
-            // This ensures the handler has access to the liveboard/answer ID
+            // This ensures the handler has access to the liveboard/answer ID and cluster URL
             const enhancedPayload = {
               ...actionPayload,
               // Add the embed context so handlers know which content triggered the action
@@ -177,10 +177,13 @@ export default function ThoughtSpotEmbed({
                 contentId: content.id,
                 contentType: content.type,
                 contentName: content.name,
+                thoughtSpotUrl: context.appConfig.thoughtspotUrl,
               },
               // Also add liveboardId directly for convenience
               ...(content.type === "liveboard" && { liveboardId: content.id }),
               ...(content.type === "answer" && { answerId: content.id }),
+              // Add ThoughtSpot URL for API calls
+              thoughtSpotUrl: context.appConfig.thoughtspotUrl,
             };
 
             // Wrap in Promise.resolve to handle both sync and async handlers
@@ -239,6 +242,7 @@ export default function ThoughtSpotEmbed({
     [
       context.stylingConfig.customActions,
       context.stylingConfig.standardActions,
+      context.appConfig.thoughtspotUrl,
       content.id,
       content.name,
       content.type,
