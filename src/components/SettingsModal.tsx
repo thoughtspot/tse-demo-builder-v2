@@ -18,6 +18,8 @@ import CSSVariablesEditor from "./CSSVariablesEditor";
 import CSSRulesEditor from "./CSSRulesEditor";
 import EmbedFlagsEditor from "./EmbedFlagsEditor";
 import DoubleClickEditor from "./DoubleClickEditor";
+import CustomActionsEditor from "./CustomActionsEditor";
+import StandardActionsEditor from "./StandardActionsEditor";
 import RuntimeFiltersEditor from "./RuntimeFiltersEditor";
 import {
   User,
@@ -3688,47 +3690,117 @@ function EventsContent({
   stylingConfig: StylingConfig;
   updateStylingConfig: (config: StylingConfig) => void;
 }) {
+  const [activeSubTab, setActiveSubTab] = useState<
+    "event-handling" | "standard-actions" | "custom-actions"
+  >("event-handling");
+
+  const subTabs = [
+    { id: "event-handling" as const, name: "Event Handling" },
+    { id: "standard-actions" as const, name: "Standard Actions" },
+    { id: "custom-actions" as const, name: "Custom Actions" },
+  ];
+
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <h3
         style={{
-          marginBottom: "24px",
+          marginBottom: "16px",
           fontSize: "24px",
           fontWeight: "600",
           color: "#1f2937",
         }}
       >
-        Event Handling Configuration
+        Events &amp; Actions
       </h3>
       <p
         style={{
-          marginBottom: "24px",
+          marginBottom: "16px",
           color: "#6b7280",
           fontSize: "14px",
           lineHeight: "1.5",
         }}
       >
-        Configure how to handle various events in your ThoughtSpot embeds, such
-        as double-click events on visualization points.
+        Configure event handlers and custom actions for your ThoughtSpot embeds.
       </p>
 
+      {/* Sub-tabs navigation */}
+      <div
+        style={{
+          display: "flex",
+          gap: "4px",
+          borderBottom: "1px solid #e5e7eb",
+          marginBottom: "20px",
+        }}
+      >
+        {subTabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveSubTab(tab.id)}
+            style={{
+              padding: "10px 20px",
+              backgroundColor:
+                activeSubTab === tab.id ? "#ffffff" : "transparent",
+              border: "none",
+              borderBottom:
+                activeSubTab === tab.id
+                  ? "2px solid #3182ce"
+                  : "2px solid transparent",
+              color: activeSubTab === tab.id ? "#3182ce" : "#6b7280",
+              fontWeight: activeSubTab === tab.id ? "600" : "500",
+              fontSize: "14px",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+          >
+            {tab.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Sub-tab content */}
       <div style={{ flex: 1, overflow: "auto" }}>
-        <DoubleClickEditor
-          config={
-            stylingConfig.doubleClickHandling || {
-              enabled: false,
-              showDefaultModal: true,
-              customJavaScript: "",
-              modalTitle: "Double-Click Event Data",
+        {activeSubTab === "event-handling" && (
+          <DoubleClickEditor
+            config={
+              stylingConfig.doubleClickHandling || {
+                enabled: false,
+                showDefaultModal: true,
+                customJavaScript: "",
+                modalTitle: "Double-Click Event Data",
+              }
             }
-          }
-          onChange={(doubleClickHandling) =>
-            updateStylingConfig({
-              ...stylingConfig,
-              doubleClickHandling,
-            })
-          }
-        />
+            onChange={(doubleClickHandling) =>
+              updateStylingConfig({
+                ...stylingConfig,
+                doubleClickHandling,
+              })
+            }
+          />
+        )}
+
+        {activeSubTab === "standard-actions" && (
+          <StandardActionsEditor
+            standardActions={stylingConfig.standardActions || []}
+            onChange={(standardActions) =>
+              updateStylingConfig({
+                ...stylingConfig,
+                standardActions,
+              })
+            }
+          />
+        )}
+
+        {activeSubTab === "custom-actions" && (
+          <CustomActionsEditor
+            customActions={stylingConfig.customActions || []}
+            onChange={(customActions) =>
+              updateStylingConfig({
+                ...stylingConfig,
+                customActions,
+              })
+            }
+          />
+        )}
       </div>
     </div>
   );
@@ -8305,7 +8377,7 @@ export default function SettingsModal({
     },
     {
       id: "events",
-      name: "Events",
+      name: "Actions",
       content: (
         <EventsContent
           stylingConfig={pendingStylingConfig}

@@ -1446,3 +1446,154 @@ export async function fetchLiveboardWithVisualizations(
     return [];
   }
 }
+
+// Organization interface
+export interface ThoughtSpotOrg {
+  id: number;
+  name: string;
+  status?: string;
+  description?: string;
+  visibility?: string;
+}
+
+// Group interface
+export interface ThoughtSpotGroup {
+  id: string;
+  name: string;
+  display_name?: string;
+  description?: string;
+  type?: string;
+  visibility?: string;
+}
+
+// Generic POST call that returns a typed response
+async function makeThoughtSpotPostCall<T>(
+  endpoint: string,
+  data: Record<string, unknown>
+): Promise<T | null> {
+  try {
+    const response = await fetch(`${THOUGHTSPOT_BASE_URL}${endpoint}`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        console.log(
+          "User not authenticated (401) - this is expected when not logged in"
+        );
+        return null;
+      }
+      throw new Error(
+        `API call failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("401")) {
+      console.log(
+        "User not authenticated (401) - this is expected when not logged in"
+      );
+    } else {
+      console.error(`ThoughtSpot API call to ${endpoint} failed:`, error);
+    }
+    return null;
+  }
+}
+
+/**
+ * Fetch all organizations from ThoughtSpot
+ * Note: This requires appropriate permissions to view orgs
+ */
+export async function fetchOrgs(): Promise<ThoughtSpotOrg[]> {
+  try {
+    const response = await makeThoughtSpotPostCall<ThoughtSpotOrg[]>(
+      "/orgs/search",
+      {}
+    );
+
+    if (!response || !Array.isArray(response)) {
+      console.warn("No orgs array in response, returning empty array");
+      return [];
+    }
+
+    return response
+      .filter((org) => org.status !== "DELETED")
+      .map((org) => ({
+        id: org.id,
+        name: org.name,
+        status: org.status,
+        description: org.description,
+        visibility: org.visibility,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    console.error("Failed to fetch orgs:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch all groups from ThoughtSpot
+ * Note: This requires appropriate permissions to view groups
+ */
+export async function fetchGroups(): Promise<ThoughtSpotGroup[]> {
+  try {
+    const response = await makeThoughtSpotPostCall<ThoughtSpotGroup[]>(
+      "/groups/search",
+      {
+        record_offset: 0,
+        record_size: -1,
+      }
+    );
+
+    if (!response || !Array.isArray(response)) {
+      console.warn("No groups array in response, returning empty array");
+      return [];
+    }
+
+    return response
+      .filter((group) => !group.type?.includes("SYSTEM"))
+      .map((group) => ({
+        id: group.id,
+        name: group.name,
+        display_name: group.display_name,
+        description: group.description,
+        type: group.type,
+        visibility: group.visibility,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    console.error("Failed to fetch groups:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch visualizations for a specific liveboard
+ * Returns a list of viz IDs and names
+ */
+export async function fetchVisualizationsForLiveboard(
+  liveboardId: string
+): Promise<Array<{ id: string; name: string }>> {
+  try {
+    const visualizations = await fetchLiveboardWithVisualizations(liveboardId);
+    return visualizations.map((viz) => ({
+      id: viz.id,
+      name: viz.name,
+    }));
+  } catch (error) {
+    console.error(
+      "Failed to fetch visualizations for liveboard:",
+      liveboardId,
+      error
+    );
+    return [];
+  }
+}

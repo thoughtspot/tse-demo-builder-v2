@@ -352,6 +352,8 @@ export interface StylingConfig {
   embeddedContent: EmbeddedContentCustomization;
   embedFlags?: EmbedFlags;
   doubleClickHandling?: DoubleClickHandlingConfig;
+  standardActions?: StandardActionConfig[];
+  customActions?: CustomActionConfig[];
   embedDisplay?: {
     hideTitle?: boolean;
     hideDescription?: boolean;
@@ -364,6 +366,114 @@ export interface DoubleClickHandlingConfig {
   showDefaultModal: boolean;
   customJavaScript?: string;
   modalTitle?: string;
+}
+
+// Custom Action Position enum (matches SDK CustomActionsPosition)
+export enum CustomActionPosition {
+  PRIMARY = "PRIMARY",
+  MENU = "MENU",
+  CONTEXT_MENU = "CONTEXTMENU",
+}
+
+// Custom Action Target enum (matches SDK CustomActionTarget)
+export enum CustomActionTarget {
+  LIVEBOARD = "LIVEBOARD",
+  VIZ = "VIZ",
+  ANSWER = "ANSWER",
+  SPOTTER = "SPOTTER",
+}
+
+// Handler type for custom actions
+export type CustomActionHandlerType = "prebuilt" | "custom";
+
+// Pre-built handler parameter configuration
+export interface PrebuiltHandlerParam {
+  name: string;
+  type: "string" | "number" | "boolean" | "select" | "multiselect";
+  label: string;
+  description?: string;
+  required?: boolean;
+  defaultValue?: string | number | boolean | string[];
+  options?: { value: string; label: string }[]; // For select/multiselect types
+}
+
+// Pre-built handler definition (used in the registry)
+export interface PrebuiltHandlerDefinition {
+  id: string;
+  name: string;
+  description: string;
+  category?: string;
+  parameters?: PrebuiltHandlerParam[];
+  // The actual handler function is stored in the registry, not serialized
+}
+
+// Custom action handler configuration (stored in config)
+export interface CustomActionHandlerConfig {
+  type: CustomActionHandlerType;
+  // For prebuilt handlers
+  prebuiltHandlerId?: string;
+  prebuiltHandlerParams?: Record<string, string | number | boolean | string[]>;
+  // For custom code handlers
+  customJavaScript?: string;
+}
+
+// Custom action configuration (stored in config)
+export interface CustomActionConfig {
+  // Required fields
+  id: string;
+  name: string;
+  position: CustomActionPosition;
+  target: CustomActionTarget;
+  // Optional scoping fields
+  metadataIds?: {
+    answerIds?: string[];
+    liveboardIds?: string[];
+    vizIds?: string[];
+  };
+  dataModelIds?: {
+    modelIds?: string[];
+    columnNames?: string[]; // Format: "modelId::columnName"
+  };
+  orgIds?: string[];
+  groupIds?: string[];
+  // Handler configuration
+  handler: CustomActionHandlerConfig;
+  // UI metadata
+  enabled: boolean;
+  description?: string;
+}
+
+// Standard Action Definition - defines a pre-built action with its handler
+export interface StandardActionDefinition {
+  id: string;
+  name: string;
+  description: string;
+  defaultPosition: CustomActionPosition;
+  defaultTarget: CustomActionTarget;
+  // The handler ID that references the actual implementation
+  handlerId: string;
+  // Default parameters for the handler
+  defaultParams?: Record<string, string | number | boolean | string[]>;
+  // Whether the action supports metadata filtering
+  supportsMetadataFiltering?: boolean;
+}
+
+// Standard Action Configuration - user's configuration for a standard action
+export interface StandardActionConfig {
+  // Reference to the standard action definition
+  standardActionId: string;
+  // User-configurable fields
+  enabled: boolean;
+  position: CustomActionPosition;
+  target: CustomActionTarget;
+  // Optional scoping fields
+  metadataIds?: {
+    answerIds?: string[];
+    liveboardIds?: string[];
+    vizIds?: string[];
+  };
+  // Custom parameters that override defaults
+  params?: Record<string, string | number | boolean | string[]>;
 }
 
 // Runtime filter types

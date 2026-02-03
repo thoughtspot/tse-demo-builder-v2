@@ -6,10 +6,18 @@ import {
   ThoughtSpotContent,
   VizPointDoubleClickEvent,
   ThoughtSpotBaseEmbedConfig,
+  CustomActionTarget,
+  CustomActionPosition,
 } from "../types/thoughtspot";
 import { VizPointClickDataType, VizPointClickData } from "tse-data-classes";
 import { useAppContext } from "./Layout";
 import DoubleClickModal from "./DoubleClickModal";
+import {
+  executeCustomActionHandler,
+  CustomActionPayload,
+  getPrebuiltHandler,
+} from "../services/customActionHandlers";
+import { getStandardActionDefinitions } from "./StandardActionsEditor";
 
 interface ThoughtSpotEmbedProps {
   content: ThoughtSpotContent;
@@ -113,6 +121,128 @@ export default function ThoughtSpotEmbed({
       }
     },
     [context.stylingConfig.doubleClickHandling]
+  );
+
+  // Handle custom action events (both custom and standard actions)
+  const handleCustomAction = useCallback(
+    (payload: unknown) => {
+      const customActions = context.stylingConfig.customActions || [];
+      const standardActions = context.stylingConfig.standardActions || [];
+
+      // Get the action ID from the payload
+      const actionPayload = payload as CustomActionPayload;
+      const actionId = actionPayload.id || actionPayload.data?.id;
+
+      if (!actionId) {
+        console.warn(
+          "[ThoughtSpotEmbed] Custom action triggered without ID:",
+          payload
+        );
+        return;
+      }
+
+      // First check if this is a standard action
+      const standardActionConfig = standardActions.find(
+        (action) => action.standardActionId === actionId && action.enabled
+      );
+
+      if (standardActionConfig) {
+        // Find the standard action definition to get the handler ID
+        const definition = getStandardActionDefinitions().find(
+          (d) => d.id === standardActionConfig.standardActionId
+        );
+
+        if (definition) {
+          console.log(
+            "[ThoughtSpotEmbed] Executing standard action:",
+            actionId,
+            standardActionConfig
+          );
+
+          // Get the handler and execute it with the configured params
+          const handler = getPrebuiltHandler(definition.handlerId);
+          if (handler) {
+            // Merge default params with configured params
+            const params = {
+              ...definition.defaultParams,
+              ...standardActionConfig.params,
+            };
+
+            // Enhance the payload with the current content context
+            // This ensures the handler has access to the liveboard/answer ID
+            const enhancedPayload = {
+              ...actionPayload,
+              // Add the embed context so handlers know which content triggered the action
+              embedContext: {
+                contentId: content.id,
+                contentType: content.type,
+                contentName: content.name,
+              },
+              // Also add liveboardId directly for convenience
+              ...(content.type === "liveboard" && { liveboardId: content.id }),
+              ...(content.type === "answer" && { answerId: content.id }),
+            };
+
+            // Wrap in Promise.resolve to handle both sync and async handlers
+            Promise.resolve(
+              handler(
+                enhancedPayload as CustomActionPayload,
+                params,
+                embedInstanceRef.current
+              )
+            ).catch((error: unknown) => {
+              console.error(
+                `[ThoughtSpotEmbed] Error executing standard action handler for ${actionId}:`,
+                error
+              );
+            });
+            return;
+          } else {
+            console.error(
+              `[ThoughtSpotEmbed] Handler not found for standard action: ${definition.handlerId}`
+            );
+          }
+        }
+        return;
+      }
+
+      // Find the matching custom action configuration
+      const actionConfig = customActions.find(
+        (action) => action.id === actionId && action.enabled
+      );
+
+      if (!actionConfig) {
+        console.log(
+          `[ThoughtSpotEmbed] No enabled custom action found for ID: ${actionId}`
+        );
+        return;
+      }
+
+      console.log(
+        "[ThoughtSpotEmbed] Executing custom action:",
+        actionId,
+        actionConfig
+      );
+
+      // Execute the handler
+      executeCustomActionHandler(
+        actionConfig.handler,
+        actionPayload,
+        embedInstanceRef.current
+      ).catch((error) => {
+        console.error(
+          `[ThoughtSpotEmbed] Error executing custom action handler for ${actionId}:`,
+          error
+        );
+      });
+    },
+    [
+      context.stylingConfig.customActions,
+      context.stylingConfig.standardActions,
+      content.id,
+      content.name,
+      content.type,
+    ]
   );
 
   useEffect(() => {
@@ -248,6 +378,118 @@ export default function ThoughtSpotEmbed({
         // Get runtime filters from current user
         const runtimeFilters = currentUser?.access.runtimeFilters || [];
 
+        // Build custom actions for the SDK
+        const configuredCustomActions =
+          context.stylingConfig.customActions || [];
+        const configuredStandardActions =
+          context.stylingConfig.standardActions || [];
+
+        // Map content type to CustomActionTarget for filtering
+        const contentTypeToTarget: Record<string, CustomActionTarget> = {
+          liveboard: CustomActionTarget.LIVEBOARD,
+          answer: CustomActionTarget.ANSWER,
+          model: CustomActionTarget.SPOTTER,
+        };
+        const currentTarget = contentTypeToTarget[content.type];
+
+        // Get standard action definitions
+        const standardActionDefinitions = getStandardActionDefinitions();
+
+        // Build SDK actions from standard actions
+        const sdkStandardActions = configuredStandardActions
+          .filter((action) => {
+            // Only include enabled actions
+            if (!action.enabled) return false;
+
+            // Filter by target type
+            if (
+              action.target === CustomActionTarget.VIZ &&
+              content.type === "liveboard"
+            ) {
+              return true;
+            }
+            if (action.target !== currentTarget) return false;
+
+            return true;
+          })
+          .map((action) => {
+            // Get the definition to get the display name
+            const definition = standardActionDefinitions.find(
+              (d) => d.id === action.standardActionId
+            );
+
+            // Transform to SDK format
+            const sdkAction: Record<string, unknown> = {
+              name: definition?.name || action.standardActionId,
+              id: action.standardActionId, // Use the standard action ID
+              position: action.position || CustomActionPosition.MENU,
+              target: action.target || CustomActionTarget.LIVEBOARD,
+            };
+
+            // Add optional scoping fields if present
+            if (action.metadataIds) {
+              sdkAction.metadataIds = action.metadataIds;
+            }
+
+            return sdkAction;
+          });
+
+        // Filter and transform custom actions for the SDK
+        const sdkCustomActions = configuredCustomActions
+          .filter((action) => {
+            // Only include enabled actions
+            if (!action.enabled) return false;
+
+            // Filter by target type - include actions that match this content type
+            // VIZ target applies to liveboard content
+            if (
+              action.target === CustomActionTarget.VIZ &&
+              content.type === "liveboard"
+            ) {
+              return true;
+            }
+            if (action.target !== currentTarget) return false;
+
+            return true;
+          })
+          .map((action) => {
+            // Transform to SDK format
+            const sdkAction: Record<string, unknown> = {
+              name: action.name,
+              id: action.id,
+              position: action.position,
+              target: action.target,
+            };
+
+            // Add optional scoping fields if present
+            if (action.metadataIds) {
+              sdkAction.metadataIds = action.metadataIds;
+            }
+            if (action.dataModelIds) {
+              // Transform to SDK format
+              sdkAction.dataModelIds = {
+                modelIds: action.dataModelIds.modelIds,
+                modelColumnNames: action.dataModelIds.columnNames,
+              };
+            }
+            if (action.orgIds && action.orgIds.length > 0) {
+              sdkAction.orgIds = action.orgIds;
+            }
+            if (action.groupIds && action.groupIds.length > 0) {
+              sdkAction.groupIds = action.groupIds;
+            }
+
+            return sdkAction;
+          });
+
+        // Combine standard and custom actions
+        const allSdkActions = [...sdkStandardActions, ...sdkCustomActions];
+
+        console.log(
+          "[ThoughtSpotEmbed] Actions for SDK (standard + custom):",
+          allSdkActions
+        );
+
         // Base embed configuration with customizations
         const baseEmbedConfig: ThoughtSpotBaseEmbedConfig = {
           frameParams: {
@@ -258,6 +500,9 @@ export default function ThoughtSpotEmbed({
           ...filteredEmbedFlags,
           ...(hiddenActions.length > 0 && { hiddenActions }),
           ...(runtimeFilters.length > 0 && { runtimeFilters }),
+          ...(allSdkActions.length > 0 && {
+            customActions: allSdkActions,
+          }),
           customizations: {
             iconSpriteUrl: iconSpriteUrl || undefined,
             content: {
@@ -331,6 +576,16 @@ export default function ThoughtSpotEmbed({
             embedInstance.on(
               EmbedEvent.VizPointDoubleClick,
               handleDoubleClickEvent
+            );
+          }
+
+          // Add custom action event listener if there are any actions
+          if (allSdkActions.length > 0) {
+            embedInstance.on(EmbedEvent.CustomAction, handleCustomAction);
+            console.log(
+              "[ThoughtSpotEmbed] Custom action event listener registered for",
+              allSdkActions.length,
+              "actions"
             );
           }
 
@@ -428,7 +683,10 @@ export default function ThoughtSpotEmbed({
     context.stylingConfig.embeddedContent.stringIDs,
     context.userConfig.currentUserId,
     context.userConfig.users,
+    context.stylingConfig.customActions,
+    context.stylingConfig.standardActions,
     handleDoubleClickEvent,
+    handleCustomAction,
   ]);
 
   if (error) {
