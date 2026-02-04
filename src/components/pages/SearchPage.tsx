@@ -350,10 +350,12 @@ export default function SearchPage({
 
           // Add custom action event listener if there are any actions
           if (allSdkActions.length > 0) {
-            (embedInstance as any).on(
-              EmbedEvent.CustomAction,
-              handleCustomAction
-            ); // eslint-disable-line @typescript-eslint/no-explicit-any
+            // Type assertion for event listener - SearchEmbed has .on() method but isn't in the type definitions
+            (
+              embedInstance as unknown as {
+                on: (event: string, handler: (payload: unknown) => void) => void;
+              }
+            ).on(EmbedEvent.CustomAction, handleCustomAction);
             console.log(
               "[SearchPage] Custom action event listener registered for",
               allSdkActions.length,

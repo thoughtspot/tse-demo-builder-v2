@@ -47,7 +47,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
   onClose,
   onComplete,
   currentThoughtSpotUrl,
-  standardMenus,
+  standardMenus: _standardMenus,
 }) => {
   const [thoughtspotUrl, setThoughtspotUrl] = useState(
     currentThoughtSpotUrl || DEFAULT_CONFIG.appConfig.thoughtspotUrl
