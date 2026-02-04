@@ -1,8 +1,18 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAppContext } from "../Layout";
-import { ThoughtSpotSearchEmbedConfig } from "../../types/thoughtspot";
+import {
+  ThoughtSpotSearchEmbedConfig,
+  CustomActionTarget,
+  CustomActionPosition,
+} from "../../types/thoughtspot";
+import {
+  executeCustomActionHandler,
+  CustomActionPayload,
+  getPrebuiltHandler,
+} from "../../services/customActionHandlers";
+import { getStandardActionDefinitions } from "../StandardActionsEditor";
 
 interface SearchPageProps {
   searchDataSource?: string;
@@ -22,6 +32,121 @@ export default function SearchPage({
 
   // Get context
   const context = useAppContext();
+
+  // Handle custom action events (both custom and standard actions)
+  const handleCustomAction = useCallback(
+    (payload: unknown) => {
+      const customActions = context.stylingConfig.customActions || [];
+      const standardActions = context.stylingConfig.standardActions || [];
+
+      // Get the action ID from the payload
+      const actionPayload = payload as CustomActionPayload;
+      const actionId = actionPayload.id || actionPayload.data?.id;
+
+      if (!actionId) {
+        console.warn(
+          "[SearchPage] Custom action triggered without ID:",
+          payload
+        );
+        return;
+      }
+
+      // First check if this is a standard action
+      const standardActionConfig = standardActions.find(
+        (action) => action.standardActionId === actionId && action.enabled
+      );
+
+      if (standardActionConfig) {
+        // Find the standard action definition to get the handler ID
+        const definition = getStandardActionDefinitions().find(
+          (d) => d.id === standardActionConfig.standardActionId
+        );
+
+        if (definition) {
+          console.log(
+            "[SearchPage] Executing standard action:",
+            actionId,
+            standardActionConfig
+          );
+
+          // Get the handler and execute it with the configured params
+          const handler = getPrebuiltHandler(definition.handlerId);
+          if (handler) {
+            // Merge default params with configured params
+            const params = {
+              ...definition.defaultParams,
+              ...standardActionConfig.params,
+            };
+
+            // Enhance the payload with the current content context
+            const enhancedPayload = {
+              ...actionPayload,
+              embedContext: {
+                contentType: "search",
+                thoughtSpotUrl: context.appConfig.thoughtspotUrl,
+              },
+              thoughtSpotUrl: context.appConfig.thoughtspotUrl,
+            };
+
+            // Wrap in Promise.resolve to handle both sync and async handlers
+            Promise.resolve(
+              handler(
+                enhancedPayload as CustomActionPayload,
+                params,
+                embedInstanceRef.current
+              )
+            ).catch((error: unknown) => {
+              console.error(
+                `[SearchPage] Error executing standard action handler for ${actionId}:`,
+                error
+              );
+            });
+            return;
+          } else {
+            console.error(
+              `[SearchPage] Handler not found for standard action: ${definition.handlerId}`
+            );
+          }
+        }
+        return;
+      }
+
+      // Find the matching custom action configuration
+      const actionConfig = customActions.find(
+        (action) => action.id === actionId && action.enabled
+      );
+
+      if (!actionConfig) {
+        console.log(
+          `[SearchPage] No enabled custom action found for ID: ${actionId}`
+        );
+        return;
+      }
+
+      console.log(
+        "[SearchPage] Executing custom action:",
+        actionId,
+        actionConfig
+      );
+
+      // Execute the handler
+      executeCustomActionHandler(
+        actionConfig.handler,
+        actionPayload,
+        embedInstanceRef.current
+      ).catch((error) => {
+        console.error(
+          `[SearchPage] Error executing custom action handler for ${actionId}:`,
+          error
+        );
+      });
+    },
+    [
+      context.stylingConfig.customActions,
+      context.stylingConfig.standardActions,
+      context.appConfig.thoughtspotUrl,
+    ]
+  );
 
   // Try to get configuration from context if not provided as props
   let contextSearchDataSource: string | undefined;
@@ -69,7 +194,7 @@ export default function SearchPage({
         setIframeError(null);
 
         // Dynamically import ThoughtSpot SDK to avoid SSR issues
-        const { SearchEmbed, Action } = await import(
+        const { SearchEmbed, Action, EmbedEvent } = await import(
           "@thoughtspot/visual-embed-sdk"
         );
 
@@ -109,6 +234,83 @@ export default function SearchPage({
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { visibleActions, ...filteredEmbedFlags } = finalEmbedFlags;
 
+          // Build custom actions for the SDK
+          const configuredCustomActions =
+            context.stylingConfig.customActions || [];
+          const configuredStandardActions =
+            context.stylingConfig.standardActions || [];
+
+          // Get standard action definitions
+          const standardActionDefinitions = getStandardActionDefinitions();
+
+          // Build SDK actions from standard actions (filter for ANSWER target)
+          const sdkStandardActions = configuredStandardActions
+            .filter((action) => {
+              if (!action.enabled) return false;
+              // Include actions targeting ANSWER (for SearchEmbed)
+              return action.target === CustomActionTarget.ANSWER;
+            })
+            .map((action) => {
+              const definition = standardActionDefinitions.find(
+                (d) => d.id === action.standardActionId
+              );
+
+              const sdkAction: Record<string, unknown> = {
+                name: definition?.name || action.standardActionId,
+                id: action.standardActionId,
+                position: action.position || CustomActionPosition.MENU,
+                target: action.target || CustomActionTarget.ANSWER,
+              };
+
+              if (action.metadataIds) {
+                sdkAction.metadataIds = action.metadataIds;
+              }
+
+              return sdkAction;
+            });
+
+          // Filter and transform custom actions for the SDK (filter for ANSWER target)
+          const sdkCustomActions = configuredCustomActions
+            .filter((action) => {
+              if (!action.enabled) return false;
+              // Include actions targeting ANSWER (for SearchEmbed)
+              return action.target === CustomActionTarget.ANSWER;
+            })
+            .map((action) => {
+              const sdkAction: Record<string, unknown> = {
+                name: action.name,
+                id: action.id,
+                position: action.position,
+                target: action.target,
+              };
+
+              if (action.metadataIds) {
+                sdkAction.metadataIds = action.metadataIds;
+              }
+              if (action.dataModelIds) {
+                sdkAction.dataModelIds = {
+                  modelIds: action.dataModelIds.modelIds,
+                  modelColumnNames: action.dataModelIds.columnNames,
+                };
+              }
+              if (action.orgIds && action.orgIds.length > 0) {
+                sdkAction.orgIds = action.orgIds;
+              }
+              if (action.groupIds && action.groupIds.length > 0) {
+                sdkAction.groupIds = action.groupIds;
+              }
+
+              return sdkAction;
+            });
+
+          // Combine standard and custom actions
+          const allSdkActions = [...sdkStandardActions, ...sdkCustomActions];
+
+          console.log(
+            "[SearchPage] Actions for SDK (standard + custom):",
+            allSdkActions
+          );
+
           const embedConfig: ThoughtSpotSearchEmbedConfig = {
             frameParams: {},
             dataSource: finalSearchDataSource,
@@ -119,6 +321,7 @@ export default function SearchPage({
             locale: userLocale,
             ...filteredEmbedFlags,
             ...(hiddenActions.length > 0 && { hiddenActions }),
+            ...(allSdkActions.length > 0 && { customActions: allSdkActions }),
             customizations: {
               content: {
                 strings: strings || {},
@@ -144,6 +347,20 @@ export default function SearchPage({
 
           embedInstance = new SearchEmbed(embedRef.current, embedConfig);
           embedInstanceRef.current = embedInstance;
+
+          // Add custom action event listener if there are any actions
+          if (allSdkActions.length > 0) {
+            (embedInstance as any).on(
+              EmbedEvent.CustomAction,
+              handleCustomAction
+            ); // eslint-disable-line @typescript-eslint/no-explicit-any
+            console.log(
+              "[SearchPage] Custom action event listener registered for",
+              allSdkActions.length,
+              "actions"
+            );
+          }
+
           await (embedInstance as { render: () => Promise<void> }).render();
         }
       } catch (error) {
@@ -174,8 +391,12 @@ export default function SearchPage({
     context.stylingConfig.embeddedContent.cssUrl,
     context.stylingConfig.embeddedContent.strings,
     context.stylingConfig.embeddedContent.stringIDs,
+    context.stylingConfig.customActions,
+    context.stylingConfig.standardActions,
     context.userConfig.currentUserId,
     context.userConfig.users,
+    handleCustomAction,
+    finalEmbedFlags,
   ]);
 
   return (
