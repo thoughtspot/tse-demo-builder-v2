@@ -106,6 +106,10 @@ export default function ImageUpload({
     return `image_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
+  const supportsTransparency = (mimeType: string): boolean => {
+    return ["image/png", "image/webp", "image/gif"].includes(mimeType);
+  };
+
   // Function to resize image
   const resizeImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -127,12 +131,17 @@ export default function ImageUpload({
         canvas.width = width;
         canvas.height = height;
 
-        // Draw resized image
-        ctx?.drawImage(img, 0, 0, width, height);
+        if (ctx) {
+          // Ensure the canvas is clear/transparent before drawing
+          ctx.clearRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+        }
 
-        // Convert to base64 with quality control - more aggressive compression
-        const quality = 0.6; // 60% quality for better compression
-        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        // Preserve PNG/WebP/GIF format to retain transparency; use JPEG for others
+        const preserveAlpha = supportsTransparency(file.type);
+        const outputType = preserveAlpha ? file.type : "image/jpeg";
+        const quality = preserveAlpha ? 0.85 : 0.6;
+        const dataUrl = canvas.toDataURL(outputType, quality);
 
         resolve(dataUrl);
       };
@@ -176,9 +185,11 @@ export default function ImageUpload({
         );
       }
 
-      // Additional safety check - if it's still over 400KB, reject it
+      // Additional safety check - PNGs with transparency are larger than JPEGs,
+      // so allow a higher limit when using IndexedDB (which has ample capacity)
       const finalSizeKB = (resizedDataUrl.length * 3) / 4 / 1024;
-      if (finalSizeKB > 400) {
+      const maxKB = useIndexedDB ? 2048 : 400;
+      if (finalSizeKB > maxKB) {
         throw new Error(
           `Image is still too large (${finalSizeKB.toFixed(
             1
