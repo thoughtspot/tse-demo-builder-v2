@@ -678,8 +678,8 @@ export default function ContentGrid({
       <div
         style={{
           backgroundColor:
-            context.stylingConfig.application.backgrounds?.cardBackground ||
-            "#f7fafc",
+            context.stylingConfig.application.backgrounds?.contentBackground ||
+            "#ffffff",
           padding: "24px",
           borderRadius: "8px",
           border: `1px solid ${
@@ -691,11 +691,9 @@ export default function ContentGrid({
         <h2
           style={{
             fontSize: "24px",
-            fontWeight: "600",
+            fontWeight: "700",
             marginBottom: "16px",
-            color:
-              context.stylingConfig.application.typography?.primaryColor ||
-              "#1f2937",
+            color: "var(--primary-text-color, inherit)",
           }}
         >
           {subtitle}
@@ -703,9 +701,7 @@ export default function ContentGrid({
 
         <p
           style={{
-            color:
-              context.stylingConfig.application.typography?.secondaryColor ||
-              "#4a5568",
+            color: "var(--secondary-text-color, inherit)",
             lineHeight: "1.6",
             marginBottom: "24px",
           }}

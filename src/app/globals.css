@@ -17,7 +17,7 @@ body {
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
+  color: var(--primary-text-color, #1f2937);
   background: var(--main-background, #f7fafc);
   overflow-x: hidden !important;
 }
@@ -58,10 +58,9 @@ textarea:focus {
   outline-offset: 2px;
 }
 
-/* Smooth transitions */
+/* Smooth transitions (color excluded to prevent flash during theme loading) */
 * {
-  transition: background-color 0.2s ease, border-color 0.2s ease,
-    color 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 /* ThoughtSpot embed styles */

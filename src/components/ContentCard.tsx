@@ -2,6 +2,7 @@
 
 import { ThoughtSpotContent } from "../types/thoughtspot";
 import MaterialIcon from "./MaterialIcon";
+import { useAppContext } from "./Layout";
 
 interface ContentCardProps {
   content: ThoughtSpotContent;
@@ -9,6 +10,10 @@ interface ContentCardProps {
 }
 
 export default function ContentCard({ content, onOpen }: ContentCardProps) {
+  const { stylingConfig } = useAppContext();
+  const bg = stylingConfig.application.backgrounds;
+  const typo = stylingConfig.application.typography;
+  const btn = stylingConfig.application.buttons;
   const getIcon = (type: string) => {
     switch (type) {
       case "liveboard":
@@ -73,15 +78,17 @@ export default function ContentCard({ content, onOpen }: ContentCardProps) {
     <div
       style={{
         backgroundColor: "white",
+        color: "#1f2937",
         padding: "20px",
         borderRadius: "6px",
         border: "1px solid #e2e8f0",
         cursor: "pointer",
-        transition: "all 0.2s",
+        transition: "background-color 0.2s, border-color 0.2s",
       }}
       onClick={handleOpen}
       onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = "0 4px 6px rgba(0, 0, 0, 0.1)";
+        e.currentTarget.style.boxShadow =
+          "0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.boxShadow = "none";
@@ -99,7 +106,13 @@ export default function ContentCard({ content, onOpen }: ContentCardProps) {
         >
           {getIcon(content.type)}
         </div>
-        <h3 style={{ fontSize: "18px", fontWeight: "600", margin: 0 }}>
+        <h3
+          style={{
+            fontSize: "18px",
+            fontWeight: "600",
+            margin: 0,
+          }}
+        >
           {content.name}
         </h3>
       </div>
@@ -127,13 +140,14 @@ export default function ContentCard({ content, onOpen }: ContentCardProps) {
         </span>
         <button
           style={{
-            padding: "6px 12px",
-            backgroundColor: "#3182ce",
-            color: "white",
-            border: "none",
+            padding: "6px 16px",
+            backgroundColor: btn?.primary?.backgroundColor || "#3182ce",
+            color: btn?.primary?.foregroundColor || "white",
+            border: `1px solid ${btn?.primary?.borderColor || btn?.primary?.backgroundColor || "#3182ce"}`,
             borderRadius: "4px",
             cursor: "pointer",
             fontSize: "12px",
+            fontWeight: "500",
           }}
           onClick={(e) => {
             e.stopPropagation();

@@ -2545,6 +2545,9 @@ export default function Layout({ children }: LayoutProps) {
                   backgroundColor:
                     stylingConfig.application.backgrounds?.contentBackground ||
                     "#ffffff",
+                  color:
+                    stylingConfig.application.typography?.primaryColor ||
+                    "#1f2937",
                   overflow: "auto",
                   overflowX: "hidden",
                   display: "flex",
