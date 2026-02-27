@@ -2104,6 +2104,117 @@ export const exportConfiguration = async (
   }
 };
 
+export interface StyleExportData {
+  version: string;
+  timestamp: string;
+  description: string;
+  type: "style";
+  application: StylingConfig["application"];
+  embeddedContent: {
+    customCSS: StylingConfig["embeddedContent"]["customCSS"];
+    strings: Record<string, string>;
+    stringIDs: Record<string, string>;
+  };
+}
+
+export const exportStyleConfiguration = async (
+  stylingConfig: StylingConfig,
+  customName?: string
+): Promise<void> => {
+  try {
+    const exportData: StyleExportData = {
+      version: "1.0.0",
+      timestamp: new Date().toISOString(),
+      description: "TSE Demo Builder Style Export",
+      type: "style",
+      application: stylingConfig.application,
+      embeddedContent: {
+        customCSS: stylingConfig.embeddedContent.customCSS,
+        strings: stylingConfig.embeddedContent.strings || {},
+        stringIDs: stylingConfig.embeddedContent.stringIDs || {},
+      },
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+
+    const fileName = customName
+      ? `${customName}.json`
+      : `tse-style-${new Date().toISOString().split("T")[0]}.json`;
+
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    console.log("Style configuration exported successfully");
+  } catch (error) {
+    console.error("Error exporting style configuration:", error);
+    throw error;
+  }
+};
+
+export interface StyleImportOptions {
+  appStyle: boolean;
+  cssStyle: boolean;
+  strings: boolean;
+}
+
+export const applyImportedStyle = (
+  currentStylingConfig: StylingConfig,
+  styleData: Record<string, unknown>,
+  options: StyleImportOptions
+): StylingConfig => {
+  let result = { ...currentStylingConfig };
+
+  if (options.appStyle && styleData.application) {
+    result = {
+      ...result,
+      application: styleData.application as StylingConfig["application"],
+    };
+  }
+
+  if (options.cssStyle && styleData.embeddedContent) {
+    const importedEmbedded = styleData.embeddedContent as Record<
+      string,
+      unknown
+    >;
+    result = {
+      ...result,
+      embeddedContent: {
+        ...result.embeddedContent,
+        customCSS: (importedEmbedded.customCSS as StylingConfig["embeddedContent"]["customCSS"]) ||
+          result.embeddedContent.customCSS,
+      },
+    };
+  }
+
+  if (options.strings && styleData.embeddedContent) {
+    const importedEmbedded = styleData.embeddedContent as Record<
+      string,
+      unknown
+    >;
+    result = {
+      ...result,
+      embeddedContent: {
+        ...result.embeddedContent,
+        strings: (importedEmbedded.strings as Record<string, string>) ||
+          result.embeddedContent.strings,
+        stringIDs: (importedEmbedded.stringIDs as Record<string, string>) ||
+          result.embeddedContent.stringIDs,
+      },
+    };
+  }
+
+  return result;
+};
+
 // Simplified configuration loading function
 export const loadConfigurationSimplified = async (
   source: ConfigurationSource,

@@ -38,12 +38,20 @@ import SearchableDropdown from "./SearchableDropdown";
 import MultiSelectDropdown from "./MultiSelectDropdown";
 import LoadingDialog from "./LoadingDialog";
 
-import { fetchSavedConfigurations } from "../services/githubApi";
+import {
+  fetchSavedConfigurations,
+  fetchSavedStyles,
+  loadStyleFromGitHub,
+  GitHubStyle,
+} from "../services/githubApi";
 import {
   checkStorageHealth,
   clearStorageAndReloadDefaults,
   DEFAULT_CONFIG,
   saveAllConfigurations,
+  exportStyleConfiguration,
+  applyImportedStyle,
+  StyleImportOptions,
 } from "../services/configurationService";
 import ThemeSelector from "./ThemeSelector";
 import { applyTheme } from "../types/themes";
@@ -3825,6 +3833,26 @@ function StylingContent({
   const [isGeneratingStyle, setIsGeneratingStyle] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
+  // Style save/load state
+  const [showExportStyleDialog, setShowExportStyleDialog] = useState(false);
+  const [exportStyleName, setExportStyleName] = useState("");
+  const [showImportStyleDialog, setShowImportStyleDialog] = useState(false);
+  const [pendingStyleData, setPendingStyleData] = useState<Record<string, unknown> | null>(null);
+  const [pendingStyleSource, setPendingStyleSource] = useState("");
+  const [importOptions, setImportOptions] = useState<StyleImportOptions>({
+    appStyle: true,
+    cssStyle: true,
+    strings: true,
+  });
+  const [showGitHubStyleDialog, setShowGitHubStyleDialog] = useState(false);
+  const [savedStyles, setSavedStyles] = useState<GitHubStyle[]>([]);
+  const [isLoadingStyles, setIsLoadingStyles] = useState(false);
+  const [selectedStyle, setSelectedStyle] = useState("");
+  const [styleImportStatus, setStyleImportStatus] = useState<{
+    message: string;
+    type: "success" | "error" | null;
+  }>({ message: "", type: null });
+
   // Ensure we always have a valid sub-tab selected
   useEffect(() => {
     const validSubTabs = ["application", "embedded"];
@@ -3832,6 +3860,72 @@ function StylingContent({
       setActiveSubTab("application");
     }
   }, [activeSubTab]);
+
+  const loadSavedStyles = async () => {
+    try {
+      setIsLoadingStyles(true);
+      const styles = await fetchSavedStyles();
+      setSavedStyles(styles);
+    } catch (error) {
+      console.error("Failed to load saved styles:", error);
+      setStyleImportStatus({
+        message: "Failed to load saved styles from GitHub",
+        type: "error",
+      });
+    } finally {
+      setIsLoadingStyles(false);
+    }
+  };
+
+  const handleStyleFileSelect = async (file: File) => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      setPendingStyleData(data);
+      setPendingStyleSource(file.name);
+      setImportOptions({ appStyle: true, cssStyle: true, strings: true });
+      setShowImportStyleDialog(true);
+    } catch (error) {
+      console.error("Failed to read style file:", error);
+      setStyleImportStatus({
+        message: "Failed to read style file. Make sure it is valid JSON.",
+        type: "error",
+      });
+    }
+  };
+
+  const handleGitHubStyleSelect = async () => {
+    if (!selectedStyle) return;
+    try {
+      const data = await loadStyleFromGitHub(selectedStyle);
+      setPendingStyleData(data);
+      setPendingStyleSource(selectedStyle);
+      setImportOptions({ appStyle: true, cssStyle: true, strings: true });
+      setShowGitHubStyleDialog(false);
+      setSelectedStyle("");
+      setShowImportStyleDialog(true);
+    } catch (error) {
+      console.error("Failed to load style from GitHub:", error);
+      setStyleImportStatus({
+        message: `Failed to load style: ${error instanceof Error ? error.message : "Unknown error"}`,
+        type: "error",
+      });
+    }
+  };
+
+  const handleApplyImportedStyle = () => {
+    if (!pendingStyleData) return;
+    const updated = applyImportedStyle(stylingConfig, pendingStyleData, importOptions);
+    updateStylingConfig(updated);
+    setShowImportStyleDialog(false);
+    setPendingStyleData(null);
+    setPendingStyleSource("");
+    setStyleImportStatus({
+      message: "Style imported successfully!",
+      type: "success",
+    });
+    setTimeout(() => setStyleImportStatus({ message: "", type: null }), 5000);
+  };
 
   const subTabs = [
     { id: "application", name: "Application Styles", icon: "🎨" },
@@ -4065,46 +4159,523 @@ function StylingContent({
     }
   };
 
+  const handleClearStyles = () => {
+    if (confirm("Are you sure you want to clear all styles? This will reset application styles, CSS customizations, and string mappings to defaults.")) {
+      updateStylingConfig({
+        ...stylingConfig,
+        application: DEFAULT_CONFIG.stylingConfig.application,
+        embeddedContent: {
+          ...stylingConfig.embeddedContent,
+          customCSS: DEFAULT_CONFIG.stylingConfig.embeddedContent.customCSS,
+          strings: DEFAULT_CONFIG.stylingConfig.embeddedContent.strings || {},
+          stringIDs: DEFAULT_CONFIG.stylingConfig.embeddedContent.stringIDs || {},
+        },
+      });
+      setStyleImportStatus({
+        message: "Styles cleared and reset to defaults.",
+        type: "success",
+      });
+      setTimeout(() => setStyleImportStatus({ message: "", type: null }), 5000);
+    }
+  };
+
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <div
+      <h3
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
           marginBottom: "24px",
+          fontSize: "20px",
+          fontWeight: "bold",
         }}
       >
-        <h3
-          style={{
-            margin: 0,
-            fontSize: "20px",
-            fontWeight: "bold",
-          }}
-        >
-          Styling Configuration
-        </h3>
+        Styling Configuration
+      </h3>
+
+      {/* Style Action Buttons */}
+      <div
+        style={{
+          marginBottom: "32px",
+          padding: "20px",
+          backgroundColor: "#f8fafc",
+          border: "1px solid #e2e8f0",
+          borderRadius: "8px",
+          display: "flex",
+          gap: "12px",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+          <button
+            onClick={() => setShowStyleWizard(true)}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#8b5cf6",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "500",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+            title="Generate styles using AI based on your description"
+          >
+            <MaterialIcon icon="auto_fix_high" style={{ fontSize: "18px" }} />
+            Style Wizard
+          </button>
+          <button
+            onClick={() => {
+              setShowExportStyleDialog(true);
+              setExportStyleName("");
+            }}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#059669",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "500",
+            }}
+          >
+            Export Style
+          </button>
+          <label
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#3b82f6",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "500",
+              display: "inline-block",
+            }}
+          >
+            Import Style
+            <input
+              type="file"
+              accept=".json"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleStyleFileSelect(file);
+                e.target.value = "";
+              }}
+              style={{ display: "none" }}
+            />
+          </label>
+          <button
+            onClick={() => {
+              setShowGitHubStyleDialog(true);
+              loadSavedStyles();
+            }}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#8b5cf6",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "500",
+            }}
+          >
+            Load from GitHub
+          </button>
+        </div>
+
         <button
-          onClick={() => setShowStyleWizard(true)}
+          onClick={handleClearStyles}
           style={{
             padding: "10px 20px",
-            backgroundColor: "#8b5cf6",
+            backgroundColor: "#dc2626",
             color: "white",
             border: "none",
             borderRadius: "6px",
             cursor: "pointer",
             fontSize: "14px",
             fontWeight: "500",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
           }}
-          title="Generate styles using AI based on your description"
         >
-          <MaterialIcon icon="auto_fix_high" style={{ fontSize: "18px" }} />
-          Style Wizard
+          Clear Styles
         </button>
       </div>
+
+      {/* Style Import Status Message */}
+      {styleImportStatus.type && (
+        <div
+          style={{
+            marginBottom: "16px",
+            padding: "10px 16px",
+            borderRadius: "6px",
+            fontSize: "14px",
+            backgroundColor: styleImportStatus.type === "success" ? "#f0fdf4" : "#fef2f2",
+            color: styleImportStatus.type === "success" ? "#166534" : "#991b1b",
+            border: `1px solid ${styleImportStatus.type === "success" ? "#bbf7d0" : "#fecaca"}`,
+          }}
+        >
+          {styleImportStatus.message}
+        </div>
+      )}
+
+      {/* Export Style Dialog */}
+      {showExportStyleDialog && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "24px",
+              borderRadius: "8px",
+              minWidth: "400px",
+              maxWidth: "500px",
+            }}
+          >
+            <h3 style={{ marginBottom: "16px", fontSize: "18px", fontWeight: "bold" }}>
+              Save Style
+            </h3>
+            <p style={{ marginBottom: "16px", fontSize: "14px", color: "#6b7280" }}>
+              Export the current styling configuration (application styles, CSS customizations, and string mappings) to a file.
+            </p>
+            <input
+              type="text"
+              value={exportStyleName}
+              onChange={(e) => setExportStyleName(e.target.value)}
+              placeholder="e.g., dark-mode, corporate-blue"
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                border: "1px solid #d1d5db",
+                borderRadius: "4px",
+                fontSize: "14px",
+                marginBottom: "16px",
+                boxSizing: "border-box",
+              }}
+            />
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowExportStyleDialog(false)}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#6b7280",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const name = exportStyleName.trim().replace(/[^a-zA-Z0-9\s\-_]/g, "");
+                  await exportStyleConfiguration(stylingConfig, name || undefined);
+                  setShowExportStyleDialog(false);
+                  setExportStyleName("");
+                }}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#059669",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GitHub Style Browser Dialog */}
+      {showGitHubStyleDialog && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "24px",
+              borderRadius: "8px",
+              minWidth: "500px",
+              maxWidth: "600px",
+              maxHeight: "80vh",
+              overflow: "auto",
+            }}
+          >
+            <h3 style={{ marginBottom: "16px", fontSize: "18px", fontWeight: "bold" }}>
+              Load Style from GitHub
+            </h3>
+            <p style={{ marginBottom: "16px", fontSize: "14px", color: "#6b7280" }}>
+              Select a saved style from the ThoughtSpot repository.
+            </p>
+
+            {isLoadingStyles ? (
+              <div style={{ textAlign: "center", padding: "20px" }}>
+                <p>Loading saved styles...</p>
+              </div>
+            ) : savedStyles.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "20px" }}>
+                <p>No saved styles found.</p>
+              </div>
+            ) : (
+              <div style={{ marginBottom: "16px" }}>
+                <SearchableDropdown
+                  value={selectedStyle}
+                  onChange={setSelectedStyle}
+                  options={savedStyles.map((s) => ({
+                    id: s.filename,
+                    name: `${s.name}${s.description ? ` - ${s.description}` : ""}`,
+                  }))}
+                  placeholder="Choose a style..."
+                  searchPlaceholder="Search styles..."
+                  label="Select Style"
+                />
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  setShowGitHubStyleDialog(false);
+                  setSelectedStyle("");
+                }}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#6b7280",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleGitHubStyleSelect}
+                disabled={!selectedStyle}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: selectedStyle ? "#8b5cf6" : "#9ca3af",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: selectedStyle ? "pointer" : "not-allowed",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Load Style
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Style Selection Dialog */}
+      {showImportStyleDialog && pendingStyleData && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "24px",
+              borderRadius: "8px",
+              minWidth: "450px",
+              maxWidth: "550px",
+            }}
+          >
+            <h3 style={{ marginBottom: "8px", fontSize: "18px", fontWeight: "bold" }}>
+              Import Style
+            </h3>
+            <p style={{ marginBottom: "20px", fontSize: "14px", color: "#6b7280" }}>
+              Select which parts of <strong>{pendingStyleSource}</strong> to import:
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "24px" }}>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "12px 16px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  backgroundColor: importOptions.appStyle ? "#f0fdf4" : "white",
+                  transition: "background-color 0.15s",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={importOptions.appStyle}
+                  onChange={(e) =>
+                    setImportOptions({ ...importOptions, appStyle: e.target.checked })
+                  }
+                  style={{ width: "18px", height: "18px", accentColor: "#059669" }}
+                />
+                <div>
+                  <div style={{ fontWeight: "600", fontSize: "14px" }}>Application Style</div>
+                  <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                    Top bar, sidebar, footer, buttons, backgrounds, typography colors
+                  </div>
+                </div>
+              </label>
+
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "12px 16px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  backgroundColor: importOptions.cssStyle ? "#f0fdf4" : "white",
+                  transition: "background-color 0.15s",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={importOptions.cssStyle}
+                  onChange={(e) =>
+                    setImportOptions({ ...importOptions, cssStyle: e.target.checked })
+                  }
+                  style={{ width: "18px", height: "18px", accentColor: "#059669" }}
+                />
+                <div>
+                  <div style={{ fontWeight: "600", fontSize: "14px" }}>CSS Style</div>
+                  <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                    ThoughtSpot CSS variables and custom CSS rules for embedded content
+                  </div>
+                </div>
+              </label>
+
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "12px 16px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  backgroundColor: importOptions.strings ? "#f0fdf4" : "white",
+                  transition: "background-color 0.15s",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={importOptions.strings}
+                  onChange={(e) =>
+                    setImportOptions({ ...importOptions, strings: e.target.checked })
+                  }
+                  style={{ width: "18px", height: "18px", accentColor: "#059669" }}
+                />
+                <div>
+                  <div style={{ fontWeight: "600", fontSize: "14px" }}>Strings</div>
+                  <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                    String ID overrides and string text mappings
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  setShowImportStyleDialog(false);
+                  setPendingStyleData(null);
+                  setPendingStyleSource("");
+                }}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#6b7280",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApplyImportedStyle}
+                disabled={!importOptions.appStyle && !importOptions.cssStyle && !importOptions.strings}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor:
+                    !importOptions.appStyle && !importOptions.cssStyle && !importOptions.strings
+                      ? "#9ca3af"
+                      : "#059669",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor:
+                    !importOptions.appStyle && !importOptions.cssStyle && !importOptions.strings
+                      ? "not-allowed"
+                      : "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Import Selected
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sub-tabs */}
       <div
