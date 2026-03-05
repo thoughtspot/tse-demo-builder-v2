@@ -4,9 +4,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useAppContext } from "../Layout";
 import {
   ThoughtSpotSearchEmbedConfig,
+  VizPointDoubleClickEvent,
   CustomActionTarget,
   CustomActionPosition,
 } from "../../types/thoughtspot";
+import { TabularData, VizPointClickData } from "tse-data-classes";
+import DoubleClickModal from "../DoubleClickModal";
 import {
   executeCustomActionHandler,
   CustomActionPayload,
@@ -27,11 +30,84 @@ export default function SearchPage({
 }: SearchPageProps = {}) {
   const [iframeError, setIframeError] = useState<string | null>(null);
   const [runSearch, setRunSearch] = useState<boolean>(propRunSearch || false);
+  const [showDoubleClickModal, setShowDoubleClickModal] = useState(false);
+  const [doubleClickEventData, setDoubleClickEventData] =
+    useState<VizPointDoubleClickEvent | null>(null);
+  const [vizPointClickData, setVizPointClickData] =
+    useState<VizPointClickData | null>(null);
   const embedRef = useRef<HTMLDivElement>(null);
   const embedInstanceRef = useRef<{ destroy?: () => void } | null>(null);
 
   // Get context
   const context = useAppContext();
+
+  const handleDoubleClickEvent = useCallback(
+    (event: unknown) => {
+      const doubleClickConfig = context.stylingConfig.doubleClickHandling;
+      if (!doubleClickConfig?.enabled) return;
+
+      const vizPointClick = TabularData.createFromJSON(
+        event
+      ) as VizPointClickData;
+
+      setDoubleClickEventData(event as VizPointDoubleClickEvent);
+      setVizPointClickData(vizPointClick);
+
+      let modalElement: HTMLElement | null = null;
+      if (
+        doubleClickConfig.showDefaultModal ||
+        doubleClickConfig.customJavaScript?.trim()
+      ) {
+        modalElement = document.createElement("div");
+        modalElement.id = "double-click-modal";
+        modalElement.style.cssText = `
+          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+          background-color: rgba(0, 0, 0, 0.5);
+          display: flex; align-items: center; justify-content: center;
+          z-index: 1000;
+        `;
+        document.body.appendChild(modalElement);
+      }
+
+      if (
+        doubleClickConfig.customJavaScript &&
+        doubleClickConfig.customJavaScript.trim()
+      ) {
+        try {
+          const customFunction = new Function(
+            "tabularData",
+            "modal",
+            "embedInstance",
+            doubleClickConfig.customJavaScript
+          );
+          customFunction(
+            vizPointClick,
+            modalElement,
+            embedInstanceRef.current
+          );
+        } catch (error) {
+          console.error(
+            "Error executing custom double-click JavaScript:",
+            error
+          );
+          if (doubleClickConfig.showDefaultModal) {
+            setShowDoubleClickModal(true);
+          }
+        }
+      } else if (doubleClickConfig.showDefaultModal) {
+        setShowDoubleClickModal(true);
+      }
+
+      if (modalElement && !doubleClickConfig.customJavaScript?.trim()) {
+        setTimeout(() => {
+          if (modalElement && modalElement.parentNode) {
+            modalElement.parentNode.removeChild(modalElement);
+          }
+        }, 100);
+      }
+    },
+    [context.stylingConfig.doubleClickHandling]
+  );
 
   // Handle custom action events (both custom and standard actions)
   const handleCustomAction = useCallback(
@@ -348,9 +424,18 @@ export default function SearchPage({
           embedInstance = new SearchEmbed(embedRef.current, embedConfig);
           embedInstanceRef.current = embedInstance;
 
+          // Register double-click event handler if enabled
+          const doubleClickConfig =
+            context.stylingConfig.doubleClickHandling;
+          if (doubleClickConfig?.enabled) {
+            (embedInstance as any).on( // eslint-disable-line @typescript-eslint/no-explicit-any
+              EmbedEvent.VizPointDoubleClick,
+              handleDoubleClickEvent
+            );
+          }
+
           // Add custom action event listener if there are any actions
           if (allSdkActions.length > 0) {
-            // Type assertion for event listener - SearchEmbed has .on() method but isn't in the type definitions
             (
               embedInstance as unknown as {
                 on: (event: string, handler: (payload: unknown) => void) => void;
@@ -393,16 +478,28 @@ export default function SearchPage({
     context.stylingConfig.embeddedContent.cssUrl,
     context.stylingConfig.embeddedContent.strings,
     context.stylingConfig.embeddedContent.stringIDs,
+    context.stylingConfig.doubleClickHandling,
     context.stylingConfig.customActions,
     context.stylingConfig.standardActions,
     context.userConfig.currentUserId,
     context.userConfig.users,
+    handleDoubleClickEvent,
     handleCustomAction,
     finalEmbedFlags,
   ]);
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <DoubleClickModal
+        isOpen={showDoubleClickModal}
+        onClose={() => setShowDoubleClickModal(false)}
+        eventData={doubleClickEventData}
+        vizPointClickData={vizPointClickData}
+        title={
+          context.stylingConfig.doubleClickHandling?.modalTitle ||
+          "Double-Click Event Data"
+        }
+      />
       {!finalSearchDataSource ? (
         <div
           style={{

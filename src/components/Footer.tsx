@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getCurrentUser } from "../services/thoughtspotApi";
+import {
+  getCurrentUser,
+  setThoughtSpotBaseUrl,
+} from "../services/thoughtspotApi";
 import { useAppContext } from "./Layout";
 
 interface ThoughtSpotUser {
@@ -32,6 +35,7 @@ export default function Footer({
       try {
         setLoading(true);
         setError(null);
+        setThoughtSpotBaseUrl(thoughtspotUrl);
         const currentUser = await getCurrentUser();
         setUser(currentUser);
       } catch (error) {
@@ -43,7 +47,7 @@ export default function Footer({
     };
 
     fetchUser();
-  }, []);
+  }, [thoughtspotUrl]);
 
   // Helper function to create a hover color that's consistent with the foreground color
   const getHoverColor = (baseColor: string) => {

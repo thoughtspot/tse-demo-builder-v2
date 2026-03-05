@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useAppContext } from "../Layout";
-import { ThoughtSpotEmbedConfig } from "../../types/thoughtspot";
+import {
+  ThoughtSpotEmbedConfig,
+  VizPointDoubleClickEvent,
+} from "../../types/thoughtspot";
+import { TabularData, VizPointClickData } from "tse-data-classes";
+import DoubleClickModal from "../DoubleClickModal";
 
 interface SpotterPageProps {
   spotterModelId?: string;
@@ -14,11 +19,84 @@ export default function SpotterPage({
   spotterSearchQuery: propSpotterSearchQuery,
 }: SpotterPageProps = {}) {
   const [iframeError, setIframeError] = useState<string | null>(null);
+  const [showDoubleClickModal, setShowDoubleClickModal] = useState(false);
+  const [doubleClickEventData, setDoubleClickEventData] =
+    useState<VizPointDoubleClickEvent | null>(null);
+  const [vizPointClickData, setVizPointClickData] =
+    useState<VizPointClickData | null>(null);
   const embedRef = useRef<HTMLDivElement>(null);
   const embedInstanceRef = useRef<{ destroy?: () => void } | null>(null);
 
   // Get context
   const context = useAppContext();
+
+  const handleDoubleClickEvent = useCallback(
+    (event: unknown) => {
+      const doubleClickConfig = context.stylingConfig.doubleClickHandling;
+      if (!doubleClickConfig?.enabled) return;
+
+      const vizPointClick = TabularData.createFromJSON(
+        event
+      ) as VizPointClickData;
+
+      setDoubleClickEventData(event as VizPointDoubleClickEvent);
+      setVizPointClickData(vizPointClick);
+
+      let modalElement: HTMLElement | null = null;
+      if (
+        doubleClickConfig.showDefaultModal ||
+        doubleClickConfig.customJavaScript?.trim()
+      ) {
+        modalElement = document.createElement("div");
+        modalElement.id = "double-click-modal";
+        modalElement.style.cssText = `
+          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+          background-color: rgba(0, 0, 0, 0.5);
+          display: flex; align-items: center; justify-content: center;
+          z-index: 1000;
+        `;
+        document.body.appendChild(modalElement);
+      }
+
+      if (
+        doubleClickConfig.customJavaScript &&
+        doubleClickConfig.customJavaScript.trim()
+      ) {
+        try {
+          const customFunction = new Function(
+            "tabularData",
+            "modal",
+            "embedInstance",
+            doubleClickConfig.customJavaScript
+          );
+          customFunction(
+            vizPointClick,
+            modalElement,
+            embedInstanceRef.current
+          );
+        } catch (error) {
+          console.error(
+            "Error executing custom double-click JavaScript:",
+            error
+          );
+          if (doubleClickConfig.showDefaultModal) {
+            setShowDoubleClickModal(true);
+          }
+        }
+      } else if (doubleClickConfig.showDefaultModal) {
+        setShowDoubleClickModal(true);
+      }
+
+      if (modalElement && !doubleClickConfig.customJavaScript?.trim()) {
+        setTimeout(() => {
+          if (modalElement && modalElement.parentNode) {
+            modalElement.parentNode.removeChild(modalElement);
+          }
+        }, 100);
+      }
+    },
+    [context.stylingConfig.doubleClickHandling]
+  );
 
   // Try to get configuration from context if not provided as props
   let contextSpotterModelId: string | undefined;
@@ -61,7 +139,7 @@ export default function SpotterPage({
         setIframeError(null);
 
         // Dynamically import ThoughtSpot SDK to avoid SSR issues
-        const { SpotterEmbed, Action } = await import(
+        const { SpotterEmbed, Action, EmbedEvent } = await import(
           "@thoughtspot/visual-embed-sdk"
         );
 
@@ -148,6 +226,19 @@ export default function SpotterPage({
             embedInstance = new SpotterEmbed(embedRef.current, spotterConfig);
           }
           embedInstanceRef.current = embedInstance;
+
+          // Register double-click event handler if enabled
+          if (embedInstance) {
+            const doubleClickConfig =
+              context.stylingConfig.doubleClickHandling;
+            if (doubleClickConfig?.enabled) {
+              (embedInstance as any).on( // eslint-disable-line @typescript-eslint/no-explicit-any
+                EmbedEvent.VizPointDoubleClick,
+                handleDoubleClickEvent
+              );
+            }
+          }
+
           await (embedInstance as { render: () => Promise<void> }).render();
         }
       } catch (error) {
@@ -179,12 +270,24 @@ export default function SpotterPage({
     context.stylingConfig.embeddedContent.iconSpriteUrl,
     context.stylingConfig.embeddedContent.strings,
     context.stylingConfig.embeddedContent.stringIDs,
+    context.stylingConfig.doubleClickHandling,
     context.userConfig.currentUserId,
     context.userConfig.users,
+    handleDoubleClickEvent,
   ]);
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <DoubleClickModal
+        isOpen={showDoubleClickModal}
+        onClose={() => setShowDoubleClickModal(false)}
+        eventData={doubleClickEventData}
+        vizPointClickData={vizPointClickData}
+        title={
+          context.stylingConfig.doubleClickHandling?.modalTitle ||
+          "Double-Click Event Data"
+        }
+      />
       {!finalSpotterModelId ? (
         <div
           style={{

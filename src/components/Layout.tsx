@@ -2512,6 +2512,7 @@ export default function Layout({ children }: LayoutProps) {
               onUserChange={handleUserChange}
               backgroundColor={stylingConfig.application.topBar.backgroundColor}
               foregroundColor={stylingConfig.application.topBar.foregroundColor}
+              thoughtspotUrl={appConfig.thoughtspotUrl}
               onVizPickerClick={handleVizPickerClick}
             />
 

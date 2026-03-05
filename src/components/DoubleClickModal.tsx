@@ -37,12 +37,12 @@ export default function DoubleClickModal({
 
   const renderSummaryView = () => {
     // Extract viz information from embedAnswerData
-    const embedAnswerData = vizPointClick.embedAnswerData as {
+    const embedAnswer = vizPointClick.embedAnswerData as {
       id?: string;
       name?: string;
-    } | null;
-    const vizId = embedAnswerData?.id || eventData.vizId || "Unknown";
-    const vizName = embedAnswerData?.name || eventData.vizName || "Unknown";
+    } | undefined;
+    const vizId = embedAnswer?.id || eventData.vizId || "Unknown";
+    const vizName = embedAnswer?.name || eventData.vizName || "Unknown";
 
     return (
       <div style={{ maxHeight: "400px", overflow: "auto" }}>
@@ -197,12 +197,12 @@ export default function DoubleClickModal({
 
   const renderTabularView = () => {
     // Extract viz information from embedAnswerData
-    const embedAnswerData = vizPointClick.embedAnswerData as {
+    const embedAnswer = vizPointClick.embedAnswerData as {
       id?: string;
       name?: string;
-    } | null;
-    const vizId = embedAnswerData?.id || vizPointClick.vizId || "Unknown";
-    const vizName = embedAnswerData?.name || "Unknown";
+    } | undefined;
+    const vizId = embedAnswer?.id || vizPointClick.vizId || "Unknown";
+    const vizName = embedAnswer?.name || "Unknown";
 
     return (
       <div style={{ maxHeight: "400px", overflow: "auto" }}>

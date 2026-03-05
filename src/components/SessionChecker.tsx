@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getCurrentUser } from "../services/thoughtspotApi";
+import {
+  getCurrentUser,
+  setThoughtSpotBaseUrl,
+} from "../services/thoughtspotApi";
 
 interface SessionCheckerProps {
   children: React.ReactNode;
@@ -133,6 +136,11 @@ export default function SessionChecker({
   });
   const [hasEverHadSession, setHasEverHadSession] = useState(false);
 
+  // Reset session history when cluster URL changes
+  useEffect(() => {
+    setHasEverHadSession(false);
+  }, [thoughtspotUrl]);
+
   useEffect(() => {
     const checkSession = async () => {
       if (!thoughtspotUrl) {
@@ -147,6 +155,11 @@ export default function SessionChecker({
 
       try {
         setSessionStatus((prev) => ({ ...prev, isLoading: true, error: null }));
+
+        // Ensure the base URL is current before checking session.
+        // This avoids a race condition where child effects fire before
+        // the parent Layout effect that calls setThoughtSpotBaseUrl.
+        setThoughtSpotBaseUrl(thoughtspotUrl);
 
         const user = await getCurrentUser();
 

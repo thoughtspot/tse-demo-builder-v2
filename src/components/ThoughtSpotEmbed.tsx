@@ -9,7 +9,7 @@ import {
   CustomActionTarget,
   CustomActionPosition,
 } from "../types/thoughtspot";
-import { VizPointClickDataType, VizPointClickData } from "tse-data-classes";
+import { TabularData, VizPointClickData } from "tse-data-classes";
 import { useAppContext } from "./Layout";
 import DoubleClickModal from "./DoubleClickModal";
 import {
@@ -51,10 +51,9 @@ export default function ThoughtSpotEmbed({
 
       if (!doubleClickConfig?.enabled) return;
 
-      // Create VizPointClickData instance from the event data
-      const vizPointClick = VizPointClickData.createFromJSON(
-        event as VizPointClickDataType
-      );
+      const vizPointClick = TabularData.createFromJSON(
+        event
+      ) as VizPointClickData;
 
       // Store the event data for potential modal display
       setDoubleClickEventData(event as VizPointDoubleClickEvent);

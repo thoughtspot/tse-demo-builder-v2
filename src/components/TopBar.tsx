@@ -12,6 +12,7 @@ interface TopBarProps {
   onUserChange?: (userId: string) => void;
   backgroundColor?: string;
   foregroundColor?: string;
+  thoughtspotUrl?: string;
   onVizPickerClick?: () => void;
 }
 
@@ -28,6 +29,7 @@ export default function TopBar({
   onUserChange,
   backgroundColor = "white",
   foregroundColor = "#1a202c",
+  thoughtspotUrl,
   onVizPickerClick,
 }: TopBarProps) {
   const [thoughtSpotVersion, setThoughtSpotVersion] = useState<string | null>(
@@ -39,9 +41,12 @@ export default function TopBar({
   useEffect(() => {
     const fetchVersion = async () => {
       try {
-        const { fetchThoughtSpotVersion } = await import(
+        const { fetchThoughtSpotVersion, setThoughtSpotBaseUrl } = await import(
           "../services/thoughtspotApi"
         );
+        if (thoughtspotUrl) {
+          setThoughtSpotBaseUrl(thoughtspotUrl);
+        }
         const version = await fetchThoughtSpotVersion();
         setThoughtSpotVersion(version);
       } catch (error) {
@@ -50,7 +55,7 @@ export default function TopBar({
     };
 
     fetchVersion();
-  }, []);
+  }, [thoughtspotUrl]);
 
   // Process logo URL to handle IndexedDB URLs
   useEffect(() => {
