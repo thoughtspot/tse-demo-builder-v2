@@ -2592,6 +2592,9 @@ function CustomMenusContent({
   const [availableTags, setAvailableTags] = useState<
     Array<{ id: string; name: string; color: string }>
   >([]);
+  const [availableCollections, setAvailableCollections] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [availableModels, setAvailableModels] = useState<
     Array<{ id: string; name: string }>
   >([]);
@@ -2603,6 +2606,7 @@ function CustomMenusContent({
   const [liveboardFilter, setLiveboardFilter] = useState("");
   const [answerFilter, setAnswerFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
+  const [collectionFilter, setCollectionFilter] = useState("");
   const [directEmbedFilter, setDirectEmbedFilter] = useState("");
 
   // Filtered lists
@@ -2616,6 +2620,10 @@ function CustomMenusContent({
 
   const filteredTags = availableTags.filter((tag) =>
     tag.name.toLowerCase().includes(tagFilter.toLowerCase())
+  );
+
+  const filteredCollections = availableCollections.filter((c) =>
+    c.name.toLowerCase().includes(collectionFilter.toLowerCase())
   );
 
   // Filtered lists for direct embed
@@ -2649,14 +2657,15 @@ function CustomMenusContent({
     const loadContent = async () => {
       try {
         setIsLoadingContent(true);
-        const { fetchLiveboards, fetchAnswers, fetchTags, fetchModels } =
+        const { fetchLiveboards, fetchAnswers, fetchTags, fetchModels, fetchCollections } =
           await import("../services/thoughtspotApi");
 
-        const [liveboards, answers, tags, models] = await Promise.all([
+        const [liveboards, answers, tags, models, collections] = await Promise.all([
           fetchLiveboards(),
           fetchAnswers(),
           fetchTags(),
           fetchModels(),
+          fetchCollections(),
         ]);
 
         setAvailableLiveboards(
@@ -2665,6 +2674,7 @@ function CustomMenusContent({
         setAvailableAnswers(answers.map((a) => ({ id: a.id, name: a.name })));
         setAvailableTags(tags);
         setAvailableModels(models.map((m) => ({ id: m.id, name: m.name })));
+        setAvailableCollections(collections);
       } catch (error) {
         console.error("Failed to load content:", error);
       } finally {
@@ -3071,6 +3081,32 @@ function CustomMenusContent({
                   <input
                     type="radio"
                     name="contentType"
+                    checked={editingMenu.contentSelection.type === "collection"}
+                    onChange={() =>
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          type: "collection",
+                          collectionId: "",
+                          collectionName: "",
+                        },
+                      })
+                    }
+                    style={{ cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: "14px" }}>Filter by collection</span>
+                </label>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="contentType"
                     checked={editingMenu.contentSelection.type === "direct"}
                     onChange={() =>
                       setEditingMenu({
@@ -3286,6 +3322,65 @@ function CustomMenusContent({
                   {filteredTags.map((tag) => (
                     <option key={tag.id} value={tag.name}>
                       {tag.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {editingMenu.contentSelection.type === "collection" && (
+              <div style={{ marginBottom: "16px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                  }}
+                >
+                  Collection
+                </label>
+                <input
+                  type="text"
+                  placeholder="Filter collections..."
+                  value={collectionFilter}
+                  onChange={(e) => setCollectionFilter(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                    marginBottom: "8px",
+                  }}
+                />
+                <select
+                  value={editingMenu.contentSelection.collectionId || ""}
+                  onChange={(e) => {
+                    const selected = filteredCollections.find(
+                      (c) => c.id === e.target.value
+                    );
+                    setEditingMenu({
+                      ...editingMenu,
+                      contentSelection: {
+                        ...editingMenu.contentSelection,
+                        collectionId: e.target.value,
+                        collectionName: selected?.name || "",
+                      },
+                    });
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                  }}
+                >
+                  <option value="">Select a collection...</option>
+                  {filteredCollections.map((collection) => (
+                    <option key={collection.id} value={collection.id}>
+                      {collection.name}
                     </option>
                   ))}
                 </select>
@@ -3674,6 +3769,13 @@ function CustomMenusContent({
                   ) : menu.contentSelection.type === "tag" ? (
                     <>
                       {menu.contentSelection.tagIdentifiers?.length || 0} tags
+                    </>
+                  ) : menu.contentSelection.type === "collection" ? (
+                    <>
+                      Collection:{" "}
+                      {menu.contentSelection.collectionName ||
+                        menu.contentSelection.collectionId ||
+                        "Not configured"}
                     </>
                   ) : (
                     <>
@@ -7756,6 +7858,12 @@ function ConfigurationContent({
                     type: "tag",
                     tagIdentifiers: menu.tagIdentifiers || [],
                   }
+                : menu.type === "collection"
+                ? {
+                    type: "collection",
+                    collectionId: menu.collectionId || "",
+                    collectionName: menu.collectionName || "",
+                  }
                 : menu.type === "direct"
                 ? {
                     type: "direct",
@@ -7778,7 +7886,7 @@ function ConfigurationContent({
             // Use different icons based on menu type:
             // - Tag-based menus show a collection of content, so use a folder emoji
             // - Direct menus show a specific item, so use chart emoji
-            const iconForType = menu.type === "tag" ? "📁" : "📊";
+            const iconForType = menu.type === "tag" || menu.type === "collection" ? "📁" : "📊";
 
             return {
               id: `custom-${Date.now()}-${index}`,

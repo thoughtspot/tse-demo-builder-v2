@@ -237,12 +237,14 @@ export interface CustomMenu {
   icon: string;
   enabled: boolean;
   contentSelection: {
-    type: "specific" | "tag" | "direct";
+    type: "specific" | "tag" | "collection" | "direct";
     specificContent?: {
       liveboards: string[];
       answers: string[];
     };
     tagIdentifiers?: string[];
+    collectionId?: string;
+    collectionName?: string;
     contentType?: "answer" | "liveboard";
     // Direct embed configuration
     directEmbed?: {
@@ -258,6 +260,11 @@ export interface ThoughtSpotTag {
   id: string;
   name: string;
   color: string;
+}
+
+export interface ThoughtSpotCollection {
+  id: string;
+  name: string;
 }
 
 // User access control types
