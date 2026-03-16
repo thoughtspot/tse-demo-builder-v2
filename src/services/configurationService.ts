@@ -2,6 +2,7 @@ import { loadConfigurationFromGitHub } from "./githubApi";
 import {
   HomePageConfig,
   AppConfig,
+  AuthConfig,
   FullAppConfig,
   StylingConfig,
   UserConfig,
@@ -167,6 +168,9 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     favicon: "/ts.svg",
     showFooter: true,
     showLogo: true,
+    authConfig: {
+      authType: "None",
+    },
     chatbot: {
       enabled: true,
       defaultModelId: undefined,
@@ -2048,6 +2052,31 @@ const convertIndexedDBReferencesToDataURLs = async (
   }
 };
 
+/**
+ * Removes sensitive fields (password, trustedAuthToken) from the auth config
+ * before exporting. These are only stored locally.
+ */
+const sanitizeAuthConfigForExport = (
+  config: ConfigurationData,
+): ConfigurationData => {
+  if (!config.appConfig?.authConfig) return config;
+
+  const safeAuthConfig: AuthConfig = {
+    authType: config.appConfig.authConfig.authType,
+    username: config.appConfig.authConfig.username,
+    trustedAuthMode: config.appConfig.authConfig.trustedAuthMode,
+    orgId: config.appConfig.authConfig.orgId,
+  };
+
+  return {
+    ...config,
+    appConfig: {
+      ...config.appConfig,
+      authConfig: safeAuthConfig,
+    },
+  };
+};
+
 // Export configuration as JSON file
 export const exportConfiguration = async (
   config: ConfigurationData,
@@ -2059,8 +2088,11 @@ export const exportConfiguration = async (
     // Convert any IndexedDB references to data URLs before exporting
     const configToExport = await convertIndexedDBReferencesToDataURLs(config);
 
+    // Strip sensitive auth fields (password, token) before export
+    const sanitizedConfig = sanitizeAuthConfigForExport(configToExport);
+
     const exportData = {
-      ...configToExport,
+      ...sanitizedConfig,
       version: "1.0.0",
       timestamp: new Date().toISOString(),
       description: "TSE Demo Builder Configuration Export",

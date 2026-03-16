@@ -29,6 +29,9 @@ import {
   StylingConfig,
   HomePageConfig,
   AppConfig,
+  AuthConfig,
+  AuthTypeOption,
+  TrustedAuthMode,
   FullAppConfig,
   StandardMenu,
 } from "../types/thoughtspot";
@@ -6682,6 +6685,496 @@ function UserConfigContent({
   );
 }
 
+function AuthenticationSubTab({
+  appConfig,
+  updateAppConfig,
+}: {
+  appConfig: AppConfig;
+  updateAppConfig: (config: AppConfig, bypassClusterWarning?: boolean) => void;
+}) {
+  const authConfig: AuthConfig = appConfig.authConfig || { authType: "None" };
+
+  const updateAuthConfig = (patch: Partial<AuthConfig>) => {
+    updateAppConfig(
+      {
+        ...appConfig,
+        authConfig: { ...authConfig, ...patch },
+      },
+      true,
+    );
+  };
+
+  const [tokenTestStatus, setTokenTestStatus] = useState<{
+    message: string;
+    type: "success" | "error" | null;
+  }>({ message: "", type: null });
+  const [isFetchingToken, setIsFetchingToken] = useState(false);
+
+  const handleTestSecretKey = async () => {
+    setIsFetchingToken(true);
+    setTokenTestStatus({ message: "", type: null });
+    try {
+      const res = await fetch("/api/auth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          thoughtspotUrl: appConfig.thoughtspotUrl,
+          username: authConfig.username,
+          orgId: authConfig.orgId || "0",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTokenTestStatus({
+          message: data.error || "Failed to fetch token",
+          type: "error",
+        });
+      } else {
+        setTokenTestStatus({
+          message: `Token generated successfully (length: ${data.token?.length || 0})`,
+          type: "success",
+        });
+      }
+    } catch (err) {
+      setTokenTestStatus({
+        message: err instanceof Error ? err.message : "Network error",
+        type: "error",
+      });
+    } finally {
+      setIsFetchingToken(false);
+    }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "8px 12px",
+    border: "1px solid #d1d5db",
+    borderRadius: "4px",
+    fontSize: "14px",
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: "block",
+    marginBottom: "8px",
+    fontWeight: "500",
+    fontSize: "14px",
+  };
+
+  const helpTextStyle: React.CSSProperties = {
+    margin: "4px 0 0 0",
+    fontSize: "12px",
+    color: "#6b7280",
+  };
+
+  const sectionStyle: React.CSSProperties = {
+    marginBottom: "24px",
+  };
+
+  const authTypes: { value: AuthTypeOption; label: string; description: string }[] = [
+    {
+      value: "None",
+      label: "None",
+      description: "No authentication. Embeds will be public / unauthenticated.",
+    },
+    {
+      value: "Basic",
+      label: "Basic",
+      description:
+        "Authenticate with username and password. For development and testing only.",
+    },
+    {
+      value: "EmbeddedSSO",
+      label: "Embedded SSO",
+      description:
+        "Passthrough SSO via SAML/OIDC. Requires SSO configured on the ThoughtSpot cluster and IDP that supports iframe redirects.",
+    },
+    {
+      value: "TrustedAuthTokenCookieless",
+      label: "Trusted Auth (Cookieless)",
+      description:
+        "Token-based cookieless authentication. Recommended for production. Provide a token directly or use a server-side secret key.",
+    },
+  ];
+
+  return (
+    <div>
+      <h4
+        style={{
+          fontSize: "18px",
+          fontWeight: "600",
+          marginBottom: "20px",
+        }}
+      >
+        Authentication
+      </h4>
+      <p style={{ ...helpTextStyle, marginBottom: "24px", fontSize: "14px" }}>
+        Configure how the embedded ThoughtSpot content authenticates users.
+        If no authentication is configured, AuthType.None is used by default.
+      </p>
+
+      {/* Auth Type Selector */}
+      <div style={sectionStyle}>
+        <label style={labelStyle}>Authentication Type</label>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "12px",
+          }}
+        >
+          {authTypes.map((at) => (
+            <button
+              key={at.value}
+              onClick={() => {
+                const resetFields: Partial<AuthConfig> = {
+                  authType: at.value,
+                };
+                if (at.value === "None") {
+                  resetFields.username = undefined;
+                  resetFields.password = undefined;
+                  resetFields.trustedAuthMode = undefined;
+                  resetFields.trustedAuthToken = undefined;
+                  resetFields.orgId = undefined;
+                }
+                if (at.value === "TrustedAuthTokenCookieless") {
+                  resetFields.trustedAuthMode =
+                    authConfig.trustedAuthMode || "token";
+                }
+                updateAuthConfig(resetFields);
+              }}
+              style={{
+                padding: "16px",
+                border:
+                  authConfig.authType === at.value
+                    ? "2px solid #3182ce"
+                    : "1px solid #e2e8f0",
+                borderRadius: "8px",
+                background:
+                  authConfig.authType === at.value ? "#ebf8ff" : "white",
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "600",
+                  fontSize: "14px",
+                  marginBottom: "4px",
+                  color:
+                    authConfig.authType === at.value ? "#2b6cb0" : "#1a202c",
+                }}
+              >
+                {at.label}
+              </div>
+              <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                {at.description}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Basic Auth fields */}
+      {authConfig.authType === "Basic" && (
+        <div
+          style={{
+            padding: "20px",
+            backgroundColor: "#fffbeb",
+            border: "1px solid #fbbf24",
+            borderRadius: "8px",
+            marginBottom: "24px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginBottom: "16px",
+            }}
+          >
+            <MaterialIcon
+              icon="warning"
+              style={{ fontSize: "20px", color: "#d97706" }}
+            />
+            <span style={{ fontSize: "14px", fontWeight: "600", color: "#92400e" }}>
+              Basic auth is for development and testing only.
+            </span>
+          </div>
+          <div style={sectionStyle}>
+            <label style={labelStyle}>Username</label>
+            <input
+              type="text"
+              value={authConfig.username || ""}
+              onChange={(e) => updateAuthConfig({ username: e.target.value })}
+              placeholder="user@example.com"
+              style={inputStyle}
+            />
+            <p style={helpTextStyle}>ThoughtSpot username for basic authentication</p>
+          </div>
+          <div style={sectionStyle}>
+            <label style={labelStyle}>Password</label>
+            <input
+              type="password"
+              value={authConfig.password || ""}
+              onChange={(e) => updateAuthConfig({ password: e.target.value })}
+              placeholder="Enter password"
+              style={inputStyle}
+            />
+            <p style={helpTextStyle}>
+              Stored locally only. Not included in configuration exports.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* EmbeddedSSO info */}
+      {authConfig.authType === "EmbeddedSSO" && (
+        <div
+          style={{
+            padding: "20px",
+            backgroundColor: "#f0fdf4",
+            border: "1px solid #86efac",
+            borderRadius: "8px",
+            marginBottom: "24px",
+          }}
+        >
+          <p style={{ ...helpTextStyle, fontSize: "14px", margin: 0 }}>
+            No additional configuration needed. SSO must be configured on
+            the ThoughtSpot cluster, and your IDP must allow iframe redirects
+            (e.g. enable iframe embedding in Okta). The user must already be
+            authenticated through the IDP before loading the embedded content.
+            If SSO is not configured or the user is not already logged in,
+            this behaves identically to AuthType.None.
+          </p>
+        </div>
+      )}
+
+      {/* TrustedAuthTokenCookieless fields */}
+      {authConfig.authType === "TrustedAuthTokenCookieless" && (
+        <div
+          style={{
+            padding: "20px",
+            backgroundColor: "#eff6ff",
+            border: "1px solid #93c5fd",
+            borderRadius: "8px",
+            marginBottom: "24px",
+          }}
+        >
+          <div style={sectionStyle}>
+            <label style={labelStyle}>Mode</label>
+            <div style={{ display: "flex", gap: "12px" }}>
+              {(
+                [
+                  {
+                    value: "token" as TrustedAuthMode,
+                    label: "Provide Token",
+                    icon: "key",
+                  },
+                  {
+                    value: "secret_key" as TrustedAuthMode,
+                    label: "Server-side Secret Key",
+                    icon: "vpn_key",
+                  },
+                ] as const
+              ).map((mode) => (
+                <button
+                  key={mode.value}
+                  onClick={() =>
+                    updateAuthConfig({ trustedAuthMode: mode.value })
+                  }
+                  style={{
+                    flex: 1,
+                    padding: "12px 16px",
+                    border:
+                      authConfig.trustedAuthMode === mode.value
+                        ? "2px solid #3182ce"
+                        : "1px solid #e2e8f0",
+                    borderRadius: "8px",
+                    background:
+                      authConfig.trustedAuthMode === mode.value
+                        ? "#dbeafe"
+                        : "white",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontSize: "14px",
+                    fontWeight:
+                      authConfig.trustedAuthMode === mode.value ? "600" : "400",
+                  }}
+                >
+                  <MaterialIcon icon={mode.icon} style={{ fontSize: "18px" }} />
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Token mode */}
+          {authConfig.trustedAuthMode === "token" && (
+            <>
+              <div style={sectionStyle}>
+                <label style={labelStyle}>Auth Token</label>
+                <input
+                  type="password"
+                  value={authConfig.trustedAuthToken || ""}
+                  onChange={(e) =>
+                    updateAuthConfig({ trustedAuthToken: e.target.value })
+                  }
+                  placeholder="Paste your bearer token here"
+                  style={inputStyle}
+                />
+                <p style={helpTextStyle}>
+                  A bearer token from ThoughtSpot. Stored locally only,
+                  not included in configuration exports.
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* Secret key mode */}
+          {authConfig.trustedAuthMode === "secret_key" && (
+            <>
+              <div style={sectionStyle}>
+                <label style={labelStyle}>Username</label>
+                <input
+                  type="text"
+                  value={authConfig.username || ""}
+                  onChange={(e) =>
+                    updateAuthConfig({ username: e.target.value })
+                  }
+                  placeholder="user@example.com"
+                  style={inputStyle}
+                />
+                <p style={helpTextStyle}>
+                  The ThoughtSpot username to generate a token for
+                </p>
+              </div>
+              <div style={sectionStyle}>
+                <label style={labelStyle}>Org ID</label>
+                <input
+                  type="text"
+                  value={authConfig.orgId || "0"}
+                  onChange={(e) => updateAuthConfig({ orgId: e.target.value })}
+                  placeholder="0"
+                  style={inputStyle}
+                />
+                <p style={helpTextStyle}>
+                  The ThoughtSpot org ID (defaults to 0)
+                </p>
+              </div>
+              <div
+                style={{
+                  padding: "16px",
+                  backgroundColor: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "6px",
+                  marginBottom: "16px",
+                }}
+              >
+                <p style={{ ...helpTextStyle, marginBottom: "8px" }}>
+                  <strong>Environment variable required:</strong> The secret key
+                  must be set in your{" "}
+                  <code
+                    style={{
+                      padding: "2px 6px",
+                      backgroundColor: "#e2e8f0",
+                      borderRadius: "3px",
+                      fontSize: "12px",
+                    }}
+                  >
+                    .env.local
+                  </code>{" "}
+                  file:
+                </p>
+                <code
+                  style={{
+                    display: "block",
+                    padding: "8px 12px",
+                    backgroundColor: "#1e293b",
+                    color: "#e2e8f0",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                    fontFamily: "monospace",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  {(() => {
+                    try {
+                      const hostname = new URL(
+                        appConfig.thoughtspotUrl,
+                      ).hostname;
+                      const hash = hostname.replace(/[.\-]/g, "_");
+                      return `TS_SECRET_KEY_${hash}_${authConfig.orgId || "0"}=your-secret-key`;
+                    } catch {
+                      return "TS_SECRET_KEY_<cluster>_<org>=your-secret-key";
+                    }
+                  })()}
+                </code>
+              </div>
+              <button
+                onClick={handleTestSecretKey}
+                disabled={isFetchingToken || !authConfig.username}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor:
+                    isFetchingToken || !authConfig.username
+                      ? "#9ca3af"
+                      : "#3b82f6",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor:
+                    isFetchingToken || !authConfig.username
+                      ? "not-allowed"
+                      : "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <MaterialIcon
+                  icon={isFetchingToken ? "hourglass_empty" : "verified"}
+                  style={{ fontSize: "18px" }}
+                />
+                {isFetchingToken ? "Testing..." : "Test Token Generation"}
+              </button>
+              {tokenTestStatus.type && (
+                <div
+                  style={{
+                    marginTop: "12px",
+                    padding: "10px 14px",
+                    borderRadius: "6px",
+                    fontSize: "13px",
+                    backgroundColor:
+                      tokenTestStatus.type === "success"
+                        ? "#d1fae5"
+                        : "#fee2e2",
+                    color:
+                      tokenTestStatus.type === "success"
+                        ? "#065f46"
+                        : "#991b1b",
+                    border: `1px solid ${
+                      tokenTestStatus.type === "success"
+                        ? "#a7f3d0"
+                        : "#fecaca"
+                    }`,
+                  }}
+                >
+                  {tokenTestStatus.message}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ConfigurationContent({
   appConfig,
   updateAppConfig,
@@ -6743,7 +7236,7 @@ function ConfigurationContent({
 
   // Validate initial state on mount
   useEffect(() => {
-    const validSubTabs = ["general", "embedFlags"];
+    const validSubTabs = ["general", "authentication", "embedFlags"];
     if (!activeSubTab || !validSubTabs.includes(activeSubTab)) {
       setActiveSubTab("general");
     }
@@ -6751,7 +7244,7 @@ function ConfigurationContent({
 
   // Update activeSubTab when initialSubTab changes
   useEffect(() => {
-    const validSubTabs = ["general", "embedFlags"];
+    const validSubTabs = ["general", "authentication", "embedFlags"];
 
     if (
       initialSubTab &&
@@ -6764,6 +7257,7 @@ function ConfigurationContent({
 
   const subTabs = [
     { id: "general", name: "General", icon: "settings" },
+    { id: "authentication", name: "Authentication", icon: "lock" },
     { id: "embedFlags", name: "Embed Flags", icon: "flag" },
   ];
 
@@ -8316,6 +8810,13 @@ function ConfigurationContent({
               standardMenus={standardMenus || []}
             />
           </div>
+        )}
+
+        {activeSubTab === "authentication" && (
+          <AuthenticationSubTab
+            appConfig={appConfig}
+            updateAppConfig={updateAppConfig}
+          />
         )}
 
         {activeSubTab === "embedFlags" && (

@@ -15,6 +15,7 @@ import {
   PrebuiltHandlerParam,
   CustomActionHandlerConfig,
 } from "../types/thoughtspot";
+import { getThoughtSpotAuthForRequest } from "./thoughtspotApi";
 
 // Type for the actual handler function
 export type CustomActionHandlerFn = (
@@ -628,6 +629,8 @@ registerPrebuiltHandler(
 
       console.log("[Download PDF] Using ThoughtSpot URL:", thoughtSpotHost);
 
+      const auth = await getThoughtSpotAuthForRequest();
+
       // Call the ThoughtSpot report/liveboard API
       const response = await fetch(
         `${thoughtSpotHost}/api/rest/2.0/report/liveboard`,
@@ -636,8 +639,9 @@ registerPrebuiltHandler(
           headers: {
             Accept: "application/octet-stream",
             "Content-Type": "application/json",
+            ...auth.headers,
           },
-          credentials: "include",
+          credentials: auth.credentials,
           body: JSON.stringify({
             metadata_identifier: liveboardId,
             file_format: "PDF",

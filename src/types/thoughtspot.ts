@@ -12,7 +12,10 @@ export interface ThoughtSpotEmbedInstance {
 export interface ThoughtSpotInitConfig {
   thoughtSpotHost: string;
   authType: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  locale?: string; // User locale preference
+  username?: string;
+  password?: string;
+  getAuthToken?: () => Promise<string>;
+  locale?: string;
   additionalFlags?: Record<string, boolean>;
   customizations?: {
     content?: {
@@ -148,6 +151,23 @@ export interface HomePageConfig {
   maintainAspectRatio?: boolean;
 }
 
+export type AuthTypeOption =
+  | "None"
+  | "Basic"
+  | "EmbeddedSSO"
+  | "TrustedAuthTokenCookieless";
+
+export type TrustedAuthMode = "token" | "secret_key";
+
+export interface AuthConfig {
+  authType: AuthTypeOption;
+  username?: string;
+  password?: string; // Basic auth only; not exported
+  trustedAuthMode?: TrustedAuthMode;
+  trustedAuthToken?: string; // Manual token; not exported
+  orgId?: string; // For secret_key mode; defaults to "0"
+}
+
 export interface AppConfig {
   thoughtspotUrl: string;
   applicationName: string;
@@ -156,7 +176,8 @@ export interface AppConfig {
   favicon?: string;
   faviconSyncEnabled?: boolean;
   showFooter: boolean;
-  showLogo?: boolean; // If false, hide the logo and only show the application name
+  showLogo?: boolean;
+  authConfig?: AuthConfig;
   chatbot?: {
     enabled: boolean;
     defaultModelId?: string;

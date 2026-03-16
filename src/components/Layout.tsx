@@ -29,6 +29,7 @@ import {
 } from "../types/thoughtspot";
 import {
   setThoughtSpotBaseUrl,
+  setThoughtSpotAuthTokenGetter,
   fetchLiveboards,
   fetchLiveboardWithVisualizations,
 } from "../services/thoughtspotApi";
@@ -533,14 +534,44 @@ export default function Layout({ children }: LayoutProps) {
 
         const configs = await loadAllConfigurations();
 
-        // Set ThoughtSpot base URL IMMEDIATELY after loading config, before any other operations
-        // This ensures the SessionChecker and other components use the correct server
+        // Set ThoughtSpot base URL and auth token getter IMMEDIATELY after loading config,
+        // before any other operations (e.g. SessionChecker's getCurrentUser call)
         if (configs.appConfig?.thoughtspotUrl) {
           setThoughtSpotBaseUrl(configs.appConfig.thoughtspotUrl);
           console.log(
             "[Layout] Set ThoughtSpot base URL during initial load:",
             configs.appConfig.thoughtspotUrl
           );
+        }
+        const ac = configs.appConfig?.authConfig;
+        if (ac?.authType === "TrustedAuthTokenCookieless") {
+          if (ac.trustedAuthMode === "token" && ac.trustedAuthToken) {
+            setThoughtSpotAuthTokenGetter(() =>
+              Promise.resolve(ac.trustedAuthToken ?? null),
+            );
+          } else if (ac.trustedAuthMode === "secret_key" && ac.username) {
+            const tsUrl = configs.appConfig!.thoughtspotUrl;
+            const uname = ac.username;
+            const orgId = ac.orgId || "0";
+            setThoughtSpotAuthTokenGetter(async () => {
+              const res = await fetch("/api/auth/token", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  thoughtspotUrl: tsUrl,
+                  username: uname,
+                  orgId,
+                }),
+              });
+              if (!res.ok) return null;
+              const data = await res.json();
+              return data.token ?? null;
+            });
+          } else {
+            setThoughtSpotAuthTokenGetter(null);
+          }
+        } else {
+          setThoughtSpotAuthTokenGetter(null);
         }
 
         // Process all configurations first, then batch state updates
@@ -811,6 +842,36 @@ export default function Layout({ children }: LayoutProps) {
           loadedConfig.appConfig.thoughtspotUrl
         );
       }
+      const loadAc = loadedConfig.appConfig?.authConfig;
+      if (loadAc?.authType === "TrustedAuthTokenCookieless") {
+        if (loadAc.trustedAuthMode === "token" && loadAc.trustedAuthToken) {
+          setThoughtSpotAuthTokenGetter(() =>
+            Promise.resolve(loadAc.trustedAuthToken ?? null),
+          );
+        } else if (loadAc.trustedAuthMode === "secret_key" && loadAc.username) {
+          const tsUrl = loadedConfig.appConfig!.thoughtspotUrl;
+          const uname = loadAc.username;
+          const orgId = loadAc.orgId || "0";
+          setThoughtSpotAuthTokenGetter(async () => {
+            const res = await fetch("/api/auth/token", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                thoughtspotUrl: tsUrl,
+                username: uname,
+                orgId,
+              }),
+            });
+            if (!res.ok) return null;
+            const data = await res.json();
+            return data.token ?? null;
+          });
+        } else {
+          setThoughtSpotAuthTokenGetter(null);
+        }
+      } else {
+        setThoughtSpotAuthTokenGetter(null);
+      }
 
       onProgress?.(80, "Applying configuration to UI...");
       setLoadingProgress(80);
@@ -933,6 +994,47 @@ export default function Layout({ children }: LayoutProps) {
       setThoughtSpotBaseUrl(appConfig.thoughtspotUrl);
     }
   }, [appConfig.thoughtspotUrl]);
+
+  // When using TrustedAuthTokenCookieless, API calls need the Bearer token
+  useEffect(() => {
+    const ac = appConfig.authConfig;
+    if (ac?.authType !== "TrustedAuthTokenCookieless") {
+      setThoughtSpotAuthTokenGetter(null);
+      return;
+    }
+    if (ac.trustedAuthMode === "token" && ac.trustedAuthToken) {
+      setThoughtSpotAuthTokenGetter(() =>
+        Promise.resolve(ac.trustedAuthToken ?? null),
+      );
+    } else if (ac.trustedAuthMode === "secret_key" && ac.username) {
+      const tsUrl = appConfig.thoughtspotUrl;
+      const uname = ac.username;
+      const orgId = ac.orgId || "0";
+      setThoughtSpotAuthTokenGetter(async () => {
+        const res = await fetch("/api/auth/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            thoughtspotUrl: tsUrl,
+            username: uname,
+            orgId,
+          }),
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.token ?? null;
+      });
+    } else {
+      setThoughtSpotAuthTokenGetter(null);
+    }
+  }, [
+    appConfig.thoughtspotUrl,
+    appConfig.authConfig?.authType,
+    appConfig.authConfig?.trustedAuthMode,
+    appConfig.authConfig?.trustedAuthToken,
+    appConfig.authConfig?.username,
+    appConfig.authConfig?.orgId,
+  ]);
 
   // Consolidated auto-save effect for all configurations
   useEffect(() => {
@@ -1324,9 +1426,12 @@ export default function Layout({ children }: LayoutProps) {
         );
         const userLocale = currentUser?.locale || "en";
 
+        const ac = appConfig.authConfig;
+        const resolvedAuthType = ac?.authType || "None";
+
         const initConfig: ThoughtSpotInitConfig = {
           thoughtSpotHost: appConfig.thoughtspotUrl,
-          authType: AuthType.None,
+          authType: AuthType[resolvedAuthType] ?? AuthType.None,
           locale: userLocale,
           additionalFlags: {
             isLiveboardStylingEnabled: true,
@@ -1334,9 +1439,40 @@ export default function Layout({ children }: LayoutProps) {
           },
         };
 
+        if (resolvedAuthType === "Basic") {
+          initConfig.username = ac?.username;
+          initConfig.password = ac?.password;
+        } else if (resolvedAuthType === "TrustedAuthTokenCookieless") {
+          if (ac?.trustedAuthMode === "token" && ac?.trustedAuthToken) {
+            initConfig.getAuthToken = () =>
+              Promise.resolve(ac.trustedAuthToken!);
+          } else if (ac?.trustedAuthMode === "secret_key" && ac?.username) {
+            const tsUrl = appConfig.thoughtspotUrl;
+            const uname = ac.username;
+            const orgId = ac.orgId || "0";
+            initConfig.getAuthToken = async () => {
+              const res = await fetch("/api/auth/token", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  thoughtspotUrl: tsUrl,
+                  username: uname,
+                  orgId,
+                }),
+              });
+              if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Failed to fetch auth token");
+              }
+              const data = await res.json();
+              return data.token;
+            };
+          }
+        }
+
         console.log(
           "[Layout] Initializing ThoughtSpot with config:",
-          initConfig
+          { ...initConfig, password: initConfig.password ? "***" : undefined }
         );
 
         // Always add customizations to ensure embed containers work properly
@@ -1389,12 +1525,16 @@ export default function Layout({ children }: LayoutProps) {
     };
 
     initializeThoughtSpot();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     appConfig.thoughtspotUrl,
     appConfig.earlyAccessFlags,
+    // Re-init when auth config changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    JSON.stringify(appConfig.authConfig),
     configVersion,
     isInitialLoadInProgress,
-  ]); // Removed stylingConfig and userConfig from dependencies to prevent excessive re-initialization
+  ]);
 
   // Separate effect to handle styling config changes that require ThoughtSpot re-initialization
   useEffect(() => {
@@ -2486,6 +2626,11 @@ export default function Layout({ children }: LayoutProps) {
           thoughtspotUrl={appConfig.thoughtspotUrl}
           onSessionStatusChange={handleSessionStatusChange}
           onConfigureSettings={handleConfigureSettings}
+          authConfigKey={
+            appConfig.authConfig?.authType === "TrustedAuthTokenCookieless"
+              ? `${appConfig.authConfig.trustedAuthMode}-${appConfig.authConfig.username ?? ""}-${appConfig.authConfig.orgId ?? "0"}`
+              : appConfig.authConfig?.authType ?? "none"
+          }
         >
           <div
             style={{

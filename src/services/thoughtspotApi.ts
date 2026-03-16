@@ -162,6 +162,10 @@ import { ThoughtSpotContent } from "../types/thoughtspot";
 let THOUGHTSPOT_BASE_URL =
   "https://se-thoughtspot-cloud.thoughtspot.cloud/api/rest/2.0";
 
+// When using TrustedAuthTokenCookieless, API calls need the Bearer token.
+// Layout sets this when auth config uses trusted auth.
+let authTokenGetter: (() => Promise<string | null>) | null = null;
+
 export function setThoughtSpotBaseUrl(url: string) {
   // Ensure the URL ends with /api/rest/2.0
   if (url.endsWith("/")) {
@@ -173,18 +177,47 @@ export function setThoughtSpotBaseUrl(url: string) {
   THOUGHTSPOT_BASE_URL = url;
 }
 
+export function setThoughtSpotAuthTokenGetter(
+  getter: (() => Promise<string | null>) | null,
+) {
+  authTokenGetter = getter;
+}
+
+/**
+ * Returns headers and credentials for ThoughtSpot API calls.
+ * When using TrustedAuthTokenCookieless, adds Authorization: Bearer <token>.
+ * Export for use by customActionHandlers and other direct API callers.
+ */
+export async function getThoughtSpotAuthForRequest(): Promise<{
+  headers: Record<string, string>;
+  credentials: RequestCredentials;
+}> {
+  if (authTokenGetter) {
+    const token = await authTokenGetter();
+    if (token) {
+      return {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: "omit",
+      };
+    }
+  }
+  return { headers: {}, credentials: "include" };
+}
+
 async function makeThoughtSpotApiCall(
   endpoint: string,
   data: Record<string, unknown>
 ): Promise<ThoughtSpotSearchResponse> {
   try {
+    const auth = await getThoughtSpotAuthForRequest();
     const response = await fetch(`${THOUGHTSPOT_BASE_URL}${endpoint}`, {
       method: "POST",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
+        ...auth.headers,
       },
-      credentials: "include", // Include session cookies
+      credentials: auth.credentials,
       body: JSON.stringify(data),
     });
 
@@ -222,13 +255,15 @@ async function makeThoughtSpotGetCall(
   endpoint: string
 ): Promise<Record<string, unknown>> {
   try {
+    const auth = await getThoughtSpotAuthForRequest();
     const url = `${THOUGHTSPOT_BASE_URL}${endpoint}`;
     const response = await fetch(url, {
       method: "GET",
       headers: {
         Accept: "application/json",
+        ...auth.headers,
       },
-      credentials: "include", // Include session cookies
+      credentials: auth.credentials,
     });
 
     console.log(
@@ -274,13 +309,15 @@ async function makeThoughtSpotTagsCall(
   data: Record<string, unknown>
 ): Promise<ThoughtSpotTag[]> {
   try {
+    const auth = await getThoughtSpotAuthForRequest();
     const response = await fetch(`${THOUGHTSPOT_BASE_URL}${endpoint}`, {
       method: "POST",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
+        ...auth.headers,
       },
-      credentials: "include", // Include session cookies
+      credentials: auth.credentials,
       body: JSON.stringify(data),
     });
 
@@ -1472,13 +1509,15 @@ async function makeThoughtSpotPostCall<T>(
   data: Record<string, unknown>
 ): Promise<T | null> {
   try {
+    const auth = await getThoughtSpotAuthForRequest();
     const response = await fetch(`${THOUGHTSPOT_BASE_URL}${endpoint}`, {
       method: "POST",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
+        ...auth.headers,
       },
-      credentials: "include",
+      credentials: auth.credentials,
       body: JSON.stringify(data),
     });
 

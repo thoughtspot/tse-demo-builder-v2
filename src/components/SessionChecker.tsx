@@ -11,6 +11,8 @@ interface SessionCheckerProps {
   thoughtspotUrl: string;
   onSessionStatusChange: (hasSession: boolean) => void;
   onConfigureSettings?: () => void;
+  /** When using TrustedAuthTokenCookieless, re-check when auth config is ready */
+  authConfigKey?: string;
 }
 
 interface SessionStatus {
@@ -128,6 +130,7 @@ export default function SessionChecker({
   thoughtspotUrl,
   onSessionStatusChange,
   onConfigureSettings,
+  authConfigKey,
 }: SessionCheckerProps) {
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>({
     hasSession: false,
@@ -213,7 +216,7 @@ export default function SessionChecker({
     };
 
     checkSession();
-  }, [thoughtspotUrl, onSessionStatusChange]);
+  }, [thoughtspotUrl, onSessionStatusChange, authConfigKey]);
 
   const handleRefresh = () => {
     window.location.reload();
