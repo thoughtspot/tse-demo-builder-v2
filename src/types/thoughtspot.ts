@@ -177,6 +177,7 @@ export interface AppConfig {
   faviconSyncEnabled?: boolean;
   showFooter: boolean;
   showLogo?: boolean;
+  showVizPicker?: boolean;
   authConfig?: AuthConfig;
   chatbot?: {
     enabled: boolean;

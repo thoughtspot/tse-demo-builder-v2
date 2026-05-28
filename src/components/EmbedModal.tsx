@@ -9,12 +9,14 @@ interface EmbedModalProps {
   content: ThoughtSpotContent | null;
   isOpen: boolean;
   onClose: () => void;
+  startInEditMode?: boolean;
 }
 
 export default function EmbedModal({
   content,
   isOpen,
   onClose,
+  startInEditMode,
 }: EmbedModalProps) {
   const context = useAppContext();
 
@@ -184,6 +186,7 @@ export default function EmbedModal({
             onError={(error) => {
               console.error("Embed error:", error);
             }}
+            startInEditMode={startInEditMode}
           />
         </div>
       </div>

@@ -26,9 +26,11 @@ interface ThoughtSpotMetadata {
   };
 }
 
-interface ThoughtSpotUser {
+export interface ThoughtSpotUser {
   name: string;
   display_name: string;
+  email?: string;
+  id?: string;
 }
 
 interface ThoughtSpotTag {
@@ -840,6 +842,8 @@ export async function getCurrentUser(): Promise<ThoughtSpotUser | null> {
       return {
         name: response.name,
         display_name: response.display_name,
+        ...(typeof response.email === "string" && { email: response.email }),
+        ...(typeof response.id === "string" && { id: response.id }),
       };
     }
 
@@ -1397,6 +1401,77 @@ export async function importVisualizationToLiveboard(
       success: false,
       error: error instanceof Error ? error.message : "Unknown error occurred",
     };
+  }
+}
+
+export async function createLiveboard(
+  name: string,
+  description?: string,
+): Promise<{ id: string; name: string } | null> {
+  try {
+    // Build YAML TML — ThoughtSpot's TML import expects YAML, not JSON.
+    // JSON.stringify on strings produces properly quoted+escaped YAML string values.
+    const tmlLines = [
+      "liveboard:",
+      `  name: ${JSON.stringify(name)}`,
+    ];
+    if (description) {
+      tmlLines.push(`  description: ${JSON.stringify(description)}`);
+    }
+    const liveboardTml = tmlLines.join("\n");
+
+    const importResponse = await makeThoughtSpotApiCall(
+      "/metadata/tml/import",
+      {
+        metadata_tmls: [liveboardTml],
+        import_policy: "ALL_OR_NONE",
+        create_new: true,
+        all_orgs_override: false,
+        skip_diff_check: false,
+        enable_large_metadata_validation: false,
+      },
+    );
+
+    if (
+      !importResponse ||
+      !Array.isArray(importResponse) ||
+      importResponse.length === 0
+    ) {
+      return null;
+    }
+
+    const result = importResponse[0] as {
+      response?: {
+        header?: { id_guid?: string };
+        object?: Array<{ header?: { id_guid?: string } }>;
+        status?: { status_code?: string };
+      };
+      status?: { status_code?: string };
+      id?: string;
+    };
+
+    const statusCode =
+      result.response?.status?.status_code || result.status?.status_code;
+
+    if (statusCode !== "OK" && statusCode !== "WARNING") {
+      console.error("createLiveboard: unexpected status", statusCode, result);
+      return null;
+    }
+
+    const guid =
+      result.response?.header?.id_guid ||
+      result.response?.object?.[0]?.header?.id_guid ||
+      result.id;
+
+    if (!guid) {
+      console.error("createLiveboard: no GUID in response", result);
+      return null;
+    }
+
+    return { id: guid, name };
+  } catch (error) {
+    console.error("Failed to create liveboard:", error);
+    return null;
   }
 }
 

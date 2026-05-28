@@ -25,6 +25,7 @@ interface ThoughtSpotEmbedProps {
   height?: string;
   onLoad?: () => void;
   onError?: (error: string) => void;
+  startInEditMode?: boolean;
 }
 
 export default function ThoughtSpotEmbed({
@@ -33,6 +34,7 @@ export default function ThoughtSpotEmbed({
   height = "600px",
   onLoad,
   onError,
+  startInEditMode,
 }: ThoughtSpotEmbedProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +44,8 @@ export default function ThoughtSpotEmbed({
   const [vizPointClickData, setVizPointClickData] =
     useState<VizPointClickData | null>(null);
   const embedRef = useRef<HTMLDivElement>(null);
-  const embedInstanceRef = useRef<{ destroy?: () => void } | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const embedInstanceRef = useRef<{ destroy?: () => void; trigger?: (event: any, data?: unknown) => unknown } | null>(null);
   const context = useAppContext();
 
   const handleDoubleClickEvent = useCallback(
@@ -305,6 +308,7 @@ export default function ThoughtSpotEmbed({
           SpotterEmbed,
           EmbedEvent,
           Action,
+          HostEvent,
         } = await import("@thoughtspot/visual-embed-sdk");
 
         // Check if component is still mounted after SDK import
@@ -610,6 +614,14 @@ export default function ThoughtSpotEmbed({
                 setIsLoading(false);
               }
               return;
+            }
+
+            if (startInEditMode && content.type === "liveboard") {
+              embedInstance.on(EmbedEvent.Load, () => {
+                setTimeout(() => {
+                  embedInstanceRef.current?.trigger?.(HostEvent.Edit);
+                }, 300);
+              });
             }
 
             await embedInstance.render();

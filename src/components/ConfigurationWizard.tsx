@@ -692,7 +692,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                   maxSizeMB={5}
                   maxWidth={2000}
                   maxHeight={2000}
-                  useIndexedDB={false}
+                  useIndexedDB={true}
                 />
                 <p
                   style={{
@@ -778,7 +778,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                 maxSizeMB={5}
                 maxWidth={2000}
                 maxHeight={2000}
-                useIndexedDB={false}
+                useIndexedDB={true}
               />
               <p
                 style={{

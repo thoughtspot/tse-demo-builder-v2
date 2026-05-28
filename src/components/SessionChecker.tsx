@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import {
   getCurrentUser,
   setThoughtSpotBaseUrl,
+  type ThoughtSpotUser,
 } from "../services/thoughtspotApi";
 
 interface SessionCheckerProps {
@@ -13,6 +14,7 @@ interface SessionCheckerProps {
   onConfigureSettings?: () => void;
   /** When using TrustedAuthTokenCookieless, re-check when auth config is ready */
   authConfigKey?: string;
+  onUserAuthenticated?: (user: ThoughtSpotUser) => void;
 }
 
 interface SessionStatus {
@@ -131,6 +133,7 @@ export default function SessionChecker({
   onSessionStatusChange,
   onConfigureSettings,
   authConfigKey,
+  onUserAuthenticated,
 }: SessionCheckerProps) {
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>({
     hasSession: false,
@@ -174,6 +177,7 @@ export default function SessionChecker({
             error: null,
           });
           onSessionStatusChange(true);
+          onUserAuthenticated?.(user);
         } else {
           // Only set hasSession to false if we haven't ever had a successful session
           if (!hasEverHadSession) {

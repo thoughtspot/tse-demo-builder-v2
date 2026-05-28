@@ -386,7 +386,7 @@ function HomePageAIGenerator({
           maxSizeMB={5}
           maxWidth={2000}
           maxHeight={2000}
-          useIndexedDB={false}
+          useIndexedDB={true}
         />
         <p
           style={{
@@ -8531,6 +8531,43 @@ function ConfigurationContent({
                   >
                     When unchecked, the footer will be hidden and content will
                     use the full available space
+                  </p>
+                </div>
+
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      color: "#4a5568",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={appConfig.showVizPicker ?? false}
+                      onChange={(e) =>
+                        updateAppConfig({
+                          ...appConfig,
+                          showVizPicker: e.target.checked,
+                        })
+                      }
+                      style={{ cursor: "pointer" }}
+                    />
+                    <span>Enable Viz Picker</span>
+                  </label>
+                  <p
+                    style={{
+                      margin: "4px 0 0 0",
+                      fontSize: "12px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    When enabled, the Viz Picker button appears in the top bar,
+                    allowing visualizations to be copied between liveboards
                   </p>
                 </div>
               </div>

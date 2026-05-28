@@ -16,6 +16,8 @@ import Footer from "./Footer";
 import SessionChecker from "./SessionChecker";
 import ChatBubble from "./ChatBubble";
 import VizPickerModal from "./VizPickerModal";
+import CreateLiveboardModal from "./CreateLiveboardModal";
+import EmbedModal from "./EmbedModal";
 import {
   CustomMenu,
   StylingConfig,
@@ -26,12 +28,15 @@ import {
   AppConfig,
   FullAppConfig,
   StandardMenu,
+  ThoughtSpotContent,
 } from "../types/thoughtspot";
 import {
   setThoughtSpotBaseUrl,
   setThoughtSpotAuthTokenGetter,
   fetchLiveboards,
   fetchLiveboardWithVisualizations,
+  createLiveboard,
+  type ThoughtSpotUser,
 } from "../services/thoughtspotApi";
 import {
   loadAllConfigurations,
@@ -383,6 +388,8 @@ export default function Layout({ children }: LayoutProps) {
   const [liveboards, setLiveboards] = useState<
     Array<{ id: string; name: string }>
   >([]);
+  const [isCreateLiveboardOpen, setIsCreateLiveboardOpen] = useState(false);
+  const [newLiveboardContent, setNewLiveboardContent] = useState<ThoughtSpotContent | null>(null);
   const [isLoadingConfiguration, setIsLoadingConfiguration] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState(
@@ -1631,6 +1638,30 @@ export default function Layout({ children }: LayoutProps) {
     // We can use this for future features if needed
   }, []);
 
+  const handleUserAuthenticated = useCallback(
+    (user: ThoughtSpotUser) => {
+      if (typeof window === "undefined" || !("pendo" in window)) return;
+      const pendo = (window as Window & { pendo: { initialize: (cfg: unknown) => void } }).pendo;
+      const nameParts = user.display_name.split(" ");
+      const firstName = nameParts[0] ?? user.display_name;
+      const lastName = nameParts.slice(1).join(" ") || undefined;
+      const orgId = appConfig.authConfig?.orgId ?? "0";
+      pendo.initialize({
+        visitor: {
+          id: user.id ?? user.name,
+          email: user.email ?? user.name,
+          firstName,
+          lastName,
+        },
+        account: {
+          id: orgId,
+          accountName: appConfig.applicationName,
+        },
+      });
+    },
+    [appConfig.authConfig?.orgId, appConfig.applicationName],
+  );
+
   const handleClusterChangeConfirm = () => {
     // Create new app config with the new cluster URL but keep other default values
     const newAppConfig = {
@@ -1792,6 +1823,23 @@ export default function Layout({ children }: LayoutProps) {
     const vizs = await fetchLiveboardWithVisualizations(liveboardId);
     return vizs;
   }, []);
+
+  const handleCreateLiveboardClick = useCallback(() => {
+    setIsCreateLiveboardOpen(true);
+  }, []);
+
+  const handleLiveboardCreated = useCallback(
+    (id: string, name: string, description?: string) => {
+      setIsCreateLiveboardOpen(false);
+      setNewLiveboardContent({
+        id,
+        name,
+        type: "liveboard",
+        description,
+      });
+    },
+    []
+  );
 
   const updateStandardMenu = (
     id: string,
@@ -2626,6 +2674,7 @@ export default function Layout({ children }: LayoutProps) {
           thoughtspotUrl={appConfig.thoughtspotUrl}
           onSessionStatusChange={handleSessionStatusChange}
           onConfigureSettings={handleConfigureSettings}
+          onUserAuthenticated={handleUserAuthenticated}
           authConfigKey={
             appConfig.authConfig?.authType === "TrustedAuthTokenCookieless"
               ? `${appConfig.authConfig.trustedAuthMode}-${appConfig.authConfig.username ?? ""}-${appConfig.authConfig.orgId ?? "0"}`
@@ -2658,7 +2707,8 @@ export default function Layout({ children }: LayoutProps) {
               backgroundColor={stylingConfig.application.topBar.backgroundColor}
               foregroundColor={stylingConfig.application.topBar.foregroundColor}
               thoughtspotUrl={appConfig.thoughtspotUrl}
-              onVizPickerClick={handleVizPickerClick}
+              onVizPickerClick={appConfig.showVizPicker ? handleVizPickerClick : undefined}
+              onCreateLiveboardClick={handleCreateLiveboardClick}
             />
 
             {/* Main Content Area */}
@@ -2771,6 +2821,22 @@ export default function Layout({ children }: LayoutProps) {
               onClose={() => setIsVizPickerOpen(false)}
               liveboards={liveboards}
               onFetchVisualizations={handleFetchVisualizations}
+            />
+
+            {/* Create Liveboard Modal */}
+            <CreateLiveboardModal
+              isOpen={isCreateLiveboardOpen}
+              onClose={() => setIsCreateLiveboardOpen(false)}
+              onCreate={createLiveboard}
+              onCreated={handleLiveboardCreated}
+            />
+
+            {/* New Liveboard Embed Modal (opens after creation, starts in edit mode) */}
+            <EmbedModal
+              content={newLiveboardContent}
+              isOpen={!!newLiveboardContent}
+              onClose={() => setNewLiveboardContent(null)}
+              startInEditMode
             />
 
             {/* Cluster Change Warning Dialog */}

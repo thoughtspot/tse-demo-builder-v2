@@ -168,6 +168,7 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     favicon: "/ts.svg",
     showFooter: true,
     showLogo: true,
+    showVizPicker: false,
     authConfig: {
       authType: "None",
     },
