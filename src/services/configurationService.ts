@@ -180,6 +180,9 @@ export const DEFAULT_CONFIG: ConfigurationData = {
         "Hello! I'm your AI assistant. What would you like to know about your data?",
       position: "bottom-right",
     },
+    spotterViz: {
+      enabled: true,
+    },
   },
   fullAppConfig: {
     showPrimaryNavbar: true,

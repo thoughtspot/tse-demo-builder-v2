@@ -2051,31 +2051,27 @@ export default function Layout({ children }: LayoutProps) {
       }
     }
 
-    // Grant current user access to the new custom menu
-    const currentUser = userConfig.users.find(
-      (u) => u.id === userConfig.currentUserId
-    );
-    if (currentUser && !currentUser.access.customMenus.includes(menu.id)) {
-      const updatedUserConfig = {
-        ...userConfig,
-        users: userConfig.users.map((user) =>
-          user.id === currentUser.id
-            ? {
-                ...user,
-                access: {
-                  ...user.access,
-                  customMenus: [...user.access.customMenus, menu.id],
-                },
-              }
-            : user
-        ),
-      };
-      setUserConfig(updatedUserConfig);
-      try {
-        await saveUserConfig(updatedUserConfig);
-      } catch (error) {
-        console.error("Failed to save user config:", error);
-      }
+    // Grant ALL users access to the new custom menu so it appears regardless of
+    // which user profile is active (mirrors the wizard's behavior).
+    const updatedUserConfig = {
+      ...userConfig,
+      users: userConfig.users.map((user) =>
+        user.access?.customMenus?.includes(menu.id)
+          ? user
+          : {
+              ...user,
+              access: {
+                ...user.access,
+                customMenus: [...(user.access?.customMenus ?? []), menu.id],
+              },
+            }
+      ),
+    };
+    setUserConfig(updatedUserConfig);
+    try {
+      await saveUserConfig(updatedUserConfig);
+    } catch (error) {
+      console.error("Failed to save user config:", error);
     }
   };
 
@@ -2628,7 +2624,13 @@ export default function Layout({ children }: LayoutProps) {
       });
     }
 
-    return currentUser?.access?.customMenus?.includes(menu.id);
+    // If no user profile is found (e.g. config not yet loaded), fall back to
+    // the menu's own enabled flag so newly-created menus always appear.
+    if (!currentUser) return menu.enabled;
+    const hasExplicitAccess = currentUser.access?.customMenus?.includes(menu.id);
+    // Fall back to enabled flag for menus created before per-user access was
+    // recorded (e.g. via import or an older version of the app).
+    return hasExplicitAccess ?? menu.enabled;
   });
 
   // Debug: Log final accessible custom menus
@@ -2708,7 +2710,7 @@ export default function Layout({ children }: LayoutProps) {
               foregroundColor={stylingConfig.application.topBar.foregroundColor}
               thoughtspotUrl={appConfig.thoughtspotUrl}
               onVizPickerClick={appConfig.showVizPicker ? handleVizPickerClick : undefined}
-              onCreateLiveboardClick={handleCreateLiveboardClick}
+              onCreateLiveboardClick={appConfig.spotterViz?.enabled ? handleCreateLiveboardClick : undefined}
             />
 
             {/* Main Content Area */}

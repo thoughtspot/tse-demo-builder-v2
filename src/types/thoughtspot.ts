@@ -168,6 +168,22 @@ export interface AuthConfig {
   orgId?: string; // For secret_key mode; defaults to "0"
 }
 
+export interface StarterPrompt {
+  id: string;
+  displayText: string;
+  fullPrompt: string;
+}
+
+export interface SpotterVizConfig {
+  enabled: boolean;
+  brandName?: string;
+  brandHeadline?: string;
+  description?: string;
+  inputChatPlaceholder?: string;
+  hideStarterPrompts?: boolean;
+  customStarterPrompts?: StarterPrompt[];
+}
+
 export interface AppConfig {
   thoughtspotUrl: string;
   applicationName: string;
@@ -187,6 +203,7 @@ export interface AppConfig {
     position?: "bottom-right" | "bottom-left";
     spotgptApiKey?: string;
   };
+  spotterViz?: SpotterVizConfig;
 }
 
 export interface FullAppConfig {
@@ -274,6 +291,15 @@ export interface HiddenActionsConfig {
   actions: string[]; // Array of action names (Action enum values or custom strings)
 }
 
+export type SDKActionsMode = "disabled" | "hidden" | "visible";
+
+export interface SDKActionsConfig {
+  enabled: boolean;
+  mode: SDKActionsMode;
+  actions: string[];
+  disabledReason?: string;
+}
+
 export interface UserAccess {
   standardMenus: {
     home: boolean;
@@ -285,7 +311,8 @@ export interface UserAccess {
     "all-content": boolean;
   };
   customMenus: string[]; // Array of custom menu IDs that the user can access
-  hiddenActions?: HiddenActionsConfig; // Configuration for hidden actions
+  hiddenActions?: HiddenActionsConfig; // Legacy: kept for backward compatibility
+  sdkActionsOverride?: SDKActionsConfig; // Per-user override for SDK action visibility
   runtimeFilters?: RuntimeFilter[]; // User-specific runtime filters
 }
 
@@ -381,6 +408,7 @@ export interface StylingConfig {
   embeddedContent: EmbeddedContentCustomization;
   embedFlags?: EmbedFlags;
   doubleClickHandling?: DoubleClickHandlingConfig;
+  sdkActions?: SDKActionsConfig;
   standardActions?: StandardActionConfig[];
   customActions?: CustomActionConfig[];
   embedDisplay?: {

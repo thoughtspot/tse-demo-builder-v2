@@ -347,21 +347,66 @@ export default function ThoughtSpotEmbed({
           (u) => u.id === context.userConfig.currentUserId
         );
 
-        // Get hidden actions for current user
-        const hiddenActionsStrings = currentUser?.access.hiddenActions?.enabled
-          ? currentUser.access.hiddenActions.actions
-          : [];
+        // Resolve SDK actions config: user override takes precedence over global
+        const globalSdkActions = context.stylingConfig.sdkActions;
+        const userSdkOverride = currentUser?.access.sdkActionsOverride;
+        const activeSdkActions =
+          userSdkOverride?.enabled
+            ? userSdkOverride
+            : globalSdkActions?.enabled
+            ? globalSdkActions
+            : null;
 
-        // Convert string action values to Action enum values
-        const hiddenActions = hiddenActionsStrings
-          .map((actionString) => {
-            // Find the Action enum value that matches the string
-            const actionKey = Object.keys(Action).find(
+        // Convert action strings to Action enum values.
+        // Accepts: the enum value ("spotterSidebarFooter"), the enum key ("SpotterSidebarFooter"),
+        // or any raw string for actions not present in the local SDK version.
+        const toActionEnums = (strings: string[]) =>
+          strings.map((actionString) => {
+            // 1. Match by enum value (exact)
+            const byValue = Object.keys(Action).find(
               (key) => Action[key as keyof typeof Action] === actionString
             );
-            return actionKey ? Action[actionKey as keyof typeof Action] : null;
-          })
-          .filter((action) => action !== null) as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+            if (byValue) return Action[byValue as keyof typeof Action];
+            // 2. Match by enum key name (e.g. user typed "SpotterSidebarFooter")
+            if (actionString in Action) {
+              return Action[actionString as keyof typeof Action];
+            }
+            // 3. Case-insensitive key match
+            const byKeyCaseInsensitive = Object.keys(Action).find(
+              (key) => key.toLowerCase() === actionString.toLowerCase()
+            );
+            if (byKeyCaseInsensitive) return Action[byKeyCaseInsensitive as keyof typeof Action];
+            // 4. Unknown / newer action — pass through as-is so the SDK can handle it
+            return actionString;
+          }) as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+        console.log("[ThoughtSpotEmbed] SDK actions config:", {
+          globalSdkActions,
+          userSdkOverride,
+          activeSdkActions,
+          resolvedAfterConversion: {
+            hidden: activeSdkActions?.mode === "hidden" ? toActionEnums(activeSdkActions.actions) : [],
+            disabled: activeSdkActions?.mode === "disabled" ? toActionEnums(activeSdkActions.actions) : [],
+            visible: activeSdkActions?.mode === "visible" ? toActionEnums(activeSdkActions.actions) : [],
+          },
+        });
+
+        const resolvedDisabledActions =
+          activeSdkActions?.mode === "disabled"
+            ? toActionEnums(activeSdkActions.actions)
+            : [];
+        const resolvedHiddenActions =
+          activeSdkActions?.mode === "hidden"
+            ? toActionEnums(activeSdkActions.actions)
+            : [];
+        const resolvedVisibleActions =
+          activeSdkActions?.mode === "visible"
+            ? toActionEnums(activeSdkActions.actions)
+            : [];
+        const resolvedDisabledReason =
+          activeSdkActions?.mode === "disabled"
+            ? activeSdkActions.disabledReason
+            : undefined;
 
         // Get user locale
         const userLocale = currentUser?.locale || "en";
@@ -378,9 +423,9 @@ export default function ThoughtSpotEmbed({
         console.log("ThoughtSpotEmbed: strings =", strings);
         console.log("ThoughtSpotEmbed: stringIDs =", stringIDs);
 
-        // Filter out visibleActions from embed flags to prevent conflicts with hiddenActions
+        // Strip action fields from embed flags — we manage them explicitly via sdkActions config
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { visibleActions, ...filteredEmbedFlags } = embedFlags;
+        const { visibleActions, hiddenActions: _flagHidden, disabledActions: _flagDisabled, ...filteredEmbedFlags } = embedFlags as Record<string, unknown>;
 
         // Get runtime filters from current user
         const runtimeFilters = currentUser?.access.runtimeFilters || [];
@@ -505,7 +550,10 @@ export default function ThoughtSpotEmbed({
           },
           locale: userLocale,
           ...filteredEmbedFlags,
-          ...(hiddenActions.length > 0 && { hiddenActions }),
+          ...(resolvedDisabledActions.length > 0 && { disabledActions: resolvedDisabledActions }),
+          ...(resolvedDisabledReason && { disabledActionReason: resolvedDisabledReason }),
+          ...(resolvedHiddenActions.length > 0 && { hiddenActions: resolvedHiddenActions }),
+          ...(resolvedVisibleActions.length > 0 && { visibleActions: resolvedVisibleActions }),
           ...(runtimeFilters.length > 0 && { runtimeFilters }),
           ...(allSdkActions.length > 0 && {
             customActions: allSdkActions,
@@ -556,14 +604,14 @@ export default function ThoughtSpotEmbed({
           });
         } else if (content.type === "model") {
           // For models (Spotter), use SpotterEmbed with worksheetId
-          console.log("[ThoughtSpotEmbed] Creating SpotterEmbed with config:", {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const spotterConfig: any = {
             worksheetId: content.id,
             ...baseEmbedConfig,
-          });
-          embedInstance = new SpotterEmbed(embedRef.current, {
-            worksheetId: content.id,
-            ...baseEmbedConfig,
-          });
+          };
+          console.log("[ThoughtSpotEmbed] Creating SpotterEmbed with config:", spotterConfig);
+          console.log("[ThoughtSpotEmbed] SpotterEmbed hiddenActions:", spotterConfig.hiddenActions, "visibleActions:", spotterConfig.visibleActions, "disabledActions:", spotterConfig.disabledActions);
+          embedInstance = new SpotterEmbed(embedRef.current, spotterConfig);
         }
 
         if (embedInstance) {
@@ -700,6 +748,7 @@ export default function ThoughtSpotEmbed({
     context.userConfig.users,
     context.stylingConfig.customActions,
     context.stylingConfig.standardActions,
+    context.stylingConfig.sdkActions,
     handleDoubleClickEvent,
     handleCustomAction,
   ]);

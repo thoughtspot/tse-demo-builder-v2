@@ -34,8 +34,12 @@ import {
   TrustedAuthMode,
   FullAppConfig,
   StandardMenu,
+  SpotterVizConfig,
+  StarterPrompt,
+  SDKActionsConfig,
 } from "../types/thoughtspot";
 import HiddenActionsEditor from "./HiddenActionsEditor";
+import SDKActionsEditor from "./SDKActionsEditor";
 import TagFilterComponent from "./TagFilterComponent";
 import SearchableDropdown from "./SearchableDropdown";
 import MultiSelectDropdown from "./MultiSelectDropdown";
@@ -756,6 +760,33 @@ function StandardMenusContent({
             </div>
           </div>
         );
+      case "spotter-viz":
+        return (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              fontSize: "16px",
+              color: "#6b7280",
+              textAlign: "center",
+              padding: "20px",
+            }}
+          >
+            <div>
+              <div style={{ fontSize: "48px", marginBottom: "16px" }}>✨</div>
+              <div style={{ fontWeight: "500", marginBottom: "8px" }}>
+                No Preview Available
+              </div>
+              <div style={{ fontSize: "14px", color: "#9ca3af" }}>
+                SpotterViz configuration does not have a preview.
+                <br />
+                The New Liveboard button will appear in the top bar when enabled.
+              </div>
+            </div>
+          </div>
+        );
       default:
         return <div>Page not found</div>;
     }
@@ -801,6 +832,11 @@ function StandardMenusContent({
       id: "chatbot",
       name: "Chatbot",
       icon: "💬",
+    },
+    {
+      id: "spotter-viz",
+      name: "SpotterViz",
+      icon: "✨",
     },
   ];
 
@@ -1444,6 +1480,262 @@ function StandardMenusContent({
                           question classification. Leave empty to use
                           environment variable SPOTGPT_API_KEY.
                         </p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Handle SpotterViz configuration
+                if (activeSubTab === "spotter-viz") {
+                  const updateSpotterViz = (updates: Partial<SpotterVizConfig>) => {
+                    updateAppConfig({
+                      ...appConfig,
+                      spotterViz: {
+                        enabled: appConfig.spotterViz?.enabled ?? false,
+                        ...appConfig.spotterViz,
+                        ...updates,
+                      },
+                    });
+                  };
+
+                  const prompts = appConfig.spotterViz?.customStarterPrompts || [];
+
+                  const updatePrompt = (index: number, field: keyof StarterPrompt, value: string) => {
+                    const updated = prompts.map((p, i) =>
+                      i === index ? { ...p, [field]: value } : p
+                    );
+                    updateSpotterViz({ customStarterPrompts: updated });
+                  };
+
+                  const addPrompt = () => {
+                    const newPrompt: StarterPrompt = {
+                      id: String(Date.now()),
+                      displayText: "",
+                      fullPrompt: "",
+                    };
+                    updateSpotterViz({ customStarterPrompts: [...prompts, newPrompt] });
+                  };
+
+                  const removePrompt = (index: number) => {
+                    updateSpotterViz({ customStarterPrompts: prompts.filter((_, i) => i !== index) });
+                  };
+
+                  const fieldStyle = {
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                    backgroundColor: "white",
+                    boxSizing: "border-box" as const,
+                  };
+
+                  const sectionStyle = {
+                    marginBottom: "20px",
+                    padding: "16px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "8px",
+                    backgroundColor: "#f9fafb",
+                  };
+
+                  const labelStyle = {
+                    display: "block",
+                    fontSize: "14px",
+                    fontWeight: "500" as const,
+                    color: "#374151",
+                    marginBottom: "6px",
+                  };
+
+                  const hintStyle = {
+                    fontSize: "12px",
+                    color: "#6b7280",
+                    margin: "6px 0 0 0",
+                  };
+
+                  return (
+                    <div>
+                      <h4 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "8px" }}>
+                        SpotterViz Configuration
+                      </h4>
+                      <div
+                        style={{
+                          marginBottom: "20px",
+                          padding: "10px 14px",
+                          backgroundColor: "#fffbeb",
+                          border: "1px solid #f59e0b",
+                          borderRadius: "6px",
+                          fontSize: "13px",
+                          color: "#92400e",
+                        }}
+                      >
+                        ⚠️ Requires ThoughtSpot version <strong>26.7+</strong>.
+                      </div>
+                      <p style={{ marginBottom: "20px", color: "#6b7280", fontSize: "14px" }}>
+                        Configure the SpotterViz experience for new liveboards created via the
+                        New Liveboard button.
+                      </p>
+
+                      {/* Enable / Disable */}
+                      <div style={sectionStyle}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                          <label style={{ fontSize: "16px", fontWeight: "500", color: "#374151" }}>
+                            Enable New Liveboard (SpotterViz)
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={appConfig.spotterViz?.enabled ?? false}
+                            onChange={(e) => updateSpotterViz({ enabled: e.target.checked })}
+                            style={{ width: "20px", height: "20px", cursor: "pointer" }}
+                          />
+                        </div>
+                        <p style={hintStyle}>
+                          Show or hide the New Liveboard button in the top bar.
+                        </p>
+                      </div>
+
+                      {/* Brand Name */}
+                      <div style={sectionStyle}>
+                        <label style={labelStyle}>Brand Name</label>
+                        <input
+                          type="text"
+                          value={appConfig.spotterViz?.brandName || ""}
+                          onChange={(e) => updateSpotterViz({ brandName: e.target.value })}
+                          placeholder="e.g. MyBrand"
+                          style={fieldStyle}
+                        />
+                        <p style={hintStyle}>The brand name displayed in the SpotterViz header.</p>
+                      </div>
+
+                      {/* Brand Headline */}
+                      <div style={sectionStyle}>
+                        <label style={labelStyle}>Brand Headline</label>
+                        <input
+                          type="text"
+                          value={appConfig.spotterViz?.brandHeadline || ""}
+                          onChange={(e) => updateSpotterViz({ brandHeadline: e.target.value })}
+                          placeholder="e.g. Hi, there! I'm"
+                          style={fieldStyle}
+                        />
+                        <p style={hintStyle}>The headline shown before the brand name in the greeting.</p>
+                      </div>
+
+                      {/* Description */}
+                      <div style={sectionStyle}>
+                        <label style={labelStyle}>Description</label>
+                        <input
+                          type="text"
+                          value={appConfig.spotterViz?.description || ""}
+                          onChange={(e) => updateSpotterViz({ description: e.target.value })}
+                          placeholder="e.g. Ask questions about your data"
+                          style={fieldStyle}
+                        />
+                        <p style={hintStyle}>A short description shown beneath the greeting.</p>
+                      </div>
+
+                      {/* Input Placeholder */}
+                      <div style={sectionStyle}>
+                        <label style={labelStyle}>Input Placeholder</label>
+                        <input
+                          type="text"
+                          value={appConfig.spotterViz?.inputChatPlaceholder || ""}
+                          onChange={(e) => updateSpotterViz({ inputChatPlaceholder: e.target.value })}
+                          placeholder="e.g. Ask a question..."
+                          style={fieldStyle}
+                        />
+                        <p style={hintStyle}>Placeholder text shown in the question input field.</p>
+                      </div>
+
+                      {/* Hide Starter Prompts */}
+                      <div style={sectionStyle}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                          <label style={{ fontSize: "14px", fontWeight: "500", color: "#374151" }}>
+                            Hide Starter Prompts
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={appConfig.spotterViz?.hideStarterPrompts ?? false}
+                            onChange={(e) => updateSpotterViz({ hideStarterPrompts: e.target.checked })}
+                            style={{ width: "20px", height: "20px", cursor: "pointer" }}
+                          />
+                        </div>
+                        <p style={hintStyle}>When checked, starter prompt suggestions are hidden from users.</p>
+                      </div>
+
+                      {/* Custom Starter Prompts */}
+                      <div style={{ ...sectionStyle, marginBottom: 0 }}>
+                        <label style={{ ...labelStyle, fontSize: "15px", marginBottom: "12px" }}>
+                          Custom Starter Questions
+                        </label>
+                        <p style={{ ...hintStyle, marginBottom: "16px" }}>
+                          Add suggested questions that appear when a user opens a new liveboard.
+                        </p>
+
+                        {prompts.map((prompt, index) => (
+                          <div
+                            key={prompt.id}
+                            style={{
+                              display: "flex",
+                              gap: "8px",
+                              marginBottom: "12px",
+                              alignItems: "flex-start",
+                              padding: "12px",
+                              border: "1px solid #d1d5db",
+                              borderRadius: "6px",
+                              backgroundColor: "white",
+                            }}
+                          >
+                            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
+                              <input
+                                type="text"
+                                value={prompt.displayText}
+                                onChange={(e) => updatePrompt(index, "displayText", e.target.value)}
+                                placeholder="Display text (e.g. Top products)"
+                                style={fieldStyle}
+                              />
+                              <input
+                                type="text"
+                                value={prompt.fullPrompt}
+                                onChange={(e) => updatePrompt(index, "fullPrompt", e.target.value)}
+                                placeholder="Full prompt (e.g. What are the top products by revenue?)"
+                                style={fieldStyle}
+                              />
+                            </div>
+                            <button
+                              onClick={() => removePrompt(index)}
+                              style={{
+                                padding: "6px 10px",
+                                border: "1px solid #ef4444",
+                                borderRadius: "4px",
+                                backgroundColor: "white",
+                                color: "#ef4444",
+                                cursor: "pointer",
+                                fontSize: "16px",
+                                lineHeight: "1",
+                                flexShrink: 0,
+                              }}
+                              title="Remove this starter question"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+
+                        <button
+                          onClick={addPrompt}
+                          style={{
+                            width: "100%",
+                            padding: "8px",
+                            border: "1px dashed #3182ce",
+                            borderRadius: "6px",
+                            backgroundColor: "#eff6ff",
+                            color: "#3182ce",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            fontWeight: "500",
+                          }}
+                        >
+                          + Add Starter Question
+                        </button>
                       </div>
                     </div>
                   );
@@ -2593,7 +2885,7 @@ function CustomMenusContent({
     Array<{ id: string; name: string; color: string }>
   >([]);
   const [availableCollections, setAvailableCollections] = useState<
-    Array<{ id: string; name: string }>
+    Array<{ id: string; name: string; path: string }>
   >([]);
   const [availableModels, setAvailableModels] = useState<
     Array<{ id: string; name: string }>
@@ -2623,7 +2915,7 @@ function CustomMenusContent({
   );
 
   const filteredCollections = availableCollections.filter((c) =>
-    c.name.toLowerCase().includes(collectionFilter.toLowerCase())
+    c.path.toLowerCase().includes(collectionFilter.toLowerCase())
   );
 
   // Filtered lists for direct embed
@@ -3365,7 +3657,7 @@ function CustomMenusContent({
                       contentSelection: {
                         ...editingMenu.contentSelection,
                         collectionId: e.target.value,
-                        collectionName: selected?.name || "",
+                        collectionName: selected?.path || selected?.name || "",
                       },
                     });
                   }}
@@ -3380,7 +3672,7 @@ function CustomMenusContent({
                   <option value="">Select a collection...</option>
                   {filteredCollections.map((collection) => (
                     <option key={collection.id} value={collection.id}>
-                      {collection.name}
+                      {collection.path}
                     </option>
                   ))}
                 </select>
@@ -3804,14 +4096,21 @@ function EventsContent({
   updateStylingConfig: (config: StylingConfig) => void;
 }) {
   const [activeSubTab, setActiveSubTab] = useState<
-    "event-handling" | "standard-actions" | "custom-actions"
+    "event-handling" | "sdk-actions" | "standard-actions" | "custom-actions"
   >("event-handling");
 
   const subTabs = [
     { id: "event-handling" as const, name: "Event Handling" },
-    { id: "standard-actions" as const, name: "Standard Actions" },
+    { id: "sdk-actions" as const, name: "Standard Actions" },
+    { id: "standard-actions" as const, name: "Predefined Custom Actions" },
     { id: "custom-actions" as const, name: "Custom Actions" },
   ];
+
+  const defaultSdkActionsConfig: SDKActionsConfig = {
+    enabled: false,
+    mode: "hidden",
+    actions: [],
+  };
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -3886,6 +4185,18 @@ function EventsContent({
               updateStylingConfig({
                 ...stylingConfig,
                 doubleClickHandling,
+              })
+            }
+          />
+        )}
+
+        {activeSubTab === "sdk-actions" && (
+          <SDKActionsEditor
+            config={stylingConfig.sdkActions || defaultSdkActionsConfig}
+            onChange={(sdkActions) =>
+              updateStylingConfig({
+                ...stylingConfig,
+                sdkActions,
               })
             }
           />
@@ -6484,25 +6795,27 @@ function UserConfigContent({
                 marginBottom: "12px",
               }}
             >
-              Hidden Actions Configuration
+              Standard Actions Override
             </h5>
-            <HiddenActionsEditor
+            <SDKActionsEditor
               config={
-                editingUser.access.hiddenActions || {
+                editingUser.access.sdkActionsOverride || {
                   enabled: false,
+                  mode: "hidden",
                   actions: [],
                 }
               }
-              onChange={(hiddenActionsConfig) => {
+              onChange={(sdkActionsOverride) => {
                 const updatedUser = {
                   ...editingUser,
                   access: {
                     ...editingUser.access,
-                    hiddenActions: hiddenActionsConfig,
+                    sdkActionsOverride,
                   },
                 };
                 setEditingUser(updatedUser);
               }}
+              isOverride
             />
           </div>
 
@@ -6749,13 +7062,15 @@ function UserConfigContent({
                       {user.access.customMenus.length !== 1 ? "s" : ""}
                     </>
                   )}
-                  {user.access.hiddenActions?.enabled && (
+                  {user.access.sdkActionsOverride?.enabled && (
                     <>
                       {" "}
-                      • {user.access.hiddenActions.actions.length} hidden action
-                      {user.access.hiddenActions.actions.length !== 1
+                      • {user.access.sdkActionsOverride.actions.length}{" "}
+                      {user.access.sdkActionsOverride.mode} action
+                      {user.access.sdkActionsOverride.actions.length !== 1
                         ? "s"
-                        : ""}
+                        : ""}{" "}
+                      override
                     </>
                   )}
                   {user.locale && <> • Locale: {user.locale}</>}

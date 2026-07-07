@@ -144,27 +144,51 @@ export default function SpotterPage({
         );
 
         if (embedRef.current) {
-          // Get hidden actions for current user
           const currentUser = context.userConfig.users.find(
             (u) => u.id === context.userConfig.currentUserId
           );
-          const hiddenActionsStrings = currentUser?.access.hiddenActions
-            ?.enabled
-            ? currentUser.access.hiddenActions.actions
-            : [];
 
-          // Convert string action values to Action enum values
-          const hiddenActions = hiddenActionsStrings
-            .map((actionString) => {
-              // Find the Action enum value that matches the string
-              const actionKey = Object.keys(Action).find(
-                (key) => Action[key as keyof typeof Action] === actionString
+          // Resolve SDK actions: user override takes precedence over global config
+          const globalSdkActions = context.stylingConfig.sdkActions;
+          const userSdkOverride = currentUser?.access.sdkActionsOverride;
+          const activeSdkActions =
+            userSdkOverride?.enabled
+              ? userSdkOverride
+              : globalSdkActions?.enabled
+              ? globalSdkActions
+              : null;
+
+          // Convert action strings to Action enum values (by value, key, or pass through)
+          const toActionEnums = (strings: string[]) =>
+            strings.map((s) => {
+              const byValue = Object.keys(Action).find(
+                (key) => Action[key as keyof typeof Action] === s
               );
-              return actionKey
-                ? Action[actionKey as keyof typeof Action]
-                : null;
-            })
-            .filter((action) => action !== null) as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+              if (byValue) return Action[byValue as keyof typeof Action];
+              if (s in Action) return Action[s as keyof typeof Action];
+              const byKey = Object.keys(Action).find(
+                (key) => key.toLowerCase() === s.toLowerCase()
+              );
+              if (byKey) return Action[byKey as keyof typeof Action];
+              return s;
+            }) as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+          const resolvedDisabledActions =
+            activeSdkActions?.mode === "disabled"
+              ? toActionEnums(activeSdkActions.actions)
+              : [];
+          const resolvedHiddenActions =
+            activeSdkActions?.mode === "hidden"
+              ? toActionEnums(activeSdkActions.actions)
+              : [];
+          const resolvedVisibleActions =
+            activeSdkActions?.mode === "visible"
+              ? toActionEnums(activeSdkActions.actions)
+              : [];
+          const resolvedDisabledReason =
+            activeSdkActions?.mode === "disabled"
+              ? activeSdkActions.disabledReason
+              : undefined;
 
           // Get current user's locale
           const userLocale = currentUser?.locale || "en";
@@ -177,9 +201,10 @@ export default function SpotterPage({
           const strings = context.stylingConfig.embeddedContent.strings;
           const stringIDs = context.stylingConfig.embeddedContent.stringIDs;
 
-          // Filter out visibleActions from embed flags to prevent conflicts with hiddenActions
+          // Strip action fields from embed flags — managed explicitly via sdkActions
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { visibleActions, ...filteredEmbedFlags } = finalEmbedFlags;
+          const { visibleActions, hiddenActions: _fh, disabledActions: _fd, ...filteredEmbedFlags } =
+            finalEmbedFlags as Record<string, unknown>;
 
           const embedConfig: ThoughtSpotEmbedConfig = {
             locale: userLocale,
@@ -189,9 +214,10 @@ export default function SpotterPage({
               height: "100%",
             },
             ...filteredEmbedFlags,
-            ...(hiddenActions.length > 0 && {
-              hiddenActions: hiddenActions,
-            }),
+            ...(resolvedDisabledActions.length > 0 && { disabledActions: resolvedDisabledActions }),
+            ...(resolvedDisabledReason && { disabledActionReason: resolvedDisabledReason }),
+            ...(resolvedHiddenActions.length > 0 && { hiddenActions: resolvedHiddenActions }),
+            ...(resolvedVisibleActions.length > 0 && { visibleActions: resolvedVisibleActions }),
             customizations: {
               iconSpriteUrl: iconSpriteUrl || undefined,
               content: {
@@ -216,14 +242,10 @@ export default function SpotterPage({
           }
 
           if (embedConfig.worksheetId) {
-            // Convert hidden actions strings to Action enums for the SpotterEmbed
-            const spotterConfig = {
+            embedInstance = new SpotterEmbed(embedRef.current, {
               ...embedConfig,
               worksheetId: embedConfig.worksheetId as string,
-              hiddenActions: hiddenActions,
-            };
-
-            embedInstance = new SpotterEmbed(embedRef.current, spotterConfig);
+            } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
           }
           embedInstanceRef.current = embedInstance;
 
@@ -271,6 +293,7 @@ export default function SpotterPage({
     context.stylingConfig.embeddedContent.strings,
     context.stylingConfig.embeddedContent.stringIDs,
     context.stylingConfig.doubleClickHandling,
+    context.stylingConfig.sdkActions,
     context.userConfig.currentUserId,
     context.userConfig.users,
     handleDoubleClickEvent,

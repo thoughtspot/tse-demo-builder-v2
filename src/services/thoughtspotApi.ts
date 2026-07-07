@@ -1072,10 +1072,13 @@ export async function fetchContentByTags(tagIdentifiers: string[]): Promise<{
 
 export async function fetchCollections(
   namePattern?: string,
-): Promise<Array<{ id: string; name: string }>> {
+): Promise<Array<{ id: string; name: string; path: string }>> {
   try {
     const auth = await getThoughtSpotAuthForRequest();
-    const body: Record<string, unknown> = {};
+    const body: Record<string, unknown> = {
+      record_size: -1,
+      include_metadata: true,
+    };
     if (namePattern) {
       body.name_pattern = namePattern;
     }
@@ -1105,9 +1108,68 @@ export async function fetchCollections(
     const data = await response.json();
     const collections = data?.collections;
     if (!Array.isArray(collections)) return [];
-    return collections
-      .map((c: { id: string; name: string }) => ({ id: c.id, name: c.name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+
+    console.log("[fetchCollections] API returned", collections.length, "collections:", collections.map((c: { name: string; metadata?: unknown[] }) => ({ name: c.name, metadataGroups: c.metadata?.length ?? 0 })));
+
+    // Build id->name and child->parent maps.
+    // Sub-collections only appear as COLLECTION-type items inside a parent's metadata —
+    // they are not returned as separate top-level entries by the search API.
+    const idToName = new Map<string, string>();
+    const childToParent = new Map<string, string>();
+
+    for (const c of collections) {
+      idToName.set(c.id, c.name);
+    }
+
+    // Walk every collection's metadata, registering sub-collections and their names
+    for (const c of collections) {
+      if (Array.isArray(c.metadata)) {
+        for (const group of c.metadata) {
+          if (group.type === "COLLECTION") {
+            for (const item of group.identifiers || []) {
+              if (item.identifier) {
+                childToParent.set(item.identifier, c.id);
+                // Register name in case this child isn't in the top-level list
+                if (!idToName.has(item.identifier) && item.name) {
+                  idToName.set(item.identifier, item.name);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Combine: top-level results + any sub-collections found only in metadata
+    const allCollections = new Map<string, string>();
+    for (const c of collections) {
+      allCollections.set(c.id, c.name);
+    }
+    for (const [id, name] of idToName) {
+      if (!allCollections.has(id)) {
+        allCollections.set(id, name);
+      }
+    }
+
+    const getPath = (id: string): string => {
+      const parts: string[] = [];
+      let current: string | undefined = id;
+      const visited = new Set<string>();
+      while (current && !visited.has(current)) {
+        visited.add(current);
+        const name = idToName.get(current);
+        if (name) parts.unshift(name);
+        current = childToParent.get(current);
+      }
+      return parts.join(" -> ");
+    };
+
+    const result = Array.from(allCollections.entries())
+      .map(([id, name]) => ({ id, name, path: getPath(id) }))
+      .sort((a, b) => a.path.localeCompare(b.path));
+
+    console.log("[fetchCollections] Final list:", result.map(c => c.path));
+    return result;
   } catch (error) {
     if (error instanceof Error && error.message.includes("401")) {
       console.log(
@@ -1135,8 +1197,9 @@ export async function fetchContentByCollection(collectionId: string): Promise<{
       },
       credentials: auth.credentials,
       body: JSON.stringify({
-        id: [collectionId],
+        collection_identifiers: [collectionId],
         include_metadata: true,
+        record_size: -1,
       }),
     });
 
@@ -1154,6 +1217,7 @@ export async function fetchContentByCollection(collectionId: string): Promise<{
 
     const data = await response.json();
     const collections = data?.collections;
+    console.log("[fetchContentByCollection] collectionId:", collectionId, "response collections:", collections?.length, collections?.map((c: { id: string; name: string; metadata?: unknown[] }) => ({ id: c.id, name: c.name, metadataGroups: c.metadata?.length ?? 0 })));
     if (!Array.isArray(collections) || collections.length === 0) {
       return { liveboards: [], answers: [] };
     }
@@ -1411,14 +1475,13 @@ export async function createLiveboard(
   try {
     // Build YAML TML — ThoughtSpot's TML import expects YAML, not JSON.
     // JSON.stringify on strings produces properly quoted+escaped YAML string values.
-    const tmlLines = [
-      "liveboard:",
-      `  name: ${JSON.stringify(name)}`,
-    ];
+    const tmlLines = ["liveboard:", `  name: ${JSON.stringify(name)}`];
     if (description) {
       tmlLines.push(`  description: ${JSON.stringify(description)}`);
     }
     const liveboardTml = tmlLines.join("\n");
+
+    console.log("creating liveboard: ", tmlLines);
 
     const importResponse = await makeThoughtSpotApiCall(
       "/metadata/tml/import",

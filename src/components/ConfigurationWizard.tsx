@@ -97,7 +97,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
     Array<{ id: string; name: string; color: string }>
   >([]);
   const [availableCollections, setAvailableCollections] = useState<
-    Array<{ id: string; name: string }>
+    Array<{ id: string; name: string; path: string }>
   >([]);
   const [availableLiveboards, setAvailableLiveboards] = useState<
     Array<{ id: string; name: string }>
@@ -1217,7 +1217,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                                 (c) => c.id === e.target.value
                               );
                               setCustomMenuCollectionId(e.target.value);
-                              setCustomMenuCollectionName(selected?.name || "");
+                              setCustomMenuCollectionName(selected?.path || selected?.name || "");
                             }}
                             style={{
                               width: "100%",
@@ -1231,13 +1231,13 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                             <option value="">Select a collection...</option>
                             {availableCollections
                               .filter((c) =>
-                                c.name
+                                c.path
                                   .toLowerCase()
                                   .includes(collectionFilter.toLowerCase())
                               )
                               .map((c) => (
                                 <option key={c.id} value={c.id}>
-                                  {c.name}
+                                  {c.path}
                                 </option>
                               ))}
                           </select>
