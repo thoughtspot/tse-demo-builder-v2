@@ -31,6 +31,7 @@ export interface ThoughtSpotUser {
   display_name: string;
   email?: string;
   id?: string;
+  currentOrgId?: number;
 }
 
 interface ThoughtSpotTag {
@@ -266,6 +267,7 @@ async function makeThoughtSpotGetCall(
         ...auth.headers,
       },
       credentials: auth.credentials,
+      cache: "no-store",
     });
 
     console.log(
@@ -839,11 +841,15 @@ export async function getCurrentUser(): Promise<ThoughtSpotUser | null> {
       typeof response.name === "string" &&
       typeof response.display_name === "string"
     ) {
+      const currentOrg = response.current_org as { id?: number } | undefined;
       return {
         name: response.name,
         display_name: response.display_name,
         ...(typeof response.email === "string" && { email: response.email }),
         ...(typeof response.id === "string" && { id: response.id }),
+        ...(typeof currentOrg?.id === "number" && {
+          currentOrgId: currentOrg.id,
+        }),
       };
     }
 

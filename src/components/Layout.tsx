@@ -559,7 +559,7 @@ export default function Layout({ children }: LayoutProps) {
           } else if (ac.trustedAuthMode === "secret_key" && ac.username) {
             const tsUrl = configs.appConfig!.thoughtspotUrl;
             const uname = ac.username;
-            const orgId = ac.orgId || "0";
+            const orgId = ac.secretKeyOrgId || "0";
             setThoughtSpotAuthTokenGetter(async () => {
               const res = await fetch("/api/auth/token", {
                 method: "POST",
@@ -858,7 +858,7 @@ export default function Layout({ children }: LayoutProps) {
         } else if (loadAc.trustedAuthMode === "secret_key" && loadAc.username) {
           const tsUrl = loadedConfig.appConfig!.thoughtspotUrl;
           const uname = loadAc.username;
-          const orgId = loadAc.orgId || "0";
+          const orgId = loadAc.secretKeyOrgId || "0";
           setThoughtSpotAuthTokenGetter(async () => {
             const res = await fetch("/api/auth/token", {
               method: "POST",
@@ -1016,7 +1016,7 @@ export default function Layout({ children }: LayoutProps) {
     } else if (ac.trustedAuthMode === "secret_key" && ac.username) {
       const tsUrl = appConfig.thoughtspotUrl;
       const uname = ac.username;
-      const orgId = ac.orgId || "0";
+      const orgId = ac.secretKeyOrgId || "0";
       setThoughtSpotAuthTokenGetter(async () => {
         const res = await fetch("/api/auth/token", {
           method: "POST",
@@ -1040,7 +1040,7 @@ export default function Layout({ children }: LayoutProps) {
     appConfig.authConfig?.trustedAuthMode,
     appConfig.authConfig?.trustedAuthToken,
     appConfig.authConfig?.username,
-    appConfig.authConfig?.orgId,
+    appConfig.authConfig?.secretKeyOrgId,
   ]);
 
   // Consolidated auto-save effect for all configurations
@@ -1456,7 +1456,7 @@ export default function Layout({ children }: LayoutProps) {
           } else if (ac?.trustedAuthMode === "secret_key" && ac?.username) {
             const tsUrl = appConfig.thoughtspotUrl;
             const uname = ac.username;
-            const orgId = ac.orgId || "0";
+            const orgId = ac.secretKeyOrgId || "0";
             initConfig.getAuthToken = async () => {
               const res = await fetch("/api/auth/token", {
                 method: "POST",
@@ -1645,7 +1645,7 @@ export default function Layout({ children }: LayoutProps) {
       const nameParts = user.display_name.split(" ");
       const firstName = nameParts[0] ?? user.display_name;
       const lastName = nameParts.slice(1).join(" ") || undefined;
-      const orgId = appConfig.authConfig?.orgId ?? "0";
+      const secretKeyOrgId = appConfig.authConfig?.secretKeyOrgId ?? "0";
       pendo.initialize({
         visitor: {
           id: user.id ?? user.name,
@@ -1654,12 +1654,12 @@ export default function Layout({ children }: LayoutProps) {
           lastName,
         },
         account: {
-          id: orgId,
+          id: secretKeyOrgId,
           accountName: appConfig.applicationName,
         },
       });
     },
-    [appConfig.authConfig?.orgId, appConfig.applicationName],
+    [appConfig.authConfig?.secretKeyOrgId, appConfig.applicationName],
   );
 
   const handleClusterChangeConfirm = () => {
@@ -2677,9 +2677,10 @@ export default function Layout({ children }: LayoutProps) {
           onSessionStatusChange={handleSessionStatusChange}
           onConfigureSettings={handleConfigureSettings}
           onUserAuthenticated={handleUserAuthenticated}
+          expectedOrgId={appConfig.authConfig?.orgId ?? 0}
           authConfigKey={
             appConfig.authConfig?.authType === "TrustedAuthTokenCookieless"
-              ? `${appConfig.authConfig.trustedAuthMode}-${appConfig.authConfig.username ?? ""}-${appConfig.authConfig.orgId ?? "0"}`
+              ? `${appConfig.authConfig.trustedAuthMode}-${appConfig.authConfig.username ?? ""}-${appConfig.authConfig.secretKeyOrgId ?? "0"}`
               : appConfig.authConfig?.authType ?? "none"
           }
         >

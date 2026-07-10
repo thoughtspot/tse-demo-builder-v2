@@ -7137,7 +7137,7 @@ function AuthenticationSubTab({
         body: JSON.stringify({
           thoughtspotUrl: appConfig.thoughtspotUrl,
           username: authConfig.username,
-          orgId: authConfig.orgId || "0",
+          orgId: authConfig.secretKeyOrgId || "0",
         }),
       });
       const data = await res.json();
@@ -7251,7 +7251,7 @@ function AuthenticationSubTab({
                   resetFields.password = undefined;
                   resetFields.trustedAuthMode = undefined;
                   resetFields.trustedAuthToken = undefined;
-                  resetFields.orgId = undefined;
+                  resetFields.secretKeyOrgId = undefined;
                 }
                 if (at.value === "TrustedAuthTokenCookieless") {
                   resetFields.trustedAuthMode =
@@ -7289,6 +7289,26 @@ function AuthenticationSubTab({
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Org ID - applies to all authentication types */}
+      <div style={sectionStyle}>
+        <label style={labelStyle}>Org ID</label>
+        <input
+          type="number"
+          value={authConfig.orgId ?? 0}
+          onChange={(e) => {
+            const parsed = parseInt(e.target.value, 10);
+            updateAuthConfig({ orgId: Number.isNaN(parsed) ? 0 : parsed });
+          }}
+          placeholder="0"
+          style={inputStyle}
+        />
+        <p style={helpTextStyle}>
+          The ThoughtSpot org this application should run in (defaults to 0
+          for the primary org). After signing in, if the user is in a
+          different org they will be prompted to switch.
+        </p>
       </div>
 
       {/* Basic Auth fields */}
@@ -7469,16 +7489,19 @@ function AuthenticationSubTab({
                 </p>
               </div>
               <div style={sectionStyle}>
-                <label style={labelStyle}>Org ID</label>
+                <label style={labelStyle}>Secret Key Org ID</label>
                 <input
                   type="text"
-                  value={authConfig.orgId || "0"}
-                  onChange={(e) => updateAuthConfig({ orgId: e.target.value })}
+                  value={authConfig.secretKeyOrgId || "0"}
+                  onChange={(e) =>
+                    updateAuthConfig({ secretKeyOrgId: e.target.value })
+                  }
                   placeholder="0"
                   style={inputStyle}
                 />
                 <p style={helpTextStyle}>
-                  The ThoughtSpot org ID (defaults to 0)
+                  The ThoughtSpot org ID to generate the trusted auth token
+                  for (defaults to 0)
                 </p>
               </div>
               <div
@@ -7523,7 +7546,7 @@ function AuthenticationSubTab({
                         appConfig.thoughtspotUrl,
                       ).hostname;
                       const hash = hostname.replace(/[.\-]/g, "_");
-                      return `TS_SECRET_KEY_${hash}_${authConfig.orgId || "0"}=your-secret-key`;
+                      return `TS_SECRET_KEY_${hash}_${authConfig.secretKeyOrgId || "0"}=your-secret-key`;
                     } catch {
                       return "TS_SECRET_KEY_<cluster>_<org>=your-secret-key";
                     }

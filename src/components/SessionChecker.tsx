@@ -15,6 +15,8 @@ interface SessionCheckerProps {
   /** When using TrustedAuthTokenCookieless, re-check when auth config is ready */
   authConfigKey?: string;
   onUserAuthenticated?: (user: ThoughtSpotUser) => void;
+  /** The org this configuration expects the user to be in; defaults to 0 (primary org) */
+  expectedOrgId?: number;
 }
 
 interface SessionStatus {
@@ -127,6 +129,85 @@ function SessionWarningBanner({
   );
 }
 
+// Org Mismatch Banner Component
+function OrgMismatchBanner({
+  thoughtspotUrl,
+  expectedOrgId,
+  actualOrgId,
+  onRefresh,
+}: {
+  thoughtspotUrl: string;
+  expectedOrgId: number;
+  actualOrgId: number;
+  onRefresh: () => void;
+}) {
+  return (
+    <div
+      style={{
+        backgroundColor: "#fef3c7",
+        borderBottom: "1px solid #f59e0b",
+        padding: "12px 24px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "16px",
+        position: "sticky",
+        top: 0,
+        zIndex: 1000,
+      }}
+    >
+      <div
+        style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}
+      >
+        <span style={{ fontSize: "16px" }}>⚠️</span>
+        <span
+          style={{
+            color: "#92400e",
+            fontSize: "14px",
+            fontWeight: "500",
+          }}
+        >
+          {`You are currently in org ${actualOrgId}, but this application is configured for org ${expectedOrgId}. Please switch orgs in ThoughtSpot, then refresh.`}
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: "8px" }}>
+        {thoughtspotUrl && (
+          <button
+            onClick={() => window.open(thoughtspotUrl, "_blank")}
+            style={{
+              padding: "6px 12px",
+              backgroundColor: "#3182ce",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "12px",
+              fontWeight: "500",
+            }}
+          >
+            Go to TS
+          </button>
+        )}
+        <button
+          onClick={onRefresh}
+          style={{
+            padding: "6px 12px",
+            backgroundColor: "#38a169",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "12px",
+            fontWeight: "500",
+          }}
+        >
+          Refresh
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function SessionChecker({
   children,
   thoughtspotUrl,
@@ -134,6 +215,7 @@ export default function SessionChecker({
   onConfigureSettings,
   authConfigKey,
   onUserAuthenticated,
+  expectedOrgId,
 }: SessionCheckerProps) {
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>({
     hasSession: false,
@@ -141,6 +223,32 @@ export default function SessionChecker({
     error: null,
   });
   const [hasEverHadSession, setHasEverHadSession] = useState(false);
+  const [currentUser, setCurrentUser] = useState<ThoughtSpotUser | null>(
+    null,
+  );
+  const [orgMismatch, setOrgMismatch] = useState<{
+    expected: number;
+    actual: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (
+      !currentUser ||
+      typeof currentUser.currentOrgId !== "number" ||
+      typeof expectedOrgId !== "number"
+    ) {
+      setOrgMismatch(null);
+      return;
+    }
+    if (currentUser.currentOrgId !== expectedOrgId) {
+      setOrgMismatch({
+        expected: expectedOrgId,
+        actual: currentUser.currentOrgId,
+      });
+    } else {
+      setOrgMismatch(null);
+    }
+  }, [currentUser, expectedOrgId]);
 
   // Reset session history when cluster URL changes
   useEffect(() => {
@@ -171,6 +279,7 @@ export default function SessionChecker({
 
         if (user) {
           setHasEverHadSession(true);
+          setCurrentUser(user);
           setSessionStatus({
             hasSession: true,
             isLoading: false,
@@ -179,6 +288,7 @@ export default function SessionChecker({
           onSessionStatusChange(true);
           onUserAuthenticated?.(user);
         } else {
+          setCurrentUser(null);
           // Only set hasSession to false if we haven't ever had a successful session
           if (!hasEverHadSession) {
             setSessionStatus({
@@ -297,6 +407,14 @@ export default function SessionChecker({
             onConfigure={handleConfigure}
           />
         )}
+      {sessionStatus.hasSession && orgMismatch && (
+        <OrgMismatchBanner
+          thoughtspotUrl={thoughtspotUrl}
+          expectedOrgId={orgMismatch.expected}
+          actualOrgId={orgMismatch.actual}
+          onRefresh={handleRefresh}
+        />
+      )}
       {children}
     </>
   );
