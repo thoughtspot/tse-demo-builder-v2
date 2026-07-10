@@ -85,6 +85,11 @@ export default function ContentGrid({
   const [showContentDirectly, setShowContentDirectly] = useState(false);
 
   useEffect(() => {
+    if (!context.appConfig.thoughtspotUrl) {
+      setLoading(false);
+      return;
+    }
+
     const fetchContent = async () => {
       try {
         setLoading(true);
@@ -395,6 +400,7 @@ export default function ContentGrid({
     userContentConfig,
     allContentConfig,
     customContent,
+    context.appConfig.thoughtspotUrl,
   ]);
 
   const handleContentOpen = (content: ThoughtSpotContent) => {

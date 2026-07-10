@@ -161,9 +161,10 @@ async function searchMetadata(
 
 import { ThoughtSpotContent } from "../types/thoughtspot";
 
-// Default ThoughtSpot URL - will be overridden by the configured URL
-let THOUGHTSPOT_BASE_URL =
-  "https://se-thoughtspot-cloud.thoughtspot.cloud/api/rest/2.0";
+// Set via setThoughtSpotBaseUrl once the configured URL is known. Left blank
+// until then so calls made before configuration loads fail harmlessly
+// instead of silently hitting an unrelated server.
+let THOUGHTSPOT_BASE_URL = "";
 
 // When using TrustedAuthTokenCookieless, API calls need the Bearer token.
 // Layout sets this when auth config uses trusted auth.

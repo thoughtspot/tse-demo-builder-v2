@@ -41,14 +41,16 @@ export default function TopBar({
   const [isLogoProcessing, setIsLogoProcessing] = useState<boolean>(false);
 
   useEffect(() => {
+    if (!thoughtspotUrl) {
+      return;
+    }
+
     const fetchVersion = async () => {
       try {
         const { fetchThoughtSpotVersion, setThoughtSpotBaseUrl } = await import(
           "../services/thoughtspotApi"
         );
-        if (thoughtspotUrl) {
-          setThoughtSpotBaseUrl(thoughtspotUrl);
-        }
+        setThoughtSpotBaseUrl(thoughtspotUrl);
         const version = await fetchThoughtSpotVersion();
         setThoughtSpotVersion(version);
       } catch (error) {

@@ -161,7 +161,7 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     maintainAspectRatio: true,
   },
   appConfig: {
-    thoughtspotUrl: "https://se-thoughtspot-cloud.thoughtspot.cloud/",
+    thoughtspotUrl: "",
     applicationName: "TSE Demo Builder",
     logo: "/ts.svg",
     earlyAccessFlags: "enable-modular-home\nenable-custom-styling",

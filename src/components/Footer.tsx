@@ -26,11 +26,14 @@ export default function Footer({
   const [error, setError] = useState<string | null>(null);
 
   const { appConfig } = useAppContext();
-  const thoughtspotUrl =
-    appConfig.thoughtspotUrl ||
-    "https://se-thoughtspot-cloud.thoughtspot.cloud";
+  const thoughtspotUrl = appConfig.thoughtspotUrl;
 
   useEffect(() => {
+    if (!thoughtspotUrl) {
+      setLoading(false);
+      return;
+    }
+
     const fetchUser = async () => {
       try {
         setLoading(true);
