@@ -7311,32 +7311,32 @@ function AuthenticationSubTab({
 
       {/* Org Name - applies to all authentication types */}
       <div style={sectionStyle}>
-        <label style={labelStyle}>Org Name</label>
         {orgs.length > 0 ? (
-          <select
+          <SearchableDropdown
             value={authConfig.orgName || ""}
-            onChange={(e) =>
-              updateAuthConfig({ orgName: e.target.value || undefined })
+            onChange={(value) =>
+              updateAuthConfig({ orgName: value || undefined })
             }
-            style={inputStyle}
-          >
-            <option value="">Any org (no restriction)</option>
-            {orgs.map((org) => (
-              <option key={org.id} value={org.name}>
-                {org.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <input
-            type="text"
-            value={authConfig.orgName || ""}
-            onChange={(e) =>
-              updateAuthConfig({ orgName: e.target.value || undefined })
-            }
-            placeholder={orgsLoading ? "Loading orgs..." : "Leave blank to allow any org"}
-            style={inputStyle}
+            options={orgs.map((org) => ({ id: org.name, name: org.name }))}
+            placeholder="Any org (no restriction)"
+            searchPlaceholder="Filter orgs..."
+            label="Org Name"
           />
+        ) : (
+          <>
+            <label style={labelStyle}>Org Name</label>
+            <input
+              type="text"
+              value={authConfig.orgName || ""}
+              onChange={(e) =>
+                updateAuthConfig({ orgName: e.target.value || undefined })
+              }
+              placeholder={
+                orgsLoading ? "Loading orgs..." : "Leave blank to allow any org"
+              }
+              style={inputStyle}
+            />
+          </>
         )}
         <p style={helpTextStyle}>
           {orgs.length > 0
