@@ -4,13 +4,9 @@ import { useState, useEffect } from "react";
 import {
   getCurrentUser,
   setThoughtSpotBaseUrl,
+  type ThoughtSpotUser,
 } from "../services/thoughtspotApi";
 import { useAppContext } from "./Layout";
-
-interface ThoughtSpotUser {
-  name: string;
-  display_name: string;
-}
 
 interface FooterProps {
   backgroundColor?: string;
@@ -116,9 +112,12 @@ export default function Footer({
         ) : error ? (
           <span style={{ color: "#e53e3e" }}>Could not retrieve</span>
         ) : user ? (
-          <span>{user.display_name}</span>
+          <span>
+            {user.display_name} (Logged in
+            {user.currentOrgName ? ` · Org: ${user.currentOrgName}` : ""})
+          </span>
         ) : (
-          <span style={{ color: "#e53e3e" }}>Unknown</span>
+          <span>Not logged in</span>
         )}
       </div>
     </footer>

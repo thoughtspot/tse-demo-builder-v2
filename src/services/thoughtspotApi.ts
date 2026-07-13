@@ -32,6 +32,7 @@ export interface ThoughtSpotUser {
   email?: string;
   id?: string;
   currentOrgId?: number;
+  currentOrgName?: string;
 }
 
 interface ThoughtSpotTag {
@@ -842,7 +843,9 @@ export async function getCurrentUser(): Promise<ThoughtSpotUser | null> {
       typeof response.name === "string" &&
       typeof response.display_name === "string"
     ) {
-      const currentOrg = response.current_org as { id?: number } | undefined;
+      const currentOrg = response.current_org as
+        | { id?: number; name?: string }
+        | undefined;
       return {
         name: response.name,
         display_name: response.display_name,
@@ -850,6 +853,9 @@ export async function getCurrentUser(): Promise<ThoughtSpotUser | null> {
         ...(typeof response.id === "string" && { id: response.id }),
         ...(typeof currentOrg?.id === "number" && {
           currentOrgId: currentOrg.id,
+        }),
+        ...(typeof currentOrg?.name === "string" && {
+          currentOrgName: currentOrg.name,
         }),
       };
     }
