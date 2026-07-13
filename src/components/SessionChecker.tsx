@@ -15,8 +15,8 @@ interface SessionCheckerProps {
   /** When using TrustedAuthTokenCookieless, re-check when auth config is ready */
   authConfigKey?: string;
   onUserAuthenticated?: (user: ThoughtSpotUser) => void;
-  /** The org this configuration expects the user to be in; defaults to 0 (primary org) */
-  expectedOrgId?: number;
+  /** The org name this configuration expects the user to be in; unset means any org is allowed */
+  expectedOrgName?: string;
 }
 
 interface SessionStatus {
@@ -132,13 +132,13 @@ function SessionWarningBanner({
 // Org Mismatch Banner Component
 function OrgMismatchBanner({
   thoughtspotUrl,
-  expectedOrgId,
-  actualOrgId,
+  expectedOrgName,
+  actualOrgName,
   onRefresh,
 }: {
   thoughtspotUrl: string;
-  expectedOrgId: number;
-  actualOrgId: number;
+  expectedOrgName: string;
+  actualOrgName: string;
   onRefresh: () => void;
 }) {
   return (
@@ -167,7 +167,7 @@ function OrgMismatchBanner({
             fontWeight: "500",
           }}
         >
-          {`You are currently in org ${actualOrgId}, but this application is configured for org ${expectedOrgId}. Please switch orgs in ThoughtSpot, then refresh.`}
+          {`You are currently logged into the "${actualOrgName}" org, but this application is configured for the "${expectedOrgName}" org. Please switch orgs in ThoughtSpot, then refresh.`}
         </span>
       </div>
       <div style={{ display: "flex", gap: "8px" }}>
@@ -215,7 +215,7 @@ export default function SessionChecker({
   onConfigureSettings,
   authConfigKey,
   onUserAuthenticated,
-  expectedOrgId,
+  expectedOrgName,
 }: SessionCheckerProps) {
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>({
     hasSession: false,
@@ -227,28 +227,29 @@ export default function SessionChecker({
     null,
   );
   const [orgMismatch, setOrgMismatch] = useState<{
-    expected: number;
-    actual: number;
+    expected: string;
+    actual: string;
   } | null>(null);
 
   useEffect(() => {
     if (
       !currentUser ||
-      typeof currentUser.currentOrgId !== "number" ||
-      typeof expectedOrgId !== "number"
+      typeof currentUser.currentOrgName !== "string" ||
+      typeof expectedOrgName !== "string" ||
+      expectedOrgName.trim() === ""
     ) {
       setOrgMismatch(null);
       return;
     }
-    if (currentUser.currentOrgId !== expectedOrgId) {
+    if (currentUser.currentOrgName !== expectedOrgName) {
       setOrgMismatch({
-        expected: expectedOrgId,
-        actual: currentUser.currentOrgId,
+        expected: expectedOrgName,
+        actual: currentUser.currentOrgName,
       });
     } else {
       setOrgMismatch(null);
     }
-  }, [currentUser, expectedOrgId]);
+  }, [currentUser, expectedOrgName]);
 
   // Reset session history when cluster URL changes
   useEffect(() => {
@@ -410,8 +411,8 @@ export default function SessionChecker({
       {sessionStatus.hasSession && orgMismatch && (
         <OrgMismatchBanner
           thoughtspotUrl={thoughtspotUrl}
-          expectedOrgId={orgMismatch.expected}
-          actualOrgId={orgMismatch.actual}
+          expectedOrgName={orgMismatch.expected}
+          actualOrgName={orgMismatch.actual}
           onRefresh={handleRefresh}
         />
       )}

@@ -65,6 +65,7 @@ import { applyTheme } from "../types/themes";
 import ConfigurationWizard, {
   WizardConfiguration,
 } from "./ConfigurationWizard";
+import { fetchOrgs, ThoughtSpotOrg } from "../services/thoughtspotApi";
 
 // Configuration interfaces for compatibility
 interface ConfigurationData {
@@ -7126,6 +7127,23 @@ function AuthenticationSubTab({
     type: "success" | "error" | null;
   }>({ message: "", type: null });
   const [isFetchingToken, setIsFetchingToken] = useState(false);
+  const [orgs, setOrgs] = useState<ThoughtSpotOrg[]>([]);
+  const [orgsLoading, setOrgsLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    setOrgsLoading(true);
+    fetchOrgs()
+      .then((result) => {
+        if (isMounted) setOrgs(result);
+      })
+      .finally(() => {
+        if (isMounted) setOrgsLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleTestSecretKey = async () => {
     setIsFetchingToken(true);
@@ -7291,23 +7309,39 @@ function AuthenticationSubTab({
         </div>
       </div>
 
-      {/* Org ID - applies to all authentication types */}
+      {/* Org Name - applies to all authentication types */}
       <div style={sectionStyle}>
-        <label style={labelStyle}>Org ID</label>
-        <input
-          type="number"
-          value={authConfig.orgId ?? 0}
-          onChange={(e) => {
-            const parsed = parseInt(e.target.value, 10);
-            updateAuthConfig({ orgId: Number.isNaN(parsed) ? 0 : parsed });
-          }}
-          placeholder="0"
-          style={inputStyle}
-        />
+        <label style={labelStyle}>Org Name</label>
+        {orgs.length > 0 ? (
+          <select
+            value={authConfig.orgName || ""}
+            onChange={(e) =>
+              updateAuthConfig({ orgName: e.target.value || undefined })
+            }
+            style={inputStyle}
+          >
+            <option value="">Any org (no restriction)</option>
+            {orgs.map((org) => (
+              <option key={org.id} value={org.name}>
+                {org.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            type="text"
+            value={authConfig.orgName || ""}
+            onChange={(e) =>
+              updateAuthConfig({ orgName: e.target.value || undefined })
+            }
+            placeholder={orgsLoading ? "Loading orgs..." : "Leave blank to allow any org"}
+            style={inputStyle}
+          />
+        )}
         <p style={helpTextStyle}>
-          The ThoughtSpot org this application should run in (defaults to 0
-          for the primary org). After signing in, if the user is in a
-          different org they will be prompted to switch.
+          {orgs.length > 0
+            ? "The ThoughtSpot org this application should run in. After signing in, if the user is in a different org they will be prompted to switch."
+            : "Sign in to the cluster to load a list of available orgs, or enter the org name directly. Leave blank to allow any org."}
         </p>
       </div>
 

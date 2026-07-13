@@ -2677,7 +2677,7 @@ export default function Layout({ children }: LayoutProps) {
           onSessionStatusChange={handleSessionStatusChange}
           onConfigureSettings={handleConfigureSettings}
           onUserAuthenticated={handleUserAuthenticated}
-          expectedOrgId={appConfig.authConfig?.orgId ?? 0}
+          expectedOrgName={appConfig.authConfig?.orgName}
           authConfigKey={
             appConfig.authConfig?.authType === "TrustedAuthTokenCookieless"
               ? `${appConfig.authConfig.trustedAuthMode}-${appConfig.authConfig.username ?? ""}-${appConfig.authConfig.secretKeyOrgId ?? "0"}`

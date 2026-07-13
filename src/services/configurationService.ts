@@ -171,7 +171,6 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     showVizPicker: false,
     authConfig: {
       authType: "None",
-      orgId: 0,
     },
     chatbot: {
       enabled: true,
@@ -2071,7 +2070,7 @@ const sanitizeAuthConfigForExport = (
     username: config.appConfig.authConfig.username,
     trustedAuthMode: config.appConfig.authConfig.trustedAuthMode,
     secretKeyOrgId: config.appConfig.authConfig.secretKeyOrgId,
-    orgId: config.appConfig.authConfig.orgId,
+    orgName: config.appConfig.authConfig.orgName,
   };
 
   return {

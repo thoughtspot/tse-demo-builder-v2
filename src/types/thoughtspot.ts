@@ -166,7 +166,7 @@ export interface AuthConfig {
   trustedAuthMode?: TrustedAuthMode;
   trustedAuthToken?: string; // Manual token; not exported
   secretKeyOrgId?: string; // For secret_key mode; org to generate the token for; defaults to "0"
-  orgId?: number; // The org this configuration expects to run in, for all auth types; defaults to 0
+  orgName?: string; // The org this configuration expects to run in, for all auth types; unset means any org is allowed
 }
 
 export interface StarterPrompt {
