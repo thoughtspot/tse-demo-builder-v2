@@ -198,6 +198,12 @@ import {
   SmartToySharp,
   SmartToyTwoTone,
   Flag,
+  Lock,
+  Warning,
+  VpnKey,
+  Verified,
+  HourglassEmpty,
+  Key,
 } from "@mui/icons-material";
 
 // Icon mapping from string names to Material Icons
@@ -214,6 +220,12 @@ const iconMap: Record<
   "full-app": Public,
   settings: Settings,
   flag: Flag,
+  lock: Lock,
+  warning: Warning,
+  vpn_key: VpnKey,
+  key: Key,
+  verified: Verified,
+  hourglass_empty: HourglassEmpty,
 
   // Common icons
   star: Star,

@@ -9,12 +9,14 @@ interface EmbedModalProps {
   content: ThoughtSpotContent | null;
   isOpen: boolean;
   onClose: () => void;
+  startInEditMode?: boolean;
 }
 
 export default function EmbedModal({
   content,
   isOpen,
   onClose,
+  startInEditMode,
 }: EmbedModalProps) {
   const context = useAppContext();
 
@@ -60,7 +62,7 @@ export default function EmbedModal({
     >
       <div
         style={{
-          backgroundColor: "white",
+          backgroundColor: "var(--content-background, white)",
           borderRadius: "8px",
           width: "90vw",
           height: "90vh",
@@ -78,7 +80,7 @@ export default function EmbedModal({
           <div
             style={{
               padding: "16px 24px",
-              borderBottom: "1px solid #e2e8f0",
+              borderBottom: "1px solid var(--border-color, #e2e8f0)",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
@@ -87,7 +89,14 @@ export default function EmbedModal({
           >
             <div>
               {!context.stylingConfig.embedDisplay?.hideTitle && (
-                <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "600" }}>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "20px",
+                    fontWeight: "600",
+                    color: "var(--primary-text-color, inherit)",
+                  }}
+                >
                   {content.name}
                 </h2>
               )}
@@ -98,7 +107,7 @@ export default function EmbedModal({
                       margin: context.stylingConfig.embedDisplay?.hideTitle
                         ? "0"
                         : "4px 0 0 0",
-                      color: "#4a5568",
+                      color: "var(--secondary-text-color, #4a5568)",
                       fontSize: "14px",
                     }}
                   >
@@ -113,12 +122,13 @@ export default function EmbedModal({
                 border: "none",
                 fontSize: "24px",
                 cursor: "pointer",
-                color: "#4a5568",
+                color: "var(--secondary-text-color, #4a5568)",
                 padding: "4px",
                 borderRadius: "4px",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "#f7fafc";
+                e.currentTarget.style.backgroundColor =
+                  "var(--card-background, #f7fafc)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = "transparent";
@@ -148,22 +158,22 @@ export default function EmbedModal({
                   position: "absolute",
                   top: "8px",
                   right: "8px",
-                  background: "rgba(255, 255, 255, 0.9)",
-                  border: "1px solid #e2e8f0",
+                  background: "var(--content-background, rgba(255, 255, 255, 0.9))",
+                  border: "1px solid var(--border-color, #e2e8f0)",
                   fontSize: "20px",
                   cursor: "pointer",
-                  color: "#4a5568",
+                  color: "var(--secondary-text-color, #4a5568)",
                   padding: "4px 8px",
                   borderRadius: "4px",
                   zIndex: 10,
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor =
-                    "rgba(255, 255, 255, 1)";
+                    "var(--card-background, rgba(255, 255, 255, 1))";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor =
-                    "rgba(255, 255, 255, 0.9)";
+                    "var(--content-background, rgba(255, 255, 255, 0.9))";
                 }}
               >
                 ×
@@ -176,6 +186,7 @@ export default function EmbedModal({
             onError={(error) => {
               console.error("Embed error:", error);
             }}
+            startInEditMode={startInEditMode}
           />
         </div>
       </div>

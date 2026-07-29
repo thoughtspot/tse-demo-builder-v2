@@ -19,9 +19,12 @@ interface ConfigurationWizardProps {
 export interface WizardCustomMenu {
   name: string;
   icon: string;
-  type: "tag" | "direct";
+  type: "tag" | "collection" | "direct";
   // For tag-based menus
   tagIdentifiers?: string[];
+  // For collection-based menus
+  collectionId?: string;
+  collectionName?: string;
   // For direct embed
   directEmbed?: {
     type: "liveboard" | "answer";
@@ -47,7 +50,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
   onClose,
   onComplete,
   currentThoughtSpotUrl,
-  standardMenus,
+  standardMenus: _standardMenus,
 }) => {
   const [thoughtspotUrl, setThoughtspotUrl] = useState(
     currentThoughtSpotUrl || DEFAULT_CONFIG.appConfig.thoughtspotUrl
@@ -79,8 +82,10 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
   const [showMenuEditor, setShowMenuEditor] = useState(false);
   const [customMenuName, setCustomMenuName] = useState("");
   const [customMenuIcon, setCustomMenuIcon] = useState("📁"); // Default to folder emoji for tag-based collections
-  const [customMenuType, setCustomMenuType] = useState<"tag" | "direct">("tag");
+  const [customMenuType, setCustomMenuType] = useState<"tag" | "collection" | "direct">("tag");
   const [customMenuTags, setCustomMenuTags] = useState<string[]>([]);
+  const [customMenuCollectionId, setCustomMenuCollectionId] = useState("");
+  const [customMenuCollectionName, setCustomMenuCollectionName] = useState("");
   const [customMenuDirectType, setCustomMenuDirectType] = useState<
     "liveboard" | "answer"
   >("liveboard");
@@ -91,6 +96,9 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
   const [availableTags, setAvailableTags] = useState<
     Array<{ id: string; name: string; color: string }>
   >([]);
+  const [availableCollections, setAvailableCollections] = useState<
+    Array<{ id: string; name: string; path: string }>
+  >([]);
   const [availableLiveboards, setAvailableLiveboards] = useState<
     Array<{ id: string; name: string }>
   >([]);
@@ -98,6 +106,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
     Array<{ id: string; name: string }>
   >([]);
   const [isLoadingTags, setIsLoadingTags] = useState(false);
+  const [collectionFilter, setCollectionFilter] = useState("");
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [tagFilter, setTagFilter] = useState("");
   const [contentFilter, setContentFilter] = useState("");
@@ -157,19 +166,23 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
     }
   }, [isOpen, thoughtspotUrl]);
 
-  // Fetch tags when wizard opens
+  // Fetch tags and collections when wizard opens
   useEffect(() => {
     if (isOpen) {
       const fetchTags = async () => {
         try {
           setIsLoadingTags(true);
-          const { fetchTags, setThoughtSpotBaseUrl } = await import(
+          const { fetchTags, fetchCollections, setThoughtSpotBaseUrl } = await import(
             "../services/thoughtspotApi"
           );
           // Set the cluster URL before fetching
           setThoughtSpotBaseUrl(thoughtspotUrl);
-          const tagsData = await fetchTags();
+          const [tagsData, collectionsData] = await Promise.all([
+            fetchTags(),
+            fetchCollections(),
+          ]);
           setAvailableTags(tagsData);
+          setAvailableCollections(collectionsData);
         } catch (error) {
           console.error("Failed to fetch tags:", error);
         } finally {
@@ -224,9 +237,12 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
     setCustomMenuIcon("📁"); // Default to folder emoji for tag-based collections
     setCustomMenuType("tag");
     setCustomMenuTags([]);
+    setCustomMenuCollectionId("");
+    setCustomMenuCollectionName("");
     setCustomMenuDirectType("liveboard");
     setCustomMenuDirectId("");
     setCustomMenuDirectName("");
+    setCollectionFilter("");
     setShowMenuEditor(true);
   };
 
@@ -237,6 +253,9 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
     setCustomMenuIcon(menu.icon);
     setCustomMenuType(menu.type);
     setCustomMenuTags(menu.tagIdentifiers || []);
+    setCustomMenuCollectionId(menu.collectionId || "");
+    setCustomMenuCollectionName(menu.collectionName || "");
+    setCollectionFilter("");
     if (menu.directEmbed) {
       setCustomMenuDirectType(menu.directEmbed.type);
       setCustomMenuDirectId(menu.directEmbed.contentId);
@@ -262,6 +281,12 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
       return;
     }
 
+    // Validate collection-based menu requirements
+    if (customMenuType === "collection" && !customMenuCollectionId) {
+      alert("Please select a collection for your collection-based menu.");
+      return;
+    }
+
     // Validate direct embed menu requirements
     if (customMenuType === "direct" && !customMenuDirectId) {
       alert(
@@ -275,6 +300,8 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
       icon: customMenuIcon,
       type: customMenuType,
       tagIdentifiers: customMenuType === "tag" ? customMenuTags : undefined,
+      collectionId: customMenuType === "collection" ? customMenuCollectionId : undefined,
+      collectionName: customMenuType === "collection" ? customMenuCollectionName : undefined,
       directEmbed:
         customMenuType === "direct"
           ? {
@@ -302,6 +329,9 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
     setCustomMenuIcon("📁"); // Default to folder emoji for tag-based collections
     setCustomMenuType("tag");
     setCustomMenuTags([]);
+    setCustomMenuCollectionId("");
+    setCustomMenuCollectionName("");
+    setCollectionFilter("");
     setCustomMenuDirectType("liveboard");
     setCustomMenuDirectId("");
     setCustomMenuDirectName("");
@@ -314,6 +344,9 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
     setCustomMenuIcon("📁"); // Default to folder emoji for tag-based collections
     setCustomMenuType("tag");
     setCustomMenuTags([]);
+    setCustomMenuCollectionId("");
+    setCustomMenuCollectionName("");
+    setCollectionFilter("");
     setCustomMenuDirectType("liveboard");
     setCustomMenuDirectId("");
     setCustomMenuDirectName("");
@@ -659,7 +692,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                   maxSizeMB={5}
                   maxWidth={2000}
                   maxHeight={2000}
-                  useIndexedDB={false}
+                  useIndexedDB={true}
                 />
                 <p
                   style={{
@@ -745,7 +778,7 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                 maxSizeMB={5}
                 maxWidth={2000}
                 maxHeight={2000}
-                useIndexedDB={false}
+                useIndexedDB={true}
               />
               <p
                 style={{
@@ -853,6 +886,8 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                           >
                             {menu.type === "tag"
                               ? `${menu.tagIdentifiers?.length || 0} tag(s)`
+                              : menu.type === "collection"
+                              ? `Collection: ${menu.collectionName || menu.collectionId}`
                               : `Direct: ${menu.directEmbed?.type}`}
                           </div>
                         </div>
@@ -1018,6 +1053,24 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                       >
                         <input
                           type="radio"
+                          checked={customMenuType === "collection"}
+                          onChange={() => {
+                            setCustomMenuType("collection");
+                            setCustomMenuIcon("📁");
+                          }}
+                          style={{ marginRight: "6px" }}
+                        />
+                        <span style={{ fontSize: "14px" }}>Collection</span>
+                      </label>
+                      <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="radio"
                           checked={customMenuType === "direct"}
                           onChange={() => {
                             setCustomMenuType("direct");
@@ -1115,6 +1168,88 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                               }}
                             >
                               Please select at least one tag
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Collection Selection */}
+                  {customMenuType === "collection" && (
+                    <div style={{ marginBottom: "16px" }}>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "6px",
+                          fontWeight: "500",
+                          color: "#374151",
+                          fontSize: "13px",
+                        }}
+                      >
+                        Select Collection <span style={{ color: "#ef4444" }}>*</span>
+                      </label>
+                      {isLoadingTags ? (
+                        <p style={{ fontSize: "13px", color: "#6b7280" }}>
+                          Loading collections...
+                        </p>
+                      ) : (
+                        <>
+                          <input
+                            type="text"
+                            value={collectionFilter}
+                            onChange={(e) => setCollectionFilter(e.target.value)}
+                            placeholder="Filter collections..."
+                            style={{
+                              width: "100%",
+                              padding: "8px 12px",
+                              border: "1px solid #d1d5db",
+                              borderRadius: "6px",
+                              fontSize: "14px",
+                              marginBottom: "8px",
+                              boxSizing: "border-box",
+                            }}
+                          />
+                          <select
+                            value={customMenuCollectionId}
+                            onChange={(e) => {
+                              const selected = availableCollections.find(
+                                (c) => c.id === e.target.value
+                              );
+                              setCustomMenuCollectionId(e.target.value);
+                              setCustomMenuCollectionName(selected?.path || selected?.name || "");
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "8px 12px",
+                              border: "1px solid #d1d5db",
+                              borderRadius: "6px",
+                              fontSize: "14px",
+                              boxSizing: "border-box",
+                            }}
+                          >
+                            <option value="">Select a collection...</option>
+                            {availableCollections
+                              .filter((c) =>
+                                c.path
+                                  .toLowerCase()
+                                  .includes(collectionFilter.toLowerCase())
+                              )
+                              .map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.path}
+                                </option>
+                              ))}
+                          </select>
+                          {!customMenuCollectionId && (
+                            <p
+                              style={{
+                                marginTop: "6px",
+                                fontSize: "12px",
+                                color: "#ef4444",
+                              }}
+                            >
+                              Please select a collection
                             </p>
                           )}
                         </>
@@ -1295,6 +1430,8 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                         !customMenuName.trim() ||
                         (customMenuType === "tag" &&
                           customMenuTags.length === 0) ||
+                        (customMenuType === "collection" &&
+                          !customMenuCollectionId) ||
                         (customMenuType === "direct" && !customMenuDirectId)
                       }
                       style={{
@@ -1303,6 +1440,8 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                           !customMenuName.trim() ||
                           (customMenuType === "tag" &&
                             customMenuTags.length === 0) ||
+                          (customMenuType === "collection" &&
+                            !customMenuCollectionId) ||
                           (customMenuType === "direct" && !customMenuDirectId)
                             ? "#9ca3af"
                             : "#8b5cf6",
@@ -1313,6 +1452,8 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                           !customMenuName.trim() ||
                           (customMenuType === "tag" &&
                             customMenuTags.length === 0) ||
+                          (customMenuType === "collection" &&
+                            !customMenuCollectionId) ||
                           (customMenuType === "direct" && !customMenuDirectId)
                             ? "not-allowed"
                             : "pointer",
@@ -1325,6 +1466,8 @@ const ConfigurationWizard: React.FC<ConfigurationWizardProps> = ({
                           !customMenuName.trim() ||
                           (customMenuType === "tag" &&
                             customMenuTags.length === 0) ||
+                          (customMenuType === "collection" &&
+                            !customMenuCollectionId) ||
                           (customMenuType === "direct" && !customMenuDirectId)
                             ? 0.6
                             : 1,

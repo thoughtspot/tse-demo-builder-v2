@@ -16,6 +16,8 @@ import Footer from "./Footer";
 import SessionChecker from "./SessionChecker";
 import ChatBubble from "./ChatBubble";
 import VizPickerModal from "./VizPickerModal";
+import CreateLiveboardModal from "./CreateLiveboardModal";
+import EmbedModal from "./EmbedModal";
 import {
   CustomMenu,
   StylingConfig,
@@ -26,11 +28,15 @@ import {
   AppConfig,
   FullAppConfig,
   StandardMenu,
+  ThoughtSpotContent,
 } from "../types/thoughtspot";
 import {
   setThoughtSpotBaseUrl,
+  setThoughtSpotAuthTokenGetter,
   fetchLiveboards,
   fetchLiveboardWithVisualizations,
+  createLiveboard,
+  type ThoughtSpotUser,
 } from "../services/thoughtspotApi";
 import {
   loadAllConfigurations,
@@ -382,6 +388,8 @@ export default function Layout({ children }: LayoutProps) {
   const [liveboards, setLiveboards] = useState<
     Array<{ id: string; name: string }>
   >([]);
+  const [isCreateLiveboardOpen, setIsCreateLiveboardOpen] = useState(false);
+  const [newLiveboardContent, setNewLiveboardContent] = useState<ThoughtSpotContent | null>(null);
   const [isLoadingConfiguration, setIsLoadingConfiguration] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState(
@@ -533,14 +541,44 @@ export default function Layout({ children }: LayoutProps) {
 
         const configs = await loadAllConfigurations();
 
-        // Set ThoughtSpot base URL IMMEDIATELY after loading config, before any other operations
-        // This ensures the SessionChecker and other components use the correct server
+        // Set ThoughtSpot base URL and auth token getter IMMEDIATELY after loading config,
+        // before any other operations (e.g. SessionChecker's getCurrentUser call)
         if (configs.appConfig?.thoughtspotUrl) {
           setThoughtSpotBaseUrl(configs.appConfig.thoughtspotUrl);
           console.log(
             "[Layout] Set ThoughtSpot base URL during initial load:",
             configs.appConfig.thoughtspotUrl
           );
+        }
+        const ac = configs.appConfig?.authConfig;
+        if (ac?.authType === "TrustedAuthTokenCookieless") {
+          if (ac.trustedAuthMode === "token" && ac.trustedAuthToken) {
+            setThoughtSpotAuthTokenGetter(() =>
+              Promise.resolve(ac.trustedAuthToken ?? null),
+            );
+          } else if (ac.trustedAuthMode === "secret_key" && ac.username) {
+            const tsUrl = configs.appConfig!.thoughtspotUrl;
+            const uname = ac.username;
+            const orgId = ac.secretKeyOrgId || "0";
+            setThoughtSpotAuthTokenGetter(async () => {
+              const res = await fetch("/api/auth/token", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  thoughtspotUrl: tsUrl,
+                  username: uname,
+                  orgId,
+                }),
+              });
+              if (!res.ok) return null;
+              const data = await res.json();
+              return data.token ?? null;
+            });
+          } else {
+            setThoughtSpotAuthTokenGetter(null);
+          }
+        } else {
+          setThoughtSpotAuthTokenGetter(null);
         }
 
         // Process all configurations first, then batch state updates
@@ -811,6 +849,36 @@ export default function Layout({ children }: LayoutProps) {
           loadedConfig.appConfig.thoughtspotUrl
         );
       }
+      const loadAc = loadedConfig.appConfig?.authConfig;
+      if (loadAc?.authType === "TrustedAuthTokenCookieless") {
+        if (loadAc.trustedAuthMode === "token" && loadAc.trustedAuthToken) {
+          setThoughtSpotAuthTokenGetter(() =>
+            Promise.resolve(loadAc.trustedAuthToken ?? null),
+          );
+        } else if (loadAc.trustedAuthMode === "secret_key" && loadAc.username) {
+          const tsUrl = loadedConfig.appConfig!.thoughtspotUrl;
+          const uname = loadAc.username;
+          const orgId = loadAc.secretKeyOrgId || "0";
+          setThoughtSpotAuthTokenGetter(async () => {
+            const res = await fetch("/api/auth/token", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                thoughtspotUrl: tsUrl,
+                username: uname,
+                orgId,
+              }),
+            });
+            if (!res.ok) return null;
+            const data = await res.json();
+            return data.token ?? null;
+          });
+        } else {
+          setThoughtSpotAuthTokenGetter(null);
+        }
+      } else {
+        setThoughtSpotAuthTokenGetter(null);
+      }
 
       onProgress?.(80, "Applying configuration to UI...");
       setLoadingProgress(80);
@@ -933,6 +1001,47 @@ export default function Layout({ children }: LayoutProps) {
       setThoughtSpotBaseUrl(appConfig.thoughtspotUrl);
     }
   }, [appConfig.thoughtspotUrl]);
+
+  // When using TrustedAuthTokenCookieless, API calls need the Bearer token
+  useEffect(() => {
+    const ac = appConfig.authConfig;
+    if (ac?.authType !== "TrustedAuthTokenCookieless") {
+      setThoughtSpotAuthTokenGetter(null);
+      return;
+    }
+    if (ac.trustedAuthMode === "token" && ac.trustedAuthToken) {
+      setThoughtSpotAuthTokenGetter(() =>
+        Promise.resolve(ac.trustedAuthToken ?? null),
+      );
+    } else if (ac.trustedAuthMode === "secret_key" && ac.username) {
+      const tsUrl = appConfig.thoughtspotUrl;
+      const uname = ac.username;
+      const orgId = ac.secretKeyOrgId || "0";
+      setThoughtSpotAuthTokenGetter(async () => {
+        const res = await fetch("/api/auth/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            thoughtspotUrl: tsUrl,
+            username: uname,
+            orgId,
+          }),
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.token ?? null;
+      });
+    } else {
+      setThoughtSpotAuthTokenGetter(null);
+    }
+  }, [
+    appConfig.thoughtspotUrl,
+    appConfig.authConfig?.authType,
+    appConfig.authConfig?.trustedAuthMode,
+    appConfig.authConfig?.trustedAuthToken,
+    appConfig.authConfig?.username,
+    appConfig.authConfig?.secretKeyOrgId,
+  ]);
 
   // Consolidated auto-save effect for all configurations
   useEffect(() => {
@@ -1324,9 +1433,12 @@ export default function Layout({ children }: LayoutProps) {
         );
         const userLocale = currentUser?.locale || "en";
 
+        const ac = appConfig.authConfig;
+        const resolvedAuthType = ac?.authType || "None";
+
         const initConfig: ThoughtSpotInitConfig = {
           thoughtSpotHost: appConfig.thoughtspotUrl,
-          authType: AuthType.None,
+          authType: AuthType[resolvedAuthType] ?? AuthType.None,
           locale: userLocale,
           additionalFlags: {
             isLiveboardStylingEnabled: true,
@@ -1334,9 +1446,40 @@ export default function Layout({ children }: LayoutProps) {
           },
         };
 
+        if (resolvedAuthType === "Basic") {
+          initConfig.username = ac?.username;
+          initConfig.password = ac?.password;
+        } else if (resolvedAuthType === "TrustedAuthTokenCookieless") {
+          if (ac?.trustedAuthMode === "token" && ac?.trustedAuthToken) {
+            initConfig.getAuthToken = () =>
+              Promise.resolve(ac.trustedAuthToken!);
+          } else if (ac?.trustedAuthMode === "secret_key" && ac?.username) {
+            const tsUrl = appConfig.thoughtspotUrl;
+            const uname = ac.username;
+            const orgId = ac.secretKeyOrgId || "0";
+            initConfig.getAuthToken = async () => {
+              const res = await fetch("/api/auth/token", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  thoughtspotUrl: tsUrl,
+                  username: uname,
+                  orgId,
+                }),
+              });
+              if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Failed to fetch auth token");
+              }
+              const data = await res.json();
+              return data.token;
+            };
+          }
+        }
+
         console.log(
           "[Layout] Initializing ThoughtSpot with config:",
-          initConfig
+          { ...initConfig, password: initConfig.password ? "***" : undefined }
         );
 
         // Always add customizations to ensure embed containers work properly
@@ -1389,12 +1532,16 @@ export default function Layout({ children }: LayoutProps) {
     };
 
     initializeThoughtSpot();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     appConfig.thoughtspotUrl,
     appConfig.earlyAccessFlags,
+    // Re-init when auth config changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    JSON.stringify(appConfig.authConfig),
     configVersion,
     isInitialLoadInProgress,
-  ]); // Removed stylingConfig and userConfig from dependencies to prevent excessive re-initialization
+  ]);
 
   // Separate effect to handle styling config changes that require ThoughtSpot re-initialization
   useEffect(() => {
@@ -1490,6 +1637,30 @@ export default function Layout({ children }: LayoutProps) {
     // Session status is tracked by the SessionChecker component
     // We can use this for future features if needed
   }, []);
+
+  const handleUserAuthenticated = useCallback(
+    (user: ThoughtSpotUser) => {
+      if (typeof window === "undefined" || !("pendo" in window)) return;
+      const pendo = (window as Window & { pendo: { initialize: (cfg: unknown) => void } }).pendo;
+      const nameParts = user.display_name.split(" ");
+      const firstName = nameParts[0] ?? user.display_name;
+      const lastName = nameParts.slice(1).join(" ") || undefined;
+      const secretKeyOrgId = appConfig.authConfig?.secretKeyOrgId ?? "0";
+      pendo.initialize({
+        visitor: {
+          id: user.id ?? user.name,
+          email: user.email ?? user.name,
+          firstName,
+          lastName,
+        },
+        account: {
+          id: secretKeyOrgId,
+          accountName: appConfig.applicationName,
+        },
+      });
+    },
+    [appConfig.authConfig?.secretKeyOrgId, appConfig.applicationName],
+  );
 
   const handleClusterChangeConfirm = () => {
     // Create new app config with the new cluster URL but keep other default values
@@ -1652,6 +1823,23 @@ export default function Layout({ children }: LayoutProps) {
     const vizs = await fetchLiveboardWithVisualizations(liveboardId);
     return vizs;
   }, []);
+
+  const handleCreateLiveboardClick = useCallback(() => {
+    setIsCreateLiveboardOpen(true);
+  }, []);
+
+  const handleLiveboardCreated = useCallback(
+    (id: string, name: string, description?: string) => {
+      setIsCreateLiveboardOpen(false);
+      setNewLiveboardContent({
+        id,
+        name,
+        type: "liveboard",
+        description,
+      });
+    },
+    []
+  );
 
   const updateStandardMenu = (
     id: string,
@@ -1863,31 +2051,27 @@ export default function Layout({ children }: LayoutProps) {
       }
     }
 
-    // Grant current user access to the new custom menu
-    const currentUser = userConfig.users.find(
-      (u) => u.id === userConfig.currentUserId
-    );
-    if (currentUser && !currentUser.access.customMenus.includes(menu.id)) {
-      const updatedUserConfig = {
-        ...userConfig,
-        users: userConfig.users.map((user) =>
-          user.id === currentUser.id
-            ? {
-                ...user,
-                access: {
-                  ...user.access,
-                  customMenus: [...user.access.customMenus, menu.id],
-                },
-              }
-            : user
-        ),
-      };
-      setUserConfig(updatedUserConfig);
-      try {
-        await saveUserConfig(updatedUserConfig);
-      } catch (error) {
-        console.error("Failed to save user config:", error);
-      }
+    // Grant ALL users access to the new custom menu so it appears regardless of
+    // which user profile is active (mirrors the wizard's behavior).
+    const updatedUserConfig = {
+      ...userConfig,
+      users: userConfig.users.map((user) =>
+        user.access?.customMenus?.includes(menu.id)
+          ? user
+          : {
+              ...user,
+              access: {
+                ...user.access,
+                customMenus: [...(user.access?.customMenus ?? []), menu.id],
+              },
+            }
+      ),
+    };
+    setUserConfig(updatedUserConfig);
+    try {
+      await saveUserConfig(updatedUserConfig);
+    } catch (error) {
+      console.error("Failed to save user config:", error);
     }
   };
 
@@ -2440,7 +2624,13 @@ export default function Layout({ children }: LayoutProps) {
       });
     }
 
-    return currentUser?.access?.customMenus?.includes(menu.id);
+    // If no user profile is found (e.g. config not yet loaded), fall back to
+    // the menu's own enabled flag so newly-created menus always appear.
+    if (!currentUser) return menu.enabled;
+    const hasExplicitAccess = currentUser.access?.customMenus?.includes(menu.id);
+    // Fall back to enabled flag for menus created before per-user access was
+    // recorded (e.g. via import or an older version of the app).
+    return hasExplicitAccess ?? menu.enabled;
   });
 
   // Debug: Log final accessible custom menus
@@ -2486,6 +2676,13 @@ export default function Layout({ children }: LayoutProps) {
           thoughtspotUrl={appConfig.thoughtspotUrl}
           onSessionStatusChange={handleSessionStatusChange}
           onConfigureSettings={handleConfigureSettings}
+          onUserAuthenticated={handleUserAuthenticated}
+          expectedOrgName={appConfig.authConfig?.orgName}
+          authConfigKey={
+            appConfig.authConfig?.authType === "TrustedAuthTokenCookieless"
+              ? `${appConfig.authConfig.trustedAuthMode}-${appConfig.authConfig.username ?? ""}-${appConfig.authConfig.secretKeyOrgId ?? "0"}`
+              : appConfig.authConfig?.authType ?? "none"
+          }
         >
           <div
             style={{
@@ -2512,7 +2709,9 @@ export default function Layout({ children }: LayoutProps) {
               onUserChange={handleUserChange}
               backgroundColor={stylingConfig.application.topBar.backgroundColor}
               foregroundColor={stylingConfig.application.topBar.foregroundColor}
-              onVizPickerClick={handleVizPickerClick}
+              thoughtspotUrl={appConfig.thoughtspotUrl}
+              onVizPickerClick={appConfig.showVizPicker ? handleVizPickerClick : undefined}
+              onCreateLiveboardClick={appConfig.spotterViz?.enabled ? handleCreateLiveboardClick : undefined}
             />
 
             {/* Main Content Area */}
@@ -2545,6 +2744,9 @@ export default function Layout({ children }: LayoutProps) {
                   backgroundColor:
                     stylingConfig.application.backgrounds?.contentBackground ||
                     "#ffffff",
+                  color:
+                    stylingConfig.application.typography?.primaryColor ||
+                    "#1f2937",
                   overflow: "auto",
                   overflowX: "hidden",
                   display: "flex",
@@ -2622,6 +2824,22 @@ export default function Layout({ children }: LayoutProps) {
               onClose={() => setIsVizPickerOpen(false)}
               liveboards={liveboards}
               onFetchVisualizations={handleFetchVisualizations}
+            />
+
+            {/* Create Liveboard Modal */}
+            <CreateLiveboardModal
+              isOpen={isCreateLiveboardOpen}
+              onClose={() => setIsCreateLiveboardOpen(false)}
+              onCreate={createLiveboard}
+              onCreated={handleLiveboardCreated}
+            />
+
+            {/* New Liveboard Embed Modal (opens after creation, starts in edit mode) */}
+            <EmbedModal
+              content={newLiveboardContent}
+              isOpen={!!newLiveboardContent}
+              onClose={() => setNewLiveboardContent(null)}
+              startInEditMode
             />
 
             {/* Cluster Change Warning Dialog */}

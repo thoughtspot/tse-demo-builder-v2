@@ -63,6 +63,22 @@ export default function FullAppPage() {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { visibleActions, ...filteredAppEmbedFlags } = appEmbedFlags;
 
+        const spotterVizCfg = appConfig.spotterViz;
+        const spotterVizEmbed = spotterVizCfg?.enabled
+          ? {
+              spotterViz: {
+                ...(spotterVizCfg.brandName && { brandName: spotterVizCfg.brandName }),
+                ...(spotterVizCfg.brandHeadline && { brandHeadline: spotterVizCfg.brandHeadline }),
+                ...(spotterVizCfg.description && { description: spotterVizCfg.description }),
+                ...(spotterVizCfg.inputChatPlaceholder && { inputChatPlaceholder: spotterVizCfg.inputChatPlaceholder }),
+                hideStarterPrompts: spotterVizCfg.hideStarterPrompts ?? false,
+                ...(spotterVizCfg.customStarterPrompts?.length && {
+                  customStarterPrompts: spotterVizCfg.customStarterPrompts,
+                }),
+              },
+            }
+          : {};
+
         const embedConfig = {
           locale: userLocale,
           showPrimaryNavbar: fullAppConfig.showPrimaryNavbar,
@@ -85,6 +101,7 @@ export default function FullAppPage() {
             height: "100%",
           },
           ...filteredAppEmbedFlags,
+          ...spotterVizEmbed,
           ...(hiddenActions.length > 0 && { hiddenActions }),
           customizations: {
             iconSpriteUrl: iconSpriteUrl || undefined,

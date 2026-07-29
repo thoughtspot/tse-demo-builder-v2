@@ -37,12 +37,14 @@ interface ContentGridProps {
   onBackClick?: () => void;
   customContent?: {
     contentSelection: {
-      type: "specific" | "tag" | "direct";
+      type: "specific" | "tag" | "collection" | "direct";
       specificContent?: {
         liveboards: string[];
         answers: string[];
       };
       tagIdentifiers?: string[];
+      collectionId?: string;
+      collectionName?: string;
       contentType?: "answer" | "liveboard";
       directEmbed?: {
         type: "liveboard" | "answer" | "spotter";
@@ -83,6 +85,11 @@ export default function ContentGrid({
   const [showContentDirectly, setShowContentDirectly] = useState(false);
 
   useEffect(() => {
+    if (!context.appConfig.thoughtspotUrl) {
+      setLoading(false);
+      return;
+    }
+
     const fetchContent = async () => {
       try {
         setLoading(true);
@@ -93,6 +100,7 @@ export default function ContentGrid({
           fetchFavoritesWithStats,
           fetchUserContentWithStats,
           fetchContentByTags,
+          fetchContentByCollection,
           fetchContentByIds,
           getCurrentUser,
         } = await import("../services/thoughtspotApi");
@@ -112,6 +120,15 @@ export default function ContentGrid({
             );
             liveboards = tagContent.liveboards;
             answers = tagContent.answers;
+          } else if (
+            customContent.contentSelection.type === "collection" &&
+            customContent.contentSelection.collectionId
+          ) {
+            const collectionContent = await fetchContentByCollection(
+              customContent.contentSelection.collectionId
+            );
+            liveboards = collectionContent.liveboards;
+            answers = collectionContent.answers;
           } else if (
             customContent.contentSelection.type === "specific" &&
             customContent.contentSelection.specificContent
@@ -383,6 +400,7 @@ export default function ContentGrid({
     userContentConfig,
     allContentConfig,
     customContent,
+    context.appConfig.thoughtspotUrl,
   ]);
 
   const handleContentOpen = (content: ThoughtSpotContent) => {
@@ -678,8 +696,8 @@ export default function ContentGrid({
       <div
         style={{
           backgroundColor:
-            context.stylingConfig.application.backgrounds?.cardBackground ||
-            "#f7fafc",
+            context.stylingConfig.application.backgrounds?.contentBackground ||
+            "#ffffff",
           padding: "24px",
           borderRadius: "8px",
           border: `1px solid ${
@@ -691,11 +709,9 @@ export default function ContentGrid({
         <h2
           style={{
             fontSize: "24px",
-            fontWeight: "600",
+            fontWeight: "700",
             marginBottom: "16px",
-            color:
-              context.stylingConfig.application.typography?.primaryColor ||
-              "#1f2937",
+            color: "var(--primary-text-color, inherit)",
           }}
         >
           {subtitle}
@@ -703,9 +719,7 @@ export default function ContentGrid({
 
         <p
           style={{
-            color:
-              context.stylingConfig.application.typography?.secondaryColor ||
-              "#4a5568",
+            color: "var(--secondary-text-color, inherit)",
             lineHeight: "1.6",
             marginBottom: "24px",
           }}

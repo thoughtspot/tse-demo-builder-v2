@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useAppContext } from "../Layout";
-import { ThoughtSpotEmbedConfig } from "../../types/thoughtspot";
+import {
+  ThoughtSpotEmbedConfig,
+  VizPointDoubleClickEvent,
+} from "../../types/thoughtspot";
+import { TabularData, VizPointClickData } from "tse-data-classes";
+import DoubleClickModal from "../DoubleClickModal";
 
 interface SpotterPageProps {
   spotterModelId?: string;
@@ -14,11 +19,84 @@ export default function SpotterPage({
   spotterSearchQuery: propSpotterSearchQuery,
 }: SpotterPageProps = {}) {
   const [iframeError, setIframeError] = useState<string | null>(null);
+  const [showDoubleClickModal, setShowDoubleClickModal] = useState(false);
+  const [doubleClickEventData, setDoubleClickEventData] =
+    useState<VizPointDoubleClickEvent | null>(null);
+  const [vizPointClickData, setVizPointClickData] =
+    useState<VizPointClickData | null>(null);
   const embedRef = useRef<HTMLDivElement>(null);
   const embedInstanceRef = useRef<{ destroy?: () => void } | null>(null);
 
   // Get context
   const context = useAppContext();
+
+  const handleDoubleClickEvent = useCallback(
+    (event: unknown) => {
+      const doubleClickConfig = context.stylingConfig.doubleClickHandling;
+      if (!doubleClickConfig?.enabled) return;
+
+      const vizPointClick = TabularData.createFromJSON(
+        event
+      ) as VizPointClickData;
+
+      setDoubleClickEventData(event as VizPointDoubleClickEvent);
+      setVizPointClickData(vizPointClick);
+
+      let modalElement: HTMLElement | null = null;
+      if (
+        doubleClickConfig.showDefaultModal ||
+        doubleClickConfig.customJavaScript?.trim()
+      ) {
+        modalElement = document.createElement("div");
+        modalElement.id = "double-click-modal";
+        modalElement.style.cssText = `
+          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+          background-color: rgba(0, 0, 0, 0.5);
+          display: flex; align-items: center; justify-content: center;
+          z-index: 1000;
+        `;
+        document.body.appendChild(modalElement);
+      }
+
+      if (
+        doubleClickConfig.customJavaScript &&
+        doubleClickConfig.customJavaScript.trim()
+      ) {
+        try {
+          const customFunction = new Function(
+            "tabularData",
+            "modal",
+            "embedInstance",
+            doubleClickConfig.customJavaScript
+          );
+          customFunction(
+            vizPointClick,
+            modalElement,
+            embedInstanceRef.current
+          );
+        } catch (error) {
+          console.error(
+            "Error executing custom double-click JavaScript:",
+            error
+          );
+          if (doubleClickConfig.showDefaultModal) {
+            setShowDoubleClickModal(true);
+          }
+        }
+      } else if (doubleClickConfig.showDefaultModal) {
+        setShowDoubleClickModal(true);
+      }
+
+      if (modalElement && !doubleClickConfig.customJavaScript?.trim()) {
+        setTimeout(() => {
+          if (modalElement && modalElement.parentNode) {
+            modalElement.parentNode.removeChild(modalElement);
+          }
+        }, 100);
+      }
+    },
+    [context.stylingConfig.doubleClickHandling]
+  );
 
   // Try to get configuration from context if not provided as props
   let contextSpotterModelId: string | undefined;
@@ -61,32 +139,56 @@ export default function SpotterPage({
         setIframeError(null);
 
         // Dynamically import ThoughtSpot SDK to avoid SSR issues
-        const { SpotterEmbed, Action } = await import(
+        const { SpotterEmbed, Action, EmbedEvent } = await import(
           "@thoughtspot/visual-embed-sdk"
         );
 
         if (embedRef.current) {
-          // Get hidden actions for current user
           const currentUser = context.userConfig.users.find(
             (u) => u.id === context.userConfig.currentUserId
           );
-          const hiddenActionsStrings = currentUser?.access.hiddenActions
-            ?.enabled
-            ? currentUser.access.hiddenActions.actions
-            : [];
 
-          // Convert string action values to Action enum values
-          const hiddenActions = hiddenActionsStrings
-            .map((actionString) => {
-              // Find the Action enum value that matches the string
-              const actionKey = Object.keys(Action).find(
-                (key) => Action[key as keyof typeof Action] === actionString
+          // Resolve SDK actions: user override takes precedence over global config
+          const globalSdkActions = context.stylingConfig.sdkActions;
+          const userSdkOverride = currentUser?.access.sdkActionsOverride;
+          const activeSdkActions =
+            userSdkOverride?.enabled
+              ? userSdkOverride
+              : globalSdkActions?.enabled
+              ? globalSdkActions
+              : null;
+
+          // Convert action strings to Action enum values (by value, key, or pass through)
+          const toActionEnums = (strings: string[]) =>
+            strings.map((s) => {
+              const byValue = Object.keys(Action).find(
+                (key) => Action[key as keyof typeof Action] === s
               );
-              return actionKey
-                ? Action[actionKey as keyof typeof Action]
-                : null;
-            })
-            .filter((action) => action !== null) as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+              if (byValue) return Action[byValue as keyof typeof Action];
+              if (s in Action) return Action[s as keyof typeof Action];
+              const byKey = Object.keys(Action).find(
+                (key) => key.toLowerCase() === s.toLowerCase()
+              );
+              if (byKey) return Action[byKey as keyof typeof Action];
+              return s;
+            }) as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+          const resolvedDisabledActions =
+            activeSdkActions?.mode === "disabled"
+              ? toActionEnums(activeSdkActions.actions)
+              : [];
+          const resolvedHiddenActions =
+            activeSdkActions?.mode === "hidden"
+              ? toActionEnums(activeSdkActions.actions)
+              : [];
+          const resolvedVisibleActions =
+            activeSdkActions?.mode === "visible"
+              ? toActionEnums(activeSdkActions.actions)
+              : [];
+          const resolvedDisabledReason =
+            activeSdkActions?.mode === "disabled"
+              ? activeSdkActions.disabledReason
+              : undefined;
 
           // Get current user's locale
           const userLocale = currentUser?.locale || "en";
@@ -99,9 +201,10 @@ export default function SpotterPage({
           const strings = context.stylingConfig.embeddedContent.strings;
           const stringIDs = context.stylingConfig.embeddedContent.stringIDs;
 
-          // Filter out visibleActions from embed flags to prevent conflicts with hiddenActions
+          // Strip action fields from embed flags — managed explicitly via sdkActions
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { visibleActions, ...filteredEmbedFlags } = finalEmbedFlags;
+          const { visibleActions, hiddenActions: _fh, disabledActions: _fd, ...filteredEmbedFlags } =
+            finalEmbedFlags as Record<string, unknown>;
 
           const embedConfig: ThoughtSpotEmbedConfig = {
             locale: userLocale,
@@ -111,9 +214,10 @@ export default function SpotterPage({
               height: "100%",
             },
             ...filteredEmbedFlags,
-            ...(hiddenActions.length > 0 && {
-              hiddenActions: hiddenActions,
-            }),
+            ...(resolvedDisabledActions.length > 0 && { disabledActions: resolvedDisabledActions }),
+            ...(resolvedDisabledReason && { disabledActionReason: resolvedDisabledReason }),
+            ...(resolvedHiddenActions.length > 0 && { hiddenActions: resolvedHiddenActions }),
+            ...(resolvedVisibleActions.length > 0 && { visibleActions: resolvedVisibleActions }),
             customizations: {
               iconSpriteUrl: iconSpriteUrl || undefined,
               content: {
@@ -138,16 +242,25 @@ export default function SpotterPage({
           }
 
           if (embedConfig.worksheetId) {
-            // Convert hidden actions strings to Action enums for the SpotterEmbed
-            const spotterConfig = {
+            embedInstance = new SpotterEmbed(embedRef.current, {
               ...embedConfig,
               worksheetId: embedConfig.worksheetId as string,
-              hiddenActions: hiddenActions,
-            };
-
-            embedInstance = new SpotterEmbed(embedRef.current, spotterConfig);
+            } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
           }
           embedInstanceRef.current = embedInstance;
+
+          // Register double-click event handler if enabled
+          if (embedInstance) {
+            const doubleClickConfig =
+              context.stylingConfig.doubleClickHandling;
+            if (doubleClickConfig?.enabled) {
+              (embedInstance as any).on( // eslint-disable-line @typescript-eslint/no-explicit-any
+                EmbedEvent.VizPointDoubleClick,
+                handleDoubleClickEvent
+              );
+            }
+          }
+
           await (embedInstance as { render: () => Promise<void> }).render();
         }
       } catch (error) {
@@ -179,12 +292,25 @@ export default function SpotterPage({
     context.stylingConfig.embeddedContent.iconSpriteUrl,
     context.stylingConfig.embeddedContent.strings,
     context.stylingConfig.embeddedContent.stringIDs,
+    context.stylingConfig.doubleClickHandling,
+    context.stylingConfig.sdkActions,
     context.userConfig.currentUserId,
     context.userConfig.users,
+    handleDoubleClickEvent,
   ]);
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <DoubleClickModal
+        isOpen={showDoubleClickModal}
+        onClose={() => setShowDoubleClickModal(false)}
+        eventData={doubleClickEventData}
+        vizPointClickData={vizPointClickData}
+        title={
+          context.stylingConfig.doubleClickHandling?.modalTitle ||
+          "Double-Click Event Data"
+        }
+      />
       {!finalSpotterModelId ? (
         <div
           style={{

@@ -2,13 +2,13 @@
 
 import React, { useState } from "react";
 import { VizPointDoubleClickEvent } from "../types/thoughtspot";
-import { VizPointClick } from "../types/data-classes";
+import { VizPointClickData } from "tse-data-classes";
 
 interface DoubleClickModalProps {
   isOpen: boolean;
   onClose: () => void;
   eventData: VizPointDoubleClickEvent | null;
-  vizPointClickData: VizPointClick | null;
+  vizPointClickData: VizPointClickData | null;
   title?: string;
 }
 
@@ -37,12 +37,12 @@ export default function DoubleClickModal({
 
   const renderSummaryView = () => {
     // Extract viz information from embedAnswerData
-    const embedAnswerData = vizPointClick.getEmbedAnswerData() as {
+    const embedAnswer = vizPointClick.embedAnswerData as {
       id?: string;
       name?: string;
-    } | null;
-    const vizId = embedAnswerData?.id || eventData.vizId || "Unknown";
-    const vizName = embedAnswerData?.name || eventData.vizName || "Unknown";
+    } | undefined;
+    const vizId = embedAnswer?.id || eventData.vizId || "Unknown";
+    const vizName = embedAnswer?.name || eventData.vizName || "Unknown";
 
     return (
       <div style={{ maxHeight: "400px", overflow: "auto" }}>
@@ -52,6 +52,7 @@ export default function DoubleClickModal({
               fontSize: "16px",
               fontWeight: "600",
               marginBottom: "10px",
+              color: "var(--primary-text-color, inherit)",
             }}
           >
             Visualization Information
@@ -64,12 +65,33 @@ export default function DoubleClickModal({
               fontSize: "14px",
             }}
           >
-            <span style={{ fontWeight: "500", color: "#6b7280" }}>Viz ID:</span>
-            <span style={{ fontFamily: "monospace" }}>{vizId}</span>
-            <span style={{ fontWeight: "500", color: "#6b7280" }}>
+            <span
+              style={{
+                fontWeight: "500",
+                color: "var(--secondary-text-color, #6b7280)",
+              }}
+            >
+              Viz ID:
+            </span>
+            <span
+              style={{
+                fontFamily: "monospace",
+                color: "var(--primary-text-color, inherit)",
+              }}
+            >
+              {vizId}
+            </span>
+            <span
+              style={{
+                fontWeight: "500",
+                color: "var(--secondary-text-color, #6b7280)",
+              }}
+            >
               Viz Name:
             </span>
-            <span>{vizName}</span>
+            <span style={{ color: "var(--primary-text-color, inherit)" }}>
+              {vizName}
+            </span>
           </div>
         </div>
 
@@ -79,6 +101,7 @@ export default function DoubleClickModal({
               fontSize: "16px",
               fontWeight: "600",
               marginBottom: "10px",
+              color: "var(--primary-text-color, inherit)",
             }}
           >
             Selected Points ({vizPointClick.nbrRows})
@@ -86,11 +109,11 @@ export default function DoubleClickModal({
           {vizPointClick.nbrRows > 0 ? (
             <div
               style={{
-                border: "1px solid #e5e7eb",
+                border: "1px solid var(--border-color, #e5e7eb)",
                 borderRadius: "6px",
                 padding: "12px",
                 marginBottom: "10px",
-                backgroundColor: "#f9fafb",
+                backgroundColor: "var(--card-background, #f9fafb)",
               }}
             >
               <h5
@@ -98,6 +121,7 @@ export default function DoubleClickModal({
                   fontSize: "14px",
                   fontWeight: "600",
                   marginBottom: "8px",
+                  color: "var(--primary-text-color, inherit)",
                 }}
               >
                 Point Data ({vizPointClick.nbrColumns} columns)
@@ -110,17 +134,41 @@ export default function DoubleClickModal({
                   fontSize: "12px",
                 }}
               >
-                <span style={{ fontWeight: "500" }}>Column Name</span>
-                <span style={{ fontWeight: "500" }}>Value</span>
+                <span
+                  style={{
+                    fontWeight: "500",
+                    color: "var(--primary-text-color, inherit)",
+                  }}
+                >
+                  Column Name
+                </span>
+                <span
+                  style={{
+                    fontWeight: "500",
+                    color: "var(--primary-text-color, inherit)",
+                  }}
+                >
+                  Value
+                </span>
                 {vizPointClick.columnNames.map((columnName, index) => {
                   const data = vizPointClick.getDataAsTable([columnName]);
                   const value = data.length > 0 ? data[0][0] : "N/A";
                   return (
                     <React.Fragment key={`column-${index}`}>
-                      <span style={{ fontFamily: "monospace" }}>
+                      <span
+                        style={{
+                          fontFamily: "monospace",
+                          color: "var(--primary-text-color, inherit)",
+                        }}
+                      >
                         {columnName}
                       </span>
-                      <span style={{ fontFamily: "monospace" }}>
+                      <span
+                        style={{
+                          fontFamily: "monospace",
+                          color: "var(--primary-text-color, inherit)",
+                        }}
+                      >
                         {formatValue(value)}
                       </span>
                     </React.Fragment>
@@ -133,10 +181,10 @@ export default function DoubleClickModal({
               style={{
                 padding: "20px",
                 textAlign: "center",
-                color: "#6b7280",
-                backgroundColor: "#f9fafb",
+                color: "var(--secondary-text-color, #6b7280)",
+                backgroundColor: "var(--card-background, #f9fafb)",
                 borderRadius: "6px",
-                border: "1px solid #e5e7eb",
+                border: "1px solid var(--border-color, #e5e7eb)",
               }}
             >
               No point data available
@@ -149,12 +197,12 @@ export default function DoubleClickModal({
 
   const renderTabularView = () => {
     // Extract viz information from embedAnswerData
-    const embedAnswerData = vizPointClick.getEmbedAnswerData() as {
+    const embedAnswer = vizPointClick.embedAnswerData as {
       id?: string;
       name?: string;
-    } | null;
-    const vizId = embedAnswerData?.id || vizPointClick.getVizId() || "Unknown";
-    const vizName = embedAnswerData?.name || "Unknown";
+    } | undefined;
+    const vizId = embedAnswer?.id || vizPointClick.vizId || "Unknown";
+    const vizName = embedAnswer?.name || "Unknown";
 
     return (
       <div style={{ maxHeight: "400px", overflow: "auto" }}>
@@ -164,6 +212,7 @@ export default function DoubleClickModal({
               fontSize: "16px",
               fontWeight: "600",
               marginBottom: "10px",
+              color: "var(--primary-text-color, inherit)",
             }}
           >
             Tabular Data
@@ -177,24 +226,71 @@ export default function DoubleClickModal({
               marginBottom: "15px",
             }}
           >
-            <span style={{ fontWeight: "500", color: "#6b7280" }}>
+            <span
+              style={{
+                fontWeight: "500",
+                color: "var(--secondary-text-color, #6b7280)",
+              }}
+            >
               Event Type:
             </span>
-            <span style={{ fontFamily: "monospace" }}>
-              {vizPointClick.getEventType()}
+            <span
+              style={{
+                fontFamily: "monospace",
+                color: "var(--primary-text-color, inherit)",
+              }}
+            >
+              {vizPointClick.clickType}
             </span>
-            <span style={{ fontWeight: "500", color: "#6b7280" }}>Viz ID:</span>
-            <span style={{ fontFamily: "monospace" }}>{vizId}</span>
-            <span style={{ fontWeight: "500", color: "#6b7280" }}>
+            <span
+              style={{
+                fontWeight: "500",
+                color: "var(--secondary-text-color, #6b7280)",
+              }}
+            >
+              Viz ID:
+            </span>
+            <span
+              style={{
+                fontFamily: "monospace",
+                color: "var(--primary-text-color, inherit)",
+              }}
+            >
+              {vizId}
+            </span>
+            <span
+              style={{
+                fontWeight: "500",
+                color: "var(--secondary-text-color, #6b7280)",
+              }}
+            >
               Viz Name:
             </span>
-            <span>{vizName}</span>
-            <span style={{ fontWeight: "500", color: "#6b7280" }}>Rows:</span>
-            <span>{vizPointClick.nbrRows}</span>
-            <span style={{ fontWeight: "500", color: "#6b7280" }}>
+            <span style={{ color: "var(--primary-text-color, inherit)" }}>
+              {vizName}
+            </span>
+            <span
+              style={{
+                fontWeight: "500",
+                color: "var(--secondary-text-color, #6b7280)",
+              }}
+            >
+              Rows:
+            </span>
+            <span style={{ color: "var(--primary-text-color, inherit)" }}>
+              {vizPointClick.nbrRows}
+            </span>
+            <span
+              style={{
+                fontWeight: "500",
+                color: "var(--secondary-text-color, #6b7280)",
+              }}
+            >
               Columns:
             </span>
-            <span>{vizPointClick.nbrColumns}</span>
+            <span style={{ color: "var(--primary-text-color, inherit)" }}>
+              {vizPointClick.nbrColumns}
+            </span>
           </div>
         </div>
 
@@ -205,13 +301,14 @@ export default function DoubleClickModal({
                 fontSize: "14px",
                 fontWeight: "600",
                 marginBottom: "10px",
+                color: "var(--primary-text-color, inherit)",
               }}
             >
               Data Table
             </h5>
             <div
               style={{
-                border: "1px solid #e5e7eb",
+                border: "1px solid var(--border-color, #e5e7eb)",
                 borderRadius: "6px",
                 overflow: "auto",
                 maxWidth: "100%",
@@ -225,16 +322,22 @@ export default function DoubleClickModal({
                 }}
               >
                 <thead>
-                  <tr style={{ backgroundColor: "#f3f4f6" }}>
+                  <tr
+                    style={{
+                      backgroundColor: "var(--card-background, #f3f4f6)",
+                    }}
+                  >
                     {vizPointClick.columnNames.map((columnName, index) => (
                       <th
                         key={index}
                         style={{
                           padding: "8px 12px",
                           textAlign: "left",
-                          borderBottom: "1px solid #e5e7eb",
+                          borderBottom:
+                            "1px solid var(--border-color, #e5e7eb)",
                           fontWeight: "600",
                           fontSize: "12px",
+                          color: "var(--primary-text-color, inherit)",
                         }}
                       >
                         {columnName}
@@ -248,7 +351,9 @@ export default function DoubleClickModal({
                       key={rowIndex}
                       style={{
                         backgroundColor:
-                          rowIndex % 2 === 0 ? "#ffffff" : "#f9fafb",
+                          rowIndex % 2 === 0
+                            ? "var(--content-background, #ffffff)"
+                            : "var(--card-background, #f9fafb)",
                       }}
                     >
                       {row.map((cell, cellIndex) => (
@@ -256,9 +361,11 @@ export default function DoubleClickModal({
                           key={cellIndex}
                           style={{
                             padding: "8px 12px",
-                            borderBottom: "1px solid #e5e7eb",
+                            borderBottom:
+                              "1px solid var(--border-color, #e5e7eb)",
                             fontFamily: "monospace",
                             fontSize: "12px",
+                            color: "var(--primary-text-color, inherit)",
                           }}
                         >
                           {String(cell)}
@@ -275,10 +382,10 @@ export default function DoubleClickModal({
             style={{
               padding: "20px",
               textAlign: "center",
-              color: "#6b7280",
-              backgroundColor: "#f9fafb",
+              color: "var(--secondary-text-color, #6b7280)",
+              backgroundColor: "var(--card-background, #f9fafb)",
               borderRadius: "6px",
-              border: "1px solid #e5e7eb",
+              border: "1px solid var(--border-color, #e5e7eb)",
             }}
           >
             No tabular data available
@@ -327,7 +434,7 @@ export default function DoubleClickModal({
     >
       <div
         style={{
-          backgroundColor: "#ffffff",
+          backgroundColor: "var(--content-background, #ffffff)",
           borderRadius: "8px",
           width: "90%",
           maxWidth: "900px",
@@ -342,13 +449,20 @@ export default function DoubleClickModal({
         <div
           style={{
             padding: "16px 20px",
-            borderBottom: "1px solid #e5e7eb",
+            borderBottom: "1px solid var(--border-color, #e5e7eb)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
           }}
         >
-          <h3 style={{ fontSize: "18px", fontWeight: "600", margin: 0 }}>
+          <h3
+            style={{
+              fontSize: "18px",
+              fontWeight: "600",
+              margin: 0,
+              color: "var(--primary-text-color, inherit)",
+            }}
+          >
             {title}
           </h3>
           <button
@@ -358,7 +472,7 @@ export default function DoubleClickModal({
               border: "none",
               fontSize: "20px",
               cursor: "pointer",
-              color: "#6b7280",
+              color: "var(--secondary-text-color, #6b7280)",
               padding: "4px",
             }}
           >
@@ -369,7 +483,7 @@ export default function DoubleClickModal({
         {/* Tabs */}
         <div
           style={{
-            borderBottom: "1px solid #e5e7eb",
+            borderBottom: "1px solid var(--border-color, #e5e7eb)",
             display: "flex",
           }}
         >
@@ -378,8 +492,14 @@ export default function DoubleClickModal({
             style={{
               padding: "12px 20px",
               border: "none",
-              background: activeTab === "summary" ? "#3b82f6" : "transparent",
-              color: activeTab === "summary" ? "#ffffff" : "#6b7280",
+              background:
+                activeTab === "summary"
+                  ? "var(--primary-button-bg, #3b82f6)"
+                  : "transparent",
+              color:
+                activeTab === "summary"
+                  ? "var(--primary-button-text, #ffffff)"
+                  : "var(--secondary-text-color, #6b7280)",
               cursor: "pointer",
               fontSize: "14px",
               fontWeight: "500",
@@ -392,8 +512,14 @@ export default function DoubleClickModal({
             style={{
               padding: "12px 20px",
               border: "none",
-              background: activeTab === "tabular" ? "#3b82f6" : "transparent",
-              color: activeTab === "tabular" ? "#ffffff" : "#6b7280",
+              background:
+                activeTab === "tabular"
+                  ? "var(--primary-button-bg, #3b82f6)"
+                  : "transparent",
+              color:
+                activeTab === "tabular"
+                  ? "var(--primary-button-text, #ffffff)"
+                  : "var(--secondary-text-color, #6b7280)",
               cursor: "pointer",
               fontSize: "14px",
               fontWeight: "500",
@@ -406,8 +532,14 @@ export default function DoubleClickModal({
             style={{
               padding: "12px 20px",
               border: "none",
-              background: activeTab === "json" ? "#3b82f6" : "transparent",
-              color: activeTab === "json" ? "#ffffff" : "#6b7280",
+              background:
+                activeTab === "json"
+                  ? "var(--primary-button-bg, #3b82f6)"
+                  : "transparent",
+              color:
+                activeTab === "json"
+                  ? "var(--primary-button-text, #ffffff)"
+                  : "var(--secondary-text-color, #6b7280)",
               cursor: "pointer",
               fontSize: "14px",
               fontWeight: "500",
@@ -428,7 +560,7 @@ export default function DoubleClickModal({
         <div
           style={{
             padding: "16px 20px",
-            borderTop: "1px solid #e5e7eb",
+            borderTop: "1px solid var(--border-color, #e5e7eb)",
             display: "flex",
             justifyContent: "flex-end",
           }}
@@ -437,8 +569,8 @@ export default function DoubleClickModal({
             onClick={onClose}
             style={{
               padding: "8px 16px",
-              backgroundColor: "#6b7280",
-              color: "#ffffff",
+              backgroundColor: "var(--secondary-button-bg, #6b7280)",
+              color: "var(--secondary-button-text, #ffffff)",
               border: "none",
               borderRadius: "6px",
               cursor: "pointer",

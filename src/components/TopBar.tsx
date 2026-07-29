@@ -12,7 +12,9 @@ interface TopBarProps {
   onUserChange?: (userId: string) => void;
   backgroundColor?: string;
   foregroundColor?: string;
+  thoughtspotUrl?: string;
   onVizPickerClick?: () => void;
+  onCreateLiveboardClick?: () => void;
 }
 
 export default function TopBar({
@@ -28,7 +30,9 @@ export default function TopBar({
   onUserChange,
   backgroundColor = "white",
   foregroundColor = "#1a202c",
+  thoughtspotUrl,
   onVizPickerClick,
+  onCreateLiveboardClick,
 }: TopBarProps) {
   const [thoughtSpotVersion, setThoughtSpotVersion] = useState<string | null>(
     null
@@ -37,11 +41,16 @@ export default function TopBar({
   const [isLogoProcessing, setIsLogoProcessing] = useState<boolean>(false);
 
   useEffect(() => {
+    if (!thoughtspotUrl) {
+      return;
+    }
+
     const fetchVersion = async () => {
       try {
-        const { fetchThoughtSpotVersion } = await import(
+        const { fetchThoughtSpotVersion, setThoughtSpotBaseUrl } = await import(
           "../services/thoughtspotApi"
         );
+        setThoughtSpotBaseUrl(thoughtspotUrl);
         const version = await fetchThoughtSpotVersion();
         setThoughtSpotVersion(version);
       } catch (error) {
@@ -50,7 +59,7 @@ export default function TopBar({
     };
 
     fetchVersion();
-  }, []);
+  }, [thoughtspotUrl]);
 
   // Process logo URL to handle IndexedDB URLs
   useEffect(() => {
@@ -251,6 +260,40 @@ export default function TopBar({
 
       {/* User Menu */}
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        {/* Create Liveboard Button */}
+        {onCreateLiveboardClick && (
+          <button
+            onClick={onCreateLiveboardClick}
+            style={{
+              background: "none",
+              border: "2px solid #10b981",
+              cursor: "pointer",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              backgroundColor: "#ecfdf5",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "14px",
+              fontWeight: "600",
+              color: "#10b981",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#d1fae5";
+              e.currentTarget.style.borderColor = "#059669";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#ecfdf5";
+              e.currentTarget.style.borderColor = "#10b981";
+            }}
+            title="Create New Liveboard"
+          >
+            <span style={{ marginRight: "6px", fontSize: "16px" }}>+</span>
+            New Liveboard
+          </button>
+        )}
+
         {/* Viz Picker Button */}
         {onVizPickerClick && (
           <button

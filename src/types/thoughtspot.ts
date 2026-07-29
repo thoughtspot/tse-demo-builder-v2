@@ -12,7 +12,10 @@ export interface ThoughtSpotEmbedInstance {
 export interface ThoughtSpotInitConfig {
   thoughtSpotHost: string;
   authType: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  locale?: string; // User locale preference
+  username?: string;
+  password?: string;
+  getAuthToken?: () => Promise<string>;
+  locale?: string;
   additionalFlags?: Record<string, boolean>;
   customizations?: {
     content?: {
@@ -148,6 +151,40 @@ export interface HomePageConfig {
   maintainAspectRatio?: boolean;
 }
 
+export type AuthTypeOption =
+  | "None"
+  | "Basic"
+  | "EmbeddedSSO"
+  | "TrustedAuthTokenCookieless";
+
+export type TrustedAuthMode = "token" | "secret_key";
+
+export interface AuthConfig {
+  authType: AuthTypeOption;
+  username?: string;
+  password?: string; // Basic auth only; not exported
+  trustedAuthMode?: TrustedAuthMode;
+  trustedAuthToken?: string; // Manual token; not exported
+  secretKeyOrgId?: string; // For secret_key mode; org to generate the token for; defaults to "0"
+  orgName?: string; // The org this configuration expects to run in, for all auth types; unset means any org is allowed
+}
+
+export interface StarterPrompt {
+  id: string;
+  displayText: string;
+  fullPrompt: string;
+}
+
+export interface SpotterVizConfig {
+  enabled: boolean;
+  brandName?: string;
+  brandHeadline?: string;
+  description?: string;
+  inputChatPlaceholder?: string;
+  hideStarterPrompts?: boolean;
+  customStarterPrompts?: StarterPrompt[];
+}
+
 export interface AppConfig {
   thoughtspotUrl: string;
   applicationName: string;
@@ -156,7 +193,9 @@ export interface AppConfig {
   favicon?: string;
   faviconSyncEnabled?: boolean;
   showFooter: boolean;
-  showLogo?: boolean; // If false, hide the logo and only show the application name
+  showLogo?: boolean;
+  showVizPicker?: boolean;
+  authConfig?: AuthConfig;
   chatbot?: {
     enabled: boolean;
     defaultModelId?: string;
@@ -165,6 +204,7 @@ export interface AppConfig {
     position?: "bottom-right" | "bottom-left";
     spotgptApiKey?: string;
   };
+  spotterViz?: SpotterVizConfig;
 }
 
 export interface FullAppConfig {
@@ -216,12 +256,14 @@ export interface CustomMenu {
   icon: string;
   enabled: boolean;
   contentSelection: {
-    type: "specific" | "tag" | "direct";
+    type: "specific" | "tag" | "collection" | "direct";
     specificContent?: {
       liveboards: string[];
       answers: string[];
     };
     tagIdentifiers?: string[];
+    collectionId?: string;
+    collectionName?: string;
     contentType?: "answer" | "liveboard";
     // Direct embed configuration
     directEmbed?: {
@@ -239,10 +281,24 @@ export interface ThoughtSpotTag {
   color: string;
 }
 
+export interface ThoughtSpotCollection {
+  id: string;
+  name: string;
+}
+
 // User access control types
 export interface HiddenActionsConfig {
   enabled: boolean;
   actions: string[]; // Array of action names (Action enum values or custom strings)
+}
+
+export type SDKActionsMode = "disabled" | "hidden" | "visible";
+
+export interface SDKActionsConfig {
+  enabled: boolean;
+  mode: SDKActionsMode;
+  actions: string[];
+  disabledReason?: string;
 }
 
 export interface UserAccess {
@@ -256,7 +312,8 @@ export interface UserAccess {
     "all-content": boolean;
   };
   customMenus: string[]; // Array of custom menu IDs that the user can access
-  hiddenActions?: HiddenActionsConfig; // Configuration for hidden actions
+  hiddenActions?: HiddenActionsConfig; // Legacy: kept for backward compatibility
+  sdkActionsOverride?: SDKActionsConfig; // Per-user override for SDK action visibility
   runtimeFilters?: RuntimeFilter[]; // User-specific runtime filters
 }
 
@@ -352,6 +409,9 @@ export interface StylingConfig {
   embeddedContent: EmbeddedContentCustomization;
   embedFlags?: EmbedFlags;
   doubleClickHandling?: DoubleClickHandlingConfig;
+  sdkActions?: SDKActionsConfig;
+  standardActions?: StandardActionConfig[];
+  customActions?: CustomActionConfig[];
   embedDisplay?: {
     hideTitle?: boolean;
     hideDescription?: boolean;
@@ -364,6 +424,114 @@ export interface DoubleClickHandlingConfig {
   showDefaultModal: boolean;
   customJavaScript?: string;
   modalTitle?: string;
+}
+
+// Custom Action Position enum (matches SDK CustomActionsPosition)
+export enum CustomActionPosition {
+  PRIMARY = "PRIMARY",
+  MENU = "MENU",
+  CONTEXT_MENU = "CONTEXTMENU",
+}
+
+// Custom Action Target enum (matches SDK CustomActionTarget)
+export enum CustomActionTarget {
+  LIVEBOARD = "LIVEBOARD",
+  VIZ = "VIZ",
+  ANSWER = "ANSWER",
+  SPOTTER = "SPOTTER",
+}
+
+// Handler type for custom actions
+export type CustomActionHandlerType = "prebuilt" | "custom";
+
+// Pre-built handler parameter configuration
+export interface PrebuiltHandlerParam {
+  name: string;
+  type: "string" | "number" | "boolean" | "select" | "multiselect";
+  label: string;
+  description?: string;
+  required?: boolean;
+  defaultValue?: string | number | boolean | string[];
+  options?: { value: string; label: string }[]; // For select/multiselect types
+}
+
+// Pre-built handler definition (used in the registry)
+export interface PrebuiltHandlerDefinition {
+  id: string;
+  name: string;
+  description: string;
+  category?: string;
+  parameters?: PrebuiltHandlerParam[];
+  // The actual handler function is stored in the registry, not serialized
+}
+
+// Custom action handler configuration (stored in config)
+export interface CustomActionHandlerConfig {
+  type: CustomActionHandlerType;
+  // For prebuilt handlers
+  prebuiltHandlerId?: string;
+  prebuiltHandlerParams?: Record<string, string | number | boolean | string[]>;
+  // For custom code handlers
+  customJavaScript?: string;
+}
+
+// Custom action configuration (stored in config)
+export interface CustomActionConfig {
+  // Required fields
+  id: string;
+  name: string;
+  position: CustomActionPosition;
+  target: CustomActionTarget;
+  // Optional scoping fields
+  metadataIds?: {
+    answerIds?: string[];
+    liveboardIds?: string[];
+    vizIds?: string[];
+  };
+  dataModelIds?: {
+    modelIds?: string[];
+    columnNames?: string[]; // Format: "modelId::columnName"
+  };
+  orgIds?: string[];
+  groupIds?: string[];
+  // Handler configuration
+  handler: CustomActionHandlerConfig;
+  // UI metadata
+  enabled: boolean;
+  description?: string;
+}
+
+// Standard Action Definition - defines a pre-built action with its handler
+export interface StandardActionDefinition {
+  id: string;
+  name: string;
+  description: string;
+  defaultPosition: CustomActionPosition;
+  defaultTarget: CustomActionTarget;
+  // The handler ID that references the actual implementation
+  handlerId: string;
+  // Default parameters for the handler
+  defaultParams?: Record<string, string | number | boolean | string[]>;
+  // Whether the action supports metadata filtering
+  supportsMetadataFiltering?: boolean;
+}
+
+// Standard Action Configuration - user's configuration for a standard action
+export interface StandardActionConfig {
+  // Reference to the standard action definition
+  standardActionId: string;
+  // User-configurable fields
+  enabled: boolean;
+  position: CustomActionPosition;
+  target: CustomActionTarget;
+  // Optional scoping fields
+  metadataIds?: {
+    answerIds?: string[];
+    liveboardIds?: string[];
+    vizIds?: string[];
+  };
+  // Custom parameters that override defaults
+  params?: Record<string, string | number | boolean | string[]>;
 }
 
 // Runtime filter types

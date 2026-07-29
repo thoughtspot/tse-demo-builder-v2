@@ -26,9 +26,13 @@ interface ThoughtSpotMetadata {
   };
 }
 
-interface ThoughtSpotUser {
+export interface ThoughtSpotUser {
   name: string;
   display_name: string;
+  email?: string;
+  id?: string;
+  currentOrgId?: number;
+  currentOrgName?: string;
 }
 
 interface ThoughtSpotTag {
@@ -79,7 +83,7 @@ function getLogicalTableType(metadataHeader?: {
 
 // Consolidated search function
 async function searchMetadata(
-  params: SearchParams = {}
+  params: SearchParams = {},
 ): Promise<ThoughtSpotSearchResponse> {
   const {
     metadataTypes = [],
@@ -158,9 +162,14 @@ async function searchMetadata(
 
 import { ThoughtSpotContent } from "../types/thoughtspot";
 
-// Default ThoughtSpot URL - will be overridden by the configured URL
-let THOUGHTSPOT_BASE_URL =
-  "https://se-thoughtspot-cloud.thoughtspot.cloud/api/rest/2.0";
+// Set via setThoughtSpotBaseUrl once the configured URL is known. Left blank
+// until then so calls made before configuration loads fail harmlessly
+// instead of silently hitting an unrelated server.
+let THOUGHTSPOT_BASE_URL = "";
+
+// When using TrustedAuthTokenCookieless, API calls need the Bearer token.
+// Layout sets this when auth config uses trusted auth.
+let authTokenGetter: (() => Promise<string | null>) | null = null;
 
 export function setThoughtSpotBaseUrl(url: string) {
   // Ensure the URL ends with /api/rest/2.0
@@ -173,18 +182,47 @@ export function setThoughtSpotBaseUrl(url: string) {
   THOUGHTSPOT_BASE_URL = url;
 }
 
+export function setThoughtSpotAuthTokenGetter(
+  getter: (() => Promise<string | null>) | null,
+) {
+  authTokenGetter = getter;
+}
+
+/**
+ * Returns headers and credentials for ThoughtSpot API calls.
+ * When using TrustedAuthTokenCookieless, adds Authorization: Bearer <token>.
+ * Export for use by customActionHandlers and other direct API callers.
+ */
+export async function getThoughtSpotAuthForRequest(): Promise<{
+  headers: Record<string, string>;
+  credentials: RequestCredentials;
+}> {
+  if (authTokenGetter) {
+    const token = await authTokenGetter();
+    if (token) {
+      return {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: "omit",
+      };
+    }
+  }
+  return { headers: {}, credentials: "include" };
+}
+
 async function makeThoughtSpotApiCall(
   endpoint: string,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
 ): Promise<ThoughtSpotSearchResponse> {
   try {
+    const auth = await getThoughtSpotAuthForRequest();
     const response = await fetch(`${THOUGHTSPOT_BASE_URL}${endpoint}`, {
       method: "POST",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
+        ...auth.headers,
       },
-      credentials: "include", // Include session cookies
+      credentials: auth.credentials,
       body: JSON.stringify(data),
     });
 
@@ -192,13 +230,13 @@ async function makeThoughtSpotApiCall(
       // Handle 401 (Unauthorized) gracefully - this is expected when not logged in
       if (response.status === 401) {
         console.log(
-          "User not authenticated (401) - this is expected when not logged in"
+          "User not authenticated (401) - this is expected when not logged in",
         );
         return [];
       }
 
       throw new Error(
-        `API call failed: ${response.status} ${response.statusText}`
+        `API call failed: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -208,7 +246,7 @@ async function makeThoughtSpotApiCall(
     // Don't log 401 errors as they are expected when not logged in
     if (error instanceof Error && error.message.includes("401")) {
       console.log(
-        "User not authenticated (401) - this is expected when not logged in"
+        "User not authenticated (401) - this is expected when not logged in",
       );
     } else {
       console.error("ThoughtSpot API call failed:", error);
@@ -219,35 +257,38 @@ async function makeThoughtSpotApiCall(
 }
 
 async function makeThoughtSpotGetCall(
-  endpoint: string
+  endpoint: string,
 ): Promise<Record<string, unknown>> {
   try {
+    const auth = await getThoughtSpotAuthForRequest();
     const url = `${THOUGHTSPOT_BASE_URL}${endpoint}`;
     const response = await fetch(url, {
       method: "GET",
       headers: {
         Accept: "application/json",
+        ...auth.headers,
       },
-      credentials: "include", // Include session cookies
+      credentials: auth.credentials,
+      cache: "no-store",
     });
 
     console.log(
       "makeThoughtSpotGetCall: Response status:",
       response.status,
-      response.statusText
+      response.statusText,
     );
 
     if (!response.ok) {
       // Handle 401 (Unauthorized) gracefully - this is expected when not logged in
       if (response.status === 401) {
         console.log(
-          "User not authenticated (401) - this is expected when not logged in"
+          "User not authenticated (401) - this is expected when not logged in",
         );
         return {};
       }
 
       throw new Error(
-        `API call failed: ${response.status} ${response.statusText}`
+        `API call failed: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -259,7 +300,7 @@ async function makeThoughtSpotGetCall(
     // Don't log 401 errors as they are expected when not logged in
     if (error instanceof Error && error.message.includes("401")) {
       console.log(
-        "User not authenticated (401) - this is expected when not logged in"
+        "User not authenticated (401) - this is expected when not logged in",
       );
     } else {
       console.error("ThoughtSpot GET API call failed:", error);
@@ -271,16 +312,18 @@ async function makeThoughtSpotGetCall(
 
 async function makeThoughtSpotTagsCall(
   endpoint: string,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
 ): Promise<ThoughtSpotTag[]> {
   try {
+    const auth = await getThoughtSpotAuthForRequest();
     const response = await fetch(`${THOUGHTSPOT_BASE_URL}${endpoint}`, {
       method: "POST",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
+        ...auth.headers,
       },
-      credentials: "include", // Include session cookies
+      credentials: auth.credentials,
       body: JSON.stringify(data),
     });
 
@@ -288,13 +331,13 @@ async function makeThoughtSpotTagsCall(
       // Handle 401 (Unauthorized) gracefully - this is expected when not logged in
       if (response.status === 401) {
         console.log(
-          "User not authenticated (401) - this is expected when not logged in"
+          "User not authenticated (401) - this is expected when not logged in",
         );
         return [];
       }
 
       throw new Error(
-        `API call failed: ${response.status} ${response.statusText}`
+        `API call failed: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -304,7 +347,7 @@ async function makeThoughtSpotTagsCall(
     // Don't log 401 errors as they are expected when not logged in
     if (error instanceof Error && error.message.includes("401")) {
       console.log(
-        "User not authenticated (401) - this is expected when not logged in"
+        "User not authenticated (401) - this is expected when not logged in",
       );
     } else {
       console.error("ThoughtSpot tags API call failed:", error);
@@ -393,7 +436,7 @@ export async function fetchAnswers(): Promise<ThoughtSpotContent[]> {
             type: "ANSWER",
           },
         ],
-      }
+      },
     );
 
     // Check if response exists and is an array
@@ -438,7 +481,7 @@ export async function fetchAnswersWithStats(): Promise<ThoughtSpotContent[]> {
             type: "ANSWER",
           },
         ],
-      }
+      },
     );
 
     // Check if response exists and is an array
@@ -506,7 +549,7 @@ export async function fetchModels(): Promise<ThoughtSpotContent[]> {
 }
 
 export async function fetchModelDetails(
-  modelId: string
+  modelId: string,
 ): Promise<ThoughtSpotModelDetails | null> {
   try {
     const response = await searchMetadata({
@@ -562,7 +605,7 @@ export async function fetchModelDetails(
             name: col.name || col.column_name || "Unknown",
             type: col.type || col.data_type || "Unknown",
             description: col.description || col.column_description,
-          })
+          }),
         );
       }
     }
@@ -689,7 +732,7 @@ export async function fetchFavoriteLiveboardsWithStats(): Promise<
             type: "LIVEBOARD",
           },
         ],
-      }
+      },
     );
 
     // Check if response exists and is an array
@@ -740,7 +783,7 @@ export async function fetchFavoriteAnswersWithStats(): Promise<
             type: "ANSWER",
           },
         ],
-      }
+      },
     );
 
     // Check if response exists and is an array
@@ -792,7 +835,7 @@ export async function fetchFavoritesWithStats(): Promise<{
 export async function getCurrentUser(): Promise<ThoughtSpotUser | null> {
   try {
     const response = (await makeThoughtSpotGetCall(
-      "/auth/session/user"
+      "/auth/session/user",
     )) as Record<string, unknown>;
 
     if (
@@ -800,16 +843,27 @@ export async function getCurrentUser(): Promise<ThoughtSpotUser | null> {
       typeof response.name === "string" &&
       typeof response.display_name === "string"
     ) {
+      const currentOrg = response.current_org as
+        | { id?: number; name?: string }
+        | undefined;
       return {
         name: response.name,
         display_name: response.display_name,
+        ...(typeof response.email === "string" && { email: response.email }),
+        ...(typeof response.id === "string" && { id: response.id }),
+        ...(typeof currentOrg?.id === "number" && {
+          currentOrgId: currentOrg.id,
+        }),
+        ...(typeof currentOrg?.name === "string" && {
+          currentOrgName: currentOrg.name,
+        }),
       };
     }
 
     // If response is empty (401 case), don't log a warning - this is expected
     if (!response || Object.keys(response).length === 0) {
       console.log(
-        "getCurrentUser: Empty response (likely 401), returning null"
+        "getCurrentUser: Empty response (likely 401), returning null",
       );
       return null;
     }
@@ -821,7 +875,7 @@ export async function getCurrentUser(): Promise<ThoughtSpotUser | null> {
     // Don't log 401 errors as they are expected when not logged in
     if (error instanceof Error && error.message.includes("401")) {
       console.log(
-        "User not authenticated (401) - this is expected when not logged in"
+        "User not authenticated (401) - this is expected when not logged in",
       );
     } else {
       console.error("Failed to fetch current user:", error);
@@ -831,7 +885,7 @@ export async function getCurrentUser(): Promise<ThoughtSpotUser | null> {
 }
 
 export async function fetchUserLiveboardsWithStats(
-  userName: string
+  userName: string,
 ): Promise<ThoughtSpotContent[]> {
   try {
     const response: ThoughtSpotSearchResponse = await makeThoughtSpotApiCall(
@@ -851,7 +905,7 @@ export async function fetchUserLiveboardsWithStats(
             type: "LIVEBOARD",
           },
         ],
-      }
+      },
     );
 
     // Check if response exists and is an array
@@ -880,7 +934,7 @@ export async function fetchUserLiveboardsWithStats(
 }
 
 export async function fetchUserAnswersWithStats(
-  userName: string
+  userName: string,
 ): Promise<ThoughtSpotContent[]> {
   try {
     const response: ThoughtSpotSearchResponse = await makeThoughtSpotApiCall(
@@ -900,7 +954,7 @@ export async function fetchUserAnswersWithStats(
             type: "ANSWER",
           },
         ],
-      }
+      },
     );
 
     // Check if response exists and is an array
@@ -942,7 +996,7 @@ export async function fetchUserContentWithStats(userName: string): Promise<{
   } catch (error) {
     console.error(
       "Failed to fetch ThoughtSpot user content with stats:",
-      error
+      error,
     );
     // Return empty arrays on error
     return {
@@ -1029,9 +1083,200 @@ export async function fetchContentByTags(tagIdentifiers: string[]): Promise<{
   }
 }
 
+export async function fetchCollections(
+  namePattern?: string,
+): Promise<Array<{ id: string; name: string; path: string }>> {
+  try {
+    const auth = await getThoughtSpotAuthForRequest();
+    const body: Record<string, unknown> = {
+      record_size: -1,
+      include_metadata: true,
+    };
+    if (namePattern) {
+      body.name_pattern = namePattern;
+    }
+    const response = await fetch(`${THOUGHTSPOT_BASE_URL}/collections/search`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...auth.headers,
+      },
+      credentials: auth.credentials,
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        console.log(
+          "User not authenticated (401) - this is expected when not logged in",
+        );
+        return [];
+      }
+      throw new Error(
+        `API call failed: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const data = await response.json();
+    const collections = data?.collections;
+    if (!Array.isArray(collections)) return [];
+
+    console.log("[fetchCollections] API returned", collections.length, "collections:", collections.map((c: { name: string; metadata?: unknown[] }) => ({ name: c.name, metadataGroups: c.metadata?.length ?? 0 })));
+
+    // Build id->name and child->parent maps.
+    // Sub-collections only appear as COLLECTION-type items inside a parent's metadata —
+    // they are not returned as separate top-level entries by the search API.
+    const idToName = new Map<string, string>();
+    const childToParent = new Map<string, string>();
+
+    for (const c of collections) {
+      idToName.set(c.id, c.name);
+    }
+
+    // Walk every collection's metadata, registering sub-collections and their names
+    for (const c of collections) {
+      if (Array.isArray(c.metadata)) {
+        for (const group of c.metadata) {
+          if (group.type === "COLLECTION") {
+            for (const item of group.identifiers || []) {
+              if (item.identifier) {
+                childToParent.set(item.identifier, c.id);
+                // Register name in case this child isn't in the top-level list
+                if (!idToName.has(item.identifier) && item.name) {
+                  idToName.set(item.identifier, item.name);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Combine: top-level results + any sub-collections found only in metadata
+    const allCollections = new Map<string, string>();
+    for (const c of collections) {
+      allCollections.set(c.id, c.name);
+    }
+    for (const [id, name] of idToName) {
+      if (!allCollections.has(id)) {
+        allCollections.set(id, name);
+      }
+    }
+
+    const getPath = (id: string): string => {
+      const parts: string[] = [];
+      let current: string | undefined = id;
+      const visited = new Set<string>();
+      while (current && !visited.has(current)) {
+        visited.add(current);
+        const name = idToName.get(current);
+        if (name) parts.unshift(name);
+        current = childToParent.get(current);
+      }
+      return parts.join(" -> ");
+    };
+
+    const result = Array.from(allCollections.entries())
+      .map(([id, name]) => ({ id, name, path: getPath(id) }))
+      .sort((a, b) => a.path.localeCompare(b.path));
+
+    console.log("[fetchCollections] Final list:", result.map(c => c.path));
+    return result;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("401")) {
+      console.log(
+        "User not authenticated (401) - this is expected when not logged in",
+      );
+    } else {
+      console.error("Failed to fetch collections:", error);
+    }
+    return [];
+  }
+}
+
+export async function fetchContentByCollection(collectionId: string): Promise<{
+  liveboards: ThoughtSpotContent[];
+  answers: ThoughtSpotContent[];
+}> {
+  try {
+    const auth = await getThoughtSpotAuthForRequest();
+    const response = await fetch(`${THOUGHTSPOT_BASE_URL}/collections/search`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...auth.headers,
+      },
+      credentials: auth.credentials,
+      body: JSON.stringify({
+        collection_identifiers: [collectionId],
+        include_metadata: true,
+        record_size: -1,
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        console.log(
+          "User not authenticated (401) - this is expected when not logged in",
+        );
+        return { liveboards: [], answers: [] };
+      }
+      throw new Error(
+        `API call failed: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const data = await response.json();
+    const collections = data?.collections;
+    console.log("[fetchContentByCollection] collectionId:", collectionId, "response collections:", collections?.length, collections?.map((c: { id: string; name: string; metadata?: unknown[] }) => ({ id: c.id, name: c.name, metadataGroups: c.metadata?.length ?? 0 })));
+    if (!Array.isArray(collections) || collections.length === 0) {
+      return { liveboards: [], answers: [] };
+    }
+
+    const collection = collections[0];
+    const liveboards: ThoughtSpotContent[] = [];
+    const answers: ThoughtSpotContent[] = [];
+
+    if (Array.isArray(collection.metadata)) {
+      for (const group of collection.metadata) {
+        const type: string = group.type || "";
+        const metadataList = group.identifiers || [];
+        for (const item of metadataList) {
+          const content: ThoughtSpotContent = {
+            id: item.identifier,
+            name: item.name,
+            type: type === "LIVEBOARD" ? "liveboard" : "answer",
+          };
+          if (type === "LIVEBOARD") {
+            liveboards.push(content);
+          } else if (type === "ANSWER") {
+            answers.push(content);
+          }
+        }
+      }
+    }
+
+    return {
+      liveboards: liveboards.sort((a, b) => a.name.localeCompare(b.name)),
+      answers: answers.sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("401")) {
+      console.log(
+        "User not authenticated (401) - this is expected when not logged in",
+      );
+    } else {
+      console.error("Failed to fetch content by collection:", error);
+    }
+    return { liveboards: [], answers: [] };
+  }
+}
+
 export async function fetchContentByIds(
   liveboardIds: string[],
-  answerIds: string[]
+  answerIds: string[],
 ): Promise<{
   liveboards: ThoughtSpotContent[];
   answers: ThoughtSpotContent[];
@@ -1116,7 +1361,7 @@ export async function fetchThoughtSpotVersion(): Promise<string | null> {
 
 export async function importVisualizationToLiveboard(
   toLiveboardId: string,
-  vizAnswerTML: string
+  vizAnswerTML: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // First, get the target liveboard TML
@@ -1194,7 +1439,7 @@ export async function importVisualizationToLiveboard(
         all_orgs_override: false,
         skip_diff_check: false,
         enable_large_metadata_validation: false,
-      }
+      },
     );
 
     console.log("Import response:", JSON.stringify(importResponse, null, 2));
@@ -1236,6 +1481,76 @@ export async function importVisualizationToLiveboard(
   }
 }
 
+export async function createLiveboard(
+  name: string,
+  description?: string,
+): Promise<{ id: string; name: string } | null> {
+  try {
+    // Build YAML TML — ThoughtSpot's TML import expects YAML, not JSON.
+    // JSON.stringify on strings produces properly quoted+escaped YAML string values.
+    const tmlLines = ["liveboard:", `  name: ${JSON.stringify(name)}`];
+    if (description) {
+      tmlLines.push(`  description: ${JSON.stringify(description)}`);
+    }
+    const liveboardTml = tmlLines.join("\n");
+
+    console.log("creating liveboard: ", tmlLines);
+
+    const importResponse = await makeThoughtSpotApiCall(
+      "/metadata/tml/import",
+      {
+        metadata_tmls: [liveboardTml],
+        import_policy: "ALL_OR_NONE",
+        create_new: true,
+        all_orgs_override: false,
+        skip_diff_check: false,
+        enable_large_metadata_validation: false,
+      },
+    );
+
+    if (
+      !importResponse ||
+      !Array.isArray(importResponse) ||
+      importResponse.length === 0
+    ) {
+      return null;
+    }
+
+    const result = importResponse[0] as {
+      response?: {
+        header?: { id_guid?: string };
+        object?: Array<{ header?: { id_guid?: string } }>;
+        status?: { status_code?: string };
+      };
+      status?: { status_code?: string };
+      id?: string;
+    };
+
+    const statusCode =
+      result.response?.status?.status_code || result.status?.status_code;
+
+    if (statusCode !== "OK" && statusCode !== "WARNING") {
+      console.error("createLiveboard: unexpected status", statusCode, result);
+      return null;
+    }
+
+    const guid =
+      result.response?.header?.id_guid ||
+      result.response?.object?.[0]?.header?.id_guid ||
+      result.id;
+
+    if (!guid) {
+      console.error("createLiveboard: no GUID in response", result);
+      return null;
+    }
+
+    return { id: guid, name };
+  } catch (error) {
+    console.error("Failed to create liveboard:", error);
+    return null;
+  }
+}
+
 export interface VisualizationHeader {
   id: string;
   name: string;
@@ -1245,7 +1560,7 @@ export interface VisualizationHeader {
 
 export async function exportVisualizationTML(
   liveboardId: string,
-  visualizationId: string
+  visualizationId: string,
 ): Promise<string | null> {
   try {
     // Export the entire liveboard TML
@@ -1297,13 +1612,13 @@ export async function exportVisualizationTML(
 
     // Find the specific visualization by viz_guid
     const visualization = edocData.liveboard.visualizations.find(
-      (viz) => viz.viz_guid === visualizationId
+      (viz) => viz.viz_guid === visualizationId,
     );
 
     if (!visualization || !visualization.answer) {
       console.warn(
         "Visualization not found or has no answer:",
-        visualizationId
+        visualizationId,
       );
       return null;
     }
@@ -1315,14 +1630,14 @@ export async function exportVisualizationTML(
       "Failed to export visualization TML:",
       liveboardId,
       visualizationId,
-      error
+      error,
     );
     return null;
   }
 }
 
 export async function fetchLiveboardWithVisualizations(
-  liveboardId: string
+  liveboardId: string,
 ): Promise<VisualizationHeader[]> {
   try {
     // First, get the liveboard TML to extract the Viz_nnn IDs
@@ -1441,7 +1756,160 @@ export async function fetchLiveboardWithVisualizations(
     console.error(
       "Failed to fetch liveboard with visualizations:",
       liveboardId,
-      error
+      error,
+    );
+    return [];
+  }
+}
+
+// Organization interface
+export interface ThoughtSpotOrg {
+  id: number;
+  name: string;
+  status?: string;
+  description?: string;
+  visibility?: string;
+}
+
+// Group interface
+export interface ThoughtSpotGroup {
+  id: string;
+  name: string;
+  display_name?: string;
+  description?: string;
+  type?: string;
+  visibility?: string;
+}
+
+// Generic POST call that returns a typed response
+async function makeThoughtSpotPostCall<T>(
+  endpoint: string,
+  data: Record<string, unknown>,
+): Promise<T | null> {
+  try {
+    const auth = await getThoughtSpotAuthForRequest();
+    const response = await fetch(`${THOUGHTSPOT_BASE_URL}${endpoint}`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...auth.headers,
+      },
+      credentials: auth.credentials,
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        console.log(
+          "User not authenticated (401) - this is expected when not logged in",
+        );
+        return null;
+      }
+      throw new Error(
+        `API call failed: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("401")) {
+      console.log(
+        "User not authenticated (401) - this is expected when not logged in",
+      );
+    } else {
+      console.error(`ThoughtSpot API call to ${endpoint} failed:`, error);
+    }
+    return null;
+  }
+}
+
+/**
+ * Fetch all organizations from ThoughtSpot
+ * Note: This requires appropriate permissions to view orgs
+ */
+export async function fetchOrgs(): Promise<ThoughtSpotOrg[]> {
+  try {
+    const response = await makeThoughtSpotPostCall<ThoughtSpotOrg[]>(
+      "/orgs/search",
+      {},
+    );
+
+    if (!response || !Array.isArray(response)) {
+      console.warn("No orgs array in response, returning empty array");
+      return [];
+    }
+
+    return response
+      .filter((org) => org.status !== "DELETED")
+      .map((org) => ({
+        id: org.id,
+        name: org.name,
+        status: org.status,
+        description: org.description,
+        visibility: org.visibility,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    console.error("Failed to fetch orgs:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch all groups from ThoughtSpot
+ * Note: This requires appropriate permissions to view groups
+ */
+export async function fetchGroups(): Promise<ThoughtSpotGroup[]> {
+  try {
+    const response = await makeThoughtSpotPostCall<ThoughtSpotGroup[]>(
+      "/groups/search",
+      {
+        record_offset: 0,
+        record_size: -1,
+      },
+    );
+
+    if (!response || !Array.isArray(response)) {
+      console.warn("No groups array in response, returning empty array");
+      return [];
+    }
+
+    return response
+      .filter((group) => !group.type?.includes("SYSTEM"))
+      .map((group) => ({
+        id: group.id,
+        name: group.name,
+        display_name: group.display_name,
+        description: group.description,
+        type: group.type,
+        visibility: group.visibility,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    console.error("Failed to fetch groups:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch visualizations for a specific liveboard
+ * Returns a list of viz IDs and names
+ */
+export async function fetchVisualizationsForLiveboard(
+  liveboardId: string,
+): Promise<Array<{ id: string; name: string }>> {
+  try {
+    const visualizations = await fetchLiveboardWithVisualizations(liveboardId);
+    return visualizations.map((viz) => ({
+      id: viz.id,
+      name: viz.name,
+    }));
+  } catch (error) {
+    console.error(
+      "Failed to fetch visualizations for liveboard:",
+      liveboardId,
+      error,
     );
     return [];
   }

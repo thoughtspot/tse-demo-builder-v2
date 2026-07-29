@@ -17,8 +17,10 @@
     "@mui/material": "^7.3.1",
     "@thoughtspot/visual-embed-sdk": "^1.39.3",
     "next": "^15.5.7",
+    "pdf-lib": "^1.17.1",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "tse-data-classes": "^1.0.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

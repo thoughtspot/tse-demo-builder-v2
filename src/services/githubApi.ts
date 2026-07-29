@@ -5,6 +5,13 @@ interface GitHubConfig {
   filename: string;
 }
 
+export interface GitHubStyle {
+  name: string;
+  description?: string;
+  styleData: Record<string, unknown>;
+  filename: string;
+}
+
 interface GitHubApiResponse {
   name: string;
   path: string;
@@ -187,6 +194,158 @@ export async function loadConfigurationFromGitHub(
     } else {
       throw new Error(
         "Unknown error occurred while loading configuration from GitHub."
+      );
+    }
+  }
+}
+
+const REPO_OWNER = "thoughtspot";
+const REPO_NAME = "tse-demo-builders-pre-built";
+const STYLES_PATH = "styles";
+
+export async function fetchSavedStyles(): Promise<GitHubStyle[]> {
+  try {
+    console.log("Fetching saved styles from GitHub...");
+
+    const response = await fetch(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${STYLES_PATH}`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/vnd.github.v3+json",
+          "User-Agent": "TSE-Demo-Builder",
+          "Content-Type": "application/json",
+        },
+        mode: "cors",
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log("No styles directory found in GitHub repo");
+        return [];
+      }
+      throw new Error(`Failed to fetch styles: ${response.statusText}`);
+    }
+
+    const contents: GitHubApiResponse[] = await response.json();
+
+    const jsonFiles = contents.filter(
+      (item) => item.type === "file" && item.name.endsWith(".json")
+    );
+
+    const styles: GitHubStyle[] = [];
+
+    for (const file of jsonFiles) {
+      try {
+        const styleResponse = await fetch(file.download_url, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "TSE-Demo-Builder",
+          },
+          mode: "cors",
+        });
+        if (styleResponse.ok) {
+          const styleData = await styleResponse.json();
+          const name = file.name.replace(".json", "");
+
+          styles.push({
+            name,
+            description: styleData.description || `Style: ${name}`,
+            styleData,
+            filename: file.name,
+          });
+        }
+      } catch (error) {
+        console.error(`Failed to fetch style ${file.name}:`, error);
+      }
+    }
+
+    console.log("Total styles loaded:", styles.length);
+    return styles;
+  } catch (error) {
+    console.error("Error fetching saved styles:", error);
+    throw error;
+  }
+}
+
+export async function loadStyleFromGitHub(
+  filename: string
+): Promise<Record<string, unknown>> {
+  try {
+    console.log("Loading style from GitHub:", filename);
+
+    const response = await fetch(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${STYLES_PATH}/${filename}`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/vnd.github.v3+json",
+          "User-Agent": "TSE-Demo-Builder",
+          "Content-Type": "application/json",
+        },
+        mode: "cors",
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 403) {
+        throw new Error(
+          "GitHub API rate limit exceeded. Please try again later."
+        );
+      } else if (response.status === 404) {
+        throw new Error(`Style file '${filename}' not found.`);
+      }
+      throw new Error(
+        `Failed to fetch style: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const fileData: GitHubApiResponse = await response.json();
+
+    const contentResponse = await fetch(fileData.download_url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "TSE-Demo-Builder",
+      },
+      mode: "cors",
+    });
+
+    if (!contentResponse.ok) {
+      throw new Error(
+        `Failed to fetch style content: ${contentResponse.status} ${contentResponse.statusText}`
+      );
+    }
+
+    const contentText = await contentResponse.text();
+
+    let styleData;
+    try {
+      styleData = JSON.parse(contentText);
+    } catch (parseError) {
+      console.error("Failed to parse GitHub style as JSON:", parseError);
+      throw new Error("Invalid JSON in GitHub style file");
+    }
+
+    console.log("Loaded style data from GitHub:", styleData);
+    return styleData;
+  } catch (error) {
+    console.error("Error loading style from GitHub:", error);
+
+    if (
+      error instanceof TypeError &&
+      error.message.includes("Failed to fetch")
+    ) {
+      throw new Error(
+        "Network error: Unable to connect to GitHub. Please check your internet connection and try again."
+      );
+    } else if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error(
+        "Unknown error occurred while loading style from GitHub."
       );
     }
   }

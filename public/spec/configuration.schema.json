@@ -1,0 +1,706 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tse-demo-builder-configuration.schema.json",
+  "title": "TSE Demo Builder Configuration",
+  "description": "Schema for a TSE Demo Builder configuration file (the JSON produced by 'Export Configuration' and accepted by 'Import Configuration' / loadConfigurationFromSource).",
+  "type": "object",
+  "required": [
+    "standardMenus",
+    "customMenus",
+    "menuOrder",
+    "homePageConfig",
+    "appConfig",
+    "fullAppConfig",
+    "stylingConfig",
+    "userConfig"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Semantic version of the configuration file format.",
+      "examples": ["1.0.0"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of when the configuration was exported."
+    },
+    "description": {
+      "type": "string",
+      "description": "Free-text description of the export."
+    },
+    "standardMenus": {
+      "type": "array",
+      "description": "Built-in application menus (Home, Favorites, My Reports, Spotter, Search, Full App, All Content) and their per-menu settings.",
+      "items": { "$ref": "#/definitions/StandardMenu" }
+    },
+    "customMenus": {
+      "type": "array",
+      "description": "User-defined menus that embed specific content, tagged content, a collection, or direct content.",
+      "items": { "$ref": "#/definitions/CustomMenu" }
+    },
+    "menuOrder": {
+      "type": "array",
+      "description": "Ordered list of menu ids (standard and custom) controlling navigation order.",
+      "items": { "type": "string" }
+    },
+    "homePageConfig": { "$ref": "#/definitions/HomePageConfig" },
+    "appConfig": { "$ref": "#/definitions/AppConfig" },
+    "fullAppConfig": { "$ref": "#/definitions/FullAppConfig" },
+    "stylingConfig": { "$ref": "#/definitions/StylingConfig" },
+    "userConfig": { "$ref": "#/definitions/UserConfig" }
+  },
+  "additionalProperties": false,
+
+  "definitions": {
+    "HomePageConfig": {
+      "type": "object",
+      "description": "Content shown on the Home menu / landing page.",
+      "required": ["type", "value"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["html", "url", "embed"],
+          "description": "How 'value' should be interpreted: raw HTML, an iframe URL, or a ThoughtSpot embed content id."
+        },
+        "value": {
+          "type": "string",
+          "description": "HTML string, URL, or content id, depending on 'type'."
+        },
+        "backgroundColor": { "$ref": "#/definitions/ColorString" },
+        "maintainAspectRatio": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+
+    "AuthConfig": {
+      "type": "object",
+      "description": "Authentication configuration for the embedded ThoughtSpot instance. 'password' and 'trustedAuthToken' are stripped on export.",
+      "required": ["authType"],
+      "properties": {
+        "authType": {
+          "type": "string",
+          "enum": ["None", "Basic", "EmbeddedSSO", "TrustedAuthTokenCookieless"]
+        },
+        "username": { "type": "string" },
+        "password": {
+          "type": "string",
+          "description": "Basic auth only. Not included in exported configurations."
+        },
+        "trustedAuthMode": {
+          "type": "string",
+          "enum": ["token", "secret_key"]
+        },
+        "trustedAuthToken": {
+          "type": "string",
+          "description": "Manually supplied trusted auth token. Not included in exported configurations."
+        },
+        "secretKeyOrgId": {
+          "type": "string",
+          "description": "Org to generate the trusted auth token for when trustedAuthMode is 'secret_key'. Defaults to \"0\"."
+        },
+        "orgName": {
+          "type": "string",
+          "description": "The org this configuration expects to run in. Unset means any org is allowed."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "StarterPrompt": {
+      "type": "object",
+      "required": ["id", "displayText", "fullPrompt"],
+      "properties": {
+        "id": { "type": "string" },
+        "displayText": { "type": "string" },
+        "fullPrompt": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "SpotterVizConfig": {
+      "type": "object",
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "brandName": { "type": "string" },
+        "brandHeadline": { "type": "string" },
+        "description": { "type": "string" },
+        "inputChatPlaceholder": { "type": "string" },
+        "hideStarterPrompts": { "type": "boolean" },
+        "customStarterPrompts": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/StarterPrompt" }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "AppConfig": {
+      "type": "object",
+      "description": "Top-level application settings.",
+      "required": [
+        "thoughtspotUrl",
+        "applicationName",
+        "logo",
+        "earlyAccessFlags",
+        "showFooter"
+      ],
+      "properties": {
+        "thoughtspotUrl": {
+          "type": "string",
+          "description": "Base URL of the ThoughtSpot instance to embed."
+        },
+        "applicationName": { "type": "string" },
+        "logo": {
+          "type": "string",
+          "description": "Path, URL, or data URL for the application logo."
+        },
+        "earlyAccessFlags": {
+          "type": "string",
+          "description": "Newline-separated list of ThoughtSpot early-access flag names."
+        },
+        "favicon": { "type": "string" },
+        "faviconSyncEnabled": {
+          "type": "boolean",
+          "description": "Whether the favicon should be kept in sync with the logo."
+        },
+        "showFooter": { "type": "boolean" },
+        "showLogo": { "type": "boolean" },
+        "showVizPicker": { "type": "boolean" },
+        "authConfig": { "$ref": "#/definitions/AuthConfig" },
+        "chatbot": {
+          "type": "object",
+          "required": ["enabled"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "defaultModelId": { "type": "string" },
+            "selectedModelIds": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "welcomeMessage": { "type": "string" },
+            "position": {
+              "type": "string",
+              "enum": ["bottom-right", "bottom-left"]
+            },
+            "spotgptApiKey": {
+              "type": "string",
+              "description": "Should be supplied via environment variable, not committed to a configuration file."
+            }
+          },
+          "additionalProperties": false
+        },
+        "spotterViz": { "$ref": "#/definitions/SpotterVizConfig" }
+      },
+      "additionalProperties": false
+    },
+
+    "FullAppConfig": {
+      "type": "object",
+      "required": ["showPrimaryNavbar", "hideHomepageLeftNav"],
+      "properties": {
+        "showPrimaryNavbar": { "type": "boolean" },
+        "hideHomepageLeftNav": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+
+    "StandardMenu": {
+      "type": "object",
+      "description": "Configuration for one of the built-in navigation menus.",
+      "required": ["id", "name", "enabled", "icon"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "enum": [
+            "home",
+            "favorites",
+            "my-reports",
+            "spotter",
+            "search",
+            "full-app",
+            "all-content"
+          ]
+        },
+        "name": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "icon": {
+          "type": "string",
+          "description": "Material icon name, emoji, or icon file path."
+        },
+        "homePageType": {
+          "type": "string",
+          "enum": ["html", "url", "embed"]
+        },
+        "homePageValue": { "type": "string" },
+        "homePageBackgroundColor": { "$ref": "#/definitions/ColorString" },
+        "homePageMaintainAspectRatio": { "type": "boolean" },
+        "tagFilter": { "type": "string" },
+        "modelId": { "type": "string" },
+        "contentId": { "type": "string" },
+        "namePattern": { "type": "string" },
+        "spotterModelId": { "type": "string" },
+        "spotterSearchQuery": { "type": "string" },
+        "searchDataSource": { "type": "string" },
+        "searchTokenString": { "type": "string" },
+        "runSearch": { "type": "boolean" },
+        "excludeSystemContent": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+
+    "CustomMenu": {
+      "type": "object",
+      "description": "A user-defined navigation menu.",
+      "required": ["id", "name", "description", "icon", "enabled", "contentSelection"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "icon": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "contentSelection": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["specific", "tag", "collection", "direct"]
+            },
+            "specificContent": {
+              "type": "object",
+              "required": ["liveboards", "answers"],
+              "properties": {
+                "liveboards": { "type": "array", "items": { "type": "string" } },
+                "answers": { "type": "array", "items": { "type": "string" } }
+              },
+              "additionalProperties": false
+            },
+            "tagIdentifiers": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "collectionId": { "type": "string" },
+            "collectionName": { "type": "string" },
+            "contentType": {
+              "type": "string",
+              "enum": ["answer", "liveboard"]
+            },
+            "directEmbed": {
+              "type": "object",
+              "required": ["type", "contentId"],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["liveboard", "answer", "spotter"]
+                },
+                "contentId": { "type": "string" },
+                "contentName": { "type": "string" },
+                "contentDescription": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "RuntimeFilter": {
+      "type": "object",
+      "required": ["columnName", "operator", "values"],
+      "properties": {
+        "columnName": { "type": "string" },
+        "operator": {
+          "type": "string",
+          "enum": [
+            "EQ", "NE", "LT", "LE", "GT", "GE",
+            "CONTAINS", "BEGINS_WITH", "ENDS_WITH",
+            "BW_INC_MAX", "BW_INC_MIN", "BW_INC", "BW",
+            "IN", "NOT_IN"
+          ]
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": ["string", "number", "boolean"]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "HiddenActionsConfig": {
+      "type": "object",
+      "description": "Deprecated in favor of sdkActionsOverride; kept for backward compatibility.",
+      "required": ["enabled", "actions"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "actions": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+
+    "SDKActionsConfig": {
+      "type": "object",
+      "required": ["enabled", "mode", "actions"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "mode": {
+          "type": "string",
+          "enum": ["disabled", "hidden", "visible"]
+        },
+        "actions": { "type": "array", "items": { "type": "string" } },
+        "disabledReason": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "UserAccess": {
+      "type": "object",
+      "required": ["standardMenus", "customMenus"],
+      "properties": {
+        "standardMenus": {
+          "type": "object",
+          "required": [
+            "home", "favorites", "my-reports", "spotter",
+            "search", "full-app", "all-content"
+          ],
+          "properties": {
+            "home": { "type": "boolean" },
+            "favorites": { "type": "boolean" },
+            "my-reports": { "type": "boolean" },
+            "spotter": { "type": "boolean" },
+            "search": { "type": "boolean" },
+            "full-app": { "type": "boolean" },
+            "all-content": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "customMenus": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Ids of custom menus this user can access."
+        },
+        "hiddenActions": { "$ref": "#/definitions/HiddenActionsConfig" },
+        "sdkActionsOverride": { "$ref": "#/definitions/SDKActionsConfig" },
+        "runtimeFilters": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/RuntimeFilter" }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "User": {
+      "type": "object",
+      "required": ["id", "name", "access"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "locale": {
+          "type": "string",
+          "description": "Defaults to \"en\" when unset."
+        },
+        "access": { "$ref": "#/definitions/UserAccess" }
+      },
+      "additionalProperties": false
+    },
+
+    "UserConfig": {
+      "type": "object",
+      "required": ["users"],
+      "properties": {
+        "users": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/User" }
+        },
+        "currentUserId": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "ColorString": {
+      "type": "string",
+      "description": "A CSS color value, typically a hex code (e.g. \"#3182ce\")."
+    },
+
+    "ColorPair": {
+      "type": "object",
+      "required": ["backgroundColor", "foregroundColor"],
+      "properties": {
+        "backgroundColor": { "$ref": "#/definitions/ColorString" },
+        "foregroundColor": { "$ref": "#/definitions/ColorString" }
+      },
+      "additionalProperties": false
+    },
+
+    "ButtonStyle": {
+      "type": "object",
+      "required": [
+        "backgroundColor", "foregroundColor", "borderColor",
+        "hoverBackgroundColor", "hoverForegroundColor"
+      ],
+      "properties": {
+        "backgroundColor": { "$ref": "#/definitions/ColorString" },
+        "foregroundColor": { "$ref": "#/definitions/ColorString" },
+        "borderColor": { "$ref": "#/definitions/ColorString" },
+        "hoverBackgroundColor": { "$ref": "#/definitions/ColorString" },
+        "hoverForegroundColor": { "$ref": "#/definitions/ColorString" }
+      },
+      "additionalProperties": false
+    },
+
+    "ApplicationStyles": {
+      "type": "object",
+      "description": "Colors and styling applied to the TSE Demo Builder chrome (not the embedded ThoughtSpot content itself).",
+      "required": ["topBar", "sidebar", "footer", "dialogs", "buttons", "backgrounds", "typography"],
+      "properties": {
+        "topBar": {
+          "type": "object",
+          "required": ["backgroundColor", "foregroundColor"],
+          "properties": {
+            "backgroundColor": { "$ref": "#/definitions/ColorString" },
+            "foregroundColor": { "$ref": "#/definitions/ColorString" },
+            "logoUrl": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "sidebar": {
+          "type": "object",
+          "required": ["backgroundColor", "foregroundColor"],
+          "properties": {
+            "backgroundColor": { "$ref": "#/definitions/ColorString" },
+            "foregroundColor": { "$ref": "#/definitions/ColorString" },
+            "hoverColor": { "$ref": "#/definitions/ColorString" },
+            "selectedColor": { "$ref": "#/definitions/ColorString" },
+            "selectedTextColor": { "$ref": "#/definitions/ColorString" }
+          },
+          "additionalProperties": false
+        },
+        "footer": { "$ref": "#/definitions/ColorPair" },
+        "dialogs": { "$ref": "#/definitions/ColorPair" },
+        "buttons": {
+          "type": "object",
+          "required": ["primary", "secondary"],
+          "properties": {
+            "primary": { "$ref": "#/definitions/ButtonStyle" },
+            "secondary": { "$ref": "#/definitions/ButtonStyle" }
+          },
+          "additionalProperties": false
+        },
+        "backgrounds": {
+          "type": "object",
+          "required": ["mainBackground", "contentBackground", "cardBackground", "borderColor"],
+          "properties": {
+            "mainBackground": { "$ref": "#/definitions/ColorString" },
+            "contentBackground": { "$ref": "#/definitions/ColorString" },
+            "cardBackground": { "$ref": "#/definitions/ColorString" },
+            "borderColor": { "$ref": "#/definitions/ColorString" }
+          },
+          "additionalProperties": false
+        },
+        "typography": {
+          "type": "object",
+          "required": ["primaryColor", "secondaryColor", "linkColor", "linkHoverColor"],
+          "properties": {
+            "primaryColor": { "$ref": "#/definitions/ColorString" },
+            "secondaryColor": { "$ref": "#/definitions/ColorString" },
+            "linkColor": { "$ref": "#/definitions/ColorString" },
+            "linkHoverColor": { "$ref": "#/definitions/ColorString" }
+          },
+          "additionalProperties": false
+        },
+        "selectedTheme": {
+          "type": "string",
+          "description": "Id of a predefined theme (e.g. \"default\", \"dark\", \"blue\", \"orange\", \"green\", \"purple\"), if one was applied."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "CustomCSS": {
+      "type": "object",
+      "properties": {
+        "variables": {
+          "type": "object",
+          "description": "ThoughtSpot CSS custom-property overrides, e.g. { \"--ts-var-button--primary-background\": \"#3182ce\" }.",
+          "additionalProperties": { "type": "string" }
+        },
+        "rules_UNSTABLE": {
+          "type": "object",
+          "description": "ThoughtSpot unstable CSS rule overrides, keyed by selector.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "EmbeddedContentCustomization": {
+      "type": "object",
+      "description": "Customizations applied to embedded ThoughtSpot content (strings, CSS variables/rules).",
+      "required": ["strings", "stringIDs", "customCSS"],
+      "properties": {
+        "strings": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "stringIDs": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "cssUrl": { "type": "string" },
+        "iconSpriteUrl": { "type": "string" },
+        "customCSS": { "$ref": "#/definitions/CustomCSS" }
+      },
+      "additionalProperties": false
+    },
+
+    "EmbedFlags": {
+      "type": "object",
+      "description": "Raw flags forwarded to the corresponding ThoughtSpot Visual Embed SDK embed instance.",
+      "properties": {
+        "spotterEmbed": { "type": "object" },
+        "liveboardEmbed": { "type": "object" },
+        "searchEmbed": { "type": "object" },
+        "appEmbed": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+
+    "DoubleClickHandlingConfig": {
+      "type": "object",
+      "required": ["enabled", "showDefaultModal"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "showDefaultModal": { "type": "boolean" },
+        "customJavaScript": { "type": "string" },
+        "modalTitle": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "CustomActionPosition": {
+      "type": "string",
+      "enum": ["PRIMARY", "MENU", "CONTEXTMENU"]
+    },
+
+    "CustomActionTarget": {
+      "type": "string",
+      "enum": ["LIVEBOARD", "VIZ", "ANSWER", "SPOTTER"]
+    },
+
+    "MetadataIds": {
+      "type": "object",
+      "properties": {
+        "answerIds": { "type": "array", "items": { "type": "string" } },
+        "liveboardIds": { "type": "array", "items": { "type": "string" } },
+        "vizIds": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+
+    "ActionParams": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "number", "boolean", "array"],
+        "items": { "type": "string" }
+      }
+    },
+
+    "CustomActionHandlerConfig": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["prebuilt", "custom"]
+        },
+        "prebuiltHandlerId": { "type": "string" },
+        "prebuiltHandlerParams": { "$ref": "#/definitions/ActionParams" },
+        "customJavaScript": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "CustomActionConfig": {
+      "type": "object",
+      "required": ["id", "name", "position", "target", "handler", "enabled"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "position": { "$ref": "#/definitions/CustomActionPosition" },
+        "target": { "$ref": "#/definitions/CustomActionTarget" },
+        "metadataIds": { "$ref": "#/definitions/MetadataIds" },
+        "dataModelIds": {
+          "type": "object",
+          "properties": {
+            "modelIds": { "type": "array", "items": { "type": "string" } },
+            "columnNames": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Format: \"modelId::columnName\"."
+            }
+          },
+          "additionalProperties": false
+        },
+        "orgIds": { "type": "array", "items": { "type": "string" } },
+        "groupIds": { "type": "array", "items": { "type": "string" } },
+        "handler": { "$ref": "#/definitions/CustomActionHandlerConfig" },
+        "enabled": { "type": "boolean" },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "StandardActionConfig": {
+      "type": "object",
+      "description": "User configuration for a pre-built standard action (referenced by standardActionId).",
+      "required": ["standardActionId", "enabled", "position", "target"],
+      "properties": {
+        "standardActionId": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "position": { "$ref": "#/definitions/CustomActionPosition" },
+        "target": { "$ref": "#/definitions/CustomActionTarget" },
+        "metadataIds": { "$ref": "#/definitions/MetadataIds" },
+        "params": { "$ref": "#/definitions/ActionParams" }
+      },
+      "additionalProperties": false
+    },
+
+    "StylingConfig": {
+      "type": "object",
+      "required": ["application", "embeddedContent"],
+      "properties": {
+        "application": { "$ref": "#/definitions/ApplicationStyles" },
+        "embeddedContent": { "$ref": "#/definitions/EmbeddedContentCustomization" },
+        "embedFlags": { "$ref": "#/definitions/EmbedFlags" },
+        "doubleClickHandling": { "$ref": "#/definitions/DoubleClickHandlingConfig" },
+        "sdkActions": { "$ref": "#/definitions/SDKActionsConfig" },
+        "standardActions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/StandardActionConfig" }
+        },
+        "customActions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/CustomActionConfig" }
+        },
+        "embedDisplay": {
+          "type": "object",
+          "properties": {
+            "hideTitle": { "type": "boolean" },
+            "hideDescription": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

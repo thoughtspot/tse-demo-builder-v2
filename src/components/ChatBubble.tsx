@@ -30,6 +30,8 @@ export default function ChatBubble() {
     context.stylingConfig.application.buttons?.primary?.hoverBackgroundColor ||
     "#2c5aa0";
   const position = chatbotConfig.position || "bottom-right";
+  const showFooter = context.appConfig.showFooter ?? true;
+  const bottomOffset = showFooter ? "56px" : "16px";
 
   // Don't render anything on the server side
   if (!isClient) {
@@ -43,7 +45,7 @@ export default function ChatBubble() {
         onClick={() => setIsChatOpen(true)}
         style={{
           position: "fixed",
-          bottom: "16px",
+          bottom: bottomOffset,
           [position === "bottom-right" ? "right" : "left"]: "16px",
           width: "64px",
           height: "64px",

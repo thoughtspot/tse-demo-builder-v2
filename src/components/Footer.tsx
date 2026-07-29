@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getCurrentUser } from "../services/thoughtspotApi";
+import {
+  getCurrentUser,
+  setThoughtSpotBaseUrl,
+  type ThoughtSpotUser,
+} from "../services/thoughtspotApi";
 import { useAppContext } from "./Layout";
-
-interface ThoughtSpotUser {
-  name: string;
-  display_name: string;
-}
 
 interface FooterProps {
   backgroundColor?: string;
@@ -23,15 +22,19 @@ export default function Footer({
   const [error, setError] = useState<string | null>(null);
 
   const { appConfig } = useAppContext();
-  const thoughtspotUrl =
-    appConfig.thoughtspotUrl ||
-    "https://se-thoughtspot-cloud.thoughtspot.cloud";
+  const thoughtspotUrl = appConfig.thoughtspotUrl;
 
   useEffect(() => {
+    if (!thoughtspotUrl) {
+      setLoading(false);
+      return;
+    }
+
     const fetchUser = async () => {
       try {
         setLoading(true);
         setError(null);
+        setThoughtSpotBaseUrl(thoughtspotUrl);
         const currentUser = await getCurrentUser();
         setUser(currentUser);
       } catch (error) {
@@ -43,7 +46,7 @@ export default function Footer({
     };
 
     fetchUser();
-  }, []);
+  }, [thoughtspotUrl]);
 
   // Helper function to create a hover color that's consistent with the foreground color
   const getHoverColor = (baseColor: string) => {
@@ -109,9 +112,12 @@ export default function Footer({
         ) : error ? (
           <span style={{ color: "#e53e3e" }}>Could not retrieve</span>
         ) : user ? (
-          <span>{user.display_name}</span>
+          <span>
+            {user.display_name} (Logged in
+            {user.currentOrgName ? ` · Org: ${user.currentOrgName}` : ""})
+          </span>
         ) : (
-          <span style={{ color: "#e53e3e" }}>Unknown</span>
+          <span>Not logged in</span>
         )}
       </div>
     </footer>

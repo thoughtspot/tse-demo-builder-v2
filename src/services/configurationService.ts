@@ -2,6 +2,7 @@ import { loadConfigurationFromGitHub } from "./githubApi";
 import {
   HomePageConfig,
   AppConfig,
+  AuthConfig,
   FullAppConfig,
   StylingConfig,
   UserConfig,
@@ -70,7 +71,7 @@ function queueSave(saveOperation: () => Promise<void>): Promise<void> {
       }
     } else {
       console.log(
-        `[SaveQueue] Skipping save operation ${saveId} (superseded by newer save)`
+        `[SaveQueue] Skipping save operation ${saveId} (superseded by newer save)`,
       );
     }
   });
@@ -160,13 +161,17 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     maintainAspectRatio: true,
   },
   appConfig: {
-    thoughtspotUrl: "https://se-thoughtspot-cloud.thoughtspot.cloud/",
+    thoughtspotUrl: "",
     applicationName: "TSE Demo Builder",
     logo: "/ts.svg",
     earlyAccessFlags: "enable-modular-home\nenable-custom-styling",
     favicon: "/ts.svg",
     showFooter: true,
     showLogo: true,
+    showVizPicker: false,
+    authConfig: {
+      authType: "None",
+    },
     chatbot: {
       enabled: true,
       defaultModelId: undefined,
@@ -174,6 +179,9 @@ export const DEFAULT_CONFIG: ConfigurationData = {
       welcomeMessage:
         "Hello! I'm your AI assistant. What would you like to know about your data?",
       position: "bottom-right",
+    },
+    spotterViz: {
+      enabled: true,
     },
   },
   fullAppConfig: {
@@ -243,13 +251,18 @@ export const DEFAULT_CONFIG: ConfigurationData = {
       },
     },
     embedFlags: {
+      spotterEmbed: {
+        updatedSpotterChatPrompt: true,
+      },
       liveboardEmbed: {
         enable2ColumnLayout: true,
         isLiveboardStylingAndGroupingEnabled: true,
+        isLiveboardMasterpiecesEnabled: true,
       },
       appEmbed: {
         enable2ColumnLayout: true,
         isLiveboardStylingAndGroupingEnabled: true,
+        isLiveboardMasterpiecesEnabled: true,
       },
     },
     embedDisplay: {
@@ -299,7 +312,7 @@ const openIndexedDB = (): Promise<IDBDatabase> => {
 
 const saveToIndexedDB = async (
   key: string,
-  data: ConfigurationData
+  data: ConfigurationData,
 ): Promise<void> => {
   try {
     const db = await openIndexedDB();
@@ -318,7 +331,7 @@ const saveToIndexedDB = async (
 };
 
 const loadFromIndexedDB = async (
-  key: string
+  key: string,
 ): Promise<ConfigurationData | null> => {
   try {
     const db = await openIndexedDB();
@@ -391,7 +404,7 @@ const migrateFromOldStorage = (): ConfigurationData | null => {
   try {
     // Check if any old keys exist
     const hasOldData = Object.values(oldKeys).some(
-      (key) => localStorage.getItem(key) !== null
+      (key) => localStorage.getItem(key) !== null,
     );
 
     if (!hasOldData) {
@@ -474,11 +487,11 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
       });
       console.log(
         "[ConfigService] RAW parsed.userConfig.users from localStorage:",
-        JSON.stringify(parsed.userConfig?.users, null, 2)
+        JSON.stringify(parsed.userConfig?.users, null, 2),
       );
       console.log(
         "Loaded iconSpriteUrl from localStorage:",
-        parsed.stylingConfig?.embeddedContent?.iconSpriteUrl
+        parsed.stylingConfig?.embeddedContent?.iconSpriteUrl,
       );
 
       // For existing configurations, only add missing fields from DEFAULT_CONFIG, don't overwrite existing values
@@ -521,7 +534,7 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
 
       // Clean up user custom menu access to only include existing custom menus
       const validCustomMenuIds = new Set(
-        (mergedConfig.customMenus || []).map((m: CustomMenu) => m.id)
+        (mergedConfig.customMenus || []).map((m: CustomMenu) => m.id),
       );
       if (mergedConfig.userConfig?.users) {
         mergedConfig.userConfig = {
@@ -532,10 +545,10 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
               access: {
                 ...user.access,
                 customMenus: (user.access?.customMenus || []).filter(
-                  (menuId: string) => validCustomMenuIds.has(menuId)
+                  (menuId: string) => validCustomMenuIds.has(menuId),
                 ),
               },
-            })
+            }),
           ),
         };
       }
@@ -552,7 +565,7 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
           !!mergedConfig.stylingConfig?.embeddedContent?.customCSS?.variables,
         variablesCount: Object.keys(
           mergedConfig.stylingConfig?.embeddedContent?.customCSS?.variables ||
-            {}
+            {},
         ).length,
         sampleVariable:
           mergedConfig.stylingConfig?.embeddedContent?.customCSS?.variables?.[
@@ -562,7 +575,7 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
 
       console.log(
         "Final merged config iconSpriteUrl:",
-        mergedConfig.stylingConfig?.embeddedContent?.iconSpriteUrl
+        mergedConfig.stylingConfig?.embeddedContent?.iconSpriteUrl,
       );
 
       return mergedConfig;
@@ -626,7 +639,7 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
 
       // Clean up user custom menu access to only include existing custom menus
       const validCustomMenuIds = new Set(
-        (mergedConfig.customMenus || []).map((m: CustomMenu) => m.id)
+        (mergedConfig.customMenus || []).map((m: CustomMenu) => m.id),
       );
       if (mergedConfig.userConfig?.users) {
         mergedConfig.userConfig = {
@@ -637,10 +650,10 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
               access: {
                 ...user.access,
                 customMenus: (user.access?.customMenus || []).filter(
-                  (menuId: string) => validCustomMenuIds.has(menuId)
+                  (menuId: string) => validCustomMenuIds.has(menuId),
                 ),
               },
-            })
+            }),
           ),
         };
       }
@@ -657,7 +670,7 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
           !!mergedConfig.stylingConfig?.embeddedContent?.customCSS?.variables,
         variablesCount: Object.keys(
           mergedConfig.stylingConfig?.embeddedContent?.customCSS?.variables ||
-            {}
+            {},
         ).length,
         sampleVariable:
           mergedConfig.stylingConfig?.embeddedContent?.customCSS?.variables?.[
@@ -677,7 +690,7 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
 };
 
 const saveToStorageInternal = async (
-  config: ConfigurationData
+  config: ConfigurationData,
 ): Promise<void> => {
   if (typeof window === "undefined") return;
 
@@ -702,14 +715,14 @@ const saveToStorageInternal = async (
       hasVariables:
         !!config.stylingConfig?.embeddedContent?.customCSS?.variables,
       variablesCount: Object.keys(
-        config.stylingConfig?.embeddedContent?.customCSS?.variables || {}
+        config.stylingConfig?.embeddedContent?.customCSS?.variables || {},
       ).length,
       sampleVariable:
         config.stylingConfig?.embeddedContent?.customCSS?.variables?.[
           "--ts-var-root-background"
         ],
       firstFiveKeys: Object.keys(
-        config.stylingConfig?.embeddedContent?.customCSS?.variables || {}
+        config.stylingConfig?.embeddedContent?.customCSS?.variables || {},
       ).slice(0, 5),
     });
 
@@ -731,14 +744,14 @@ const saveToStorageInternal = async (
       // Debug: Log what we're writing to localStorage
       console.log(
         "[saveToStorage] WRITING to localStorage - userConfig.users:",
-        JSON.stringify(config.userConfig.users, null, 2)
+        JSON.stringify(config.userConfig.users, null, 2),
       );
 
       console.log(
         "[saveToStorage] WRITING to localStorage - stylingConfig.embeddedContent.customCSS.variables keys:",
         Object.keys(
-          config.stylingConfig?.embeddedContent?.customCSS?.variables || {}
-        ).length
+          config.stylingConfig?.embeddedContent?.customCSS?.variables || {},
+        ).length,
       );
 
       // Double-check what's in the serialized string
@@ -746,8 +759,8 @@ const saveToStorageInternal = async (
       console.log(
         "[saveToStorage] After JSON.parse of serialized - variables count:",
         Object.keys(
-          parsedBack.stylingConfig?.embeddedContent?.customCSS?.variables || {}
-        ).length
+          parsedBack.stylingConfig?.embeddedContent?.customCSS?.variables || {},
+        ).length,
       );
 
       localStorage.setItem(STORAGE_KEY, serializedValue);
@@ -770,7 +783,7 @@ const saveToStorageInternal = async (
         const serializedValue = JSON.stringify(config);
         localStorage.setItem(STORAGE_KEY, serializedValue);
         console.log(
-          "Successfully saved configuration to localStorage fallback"
+          "Successfully saved configuration to localStorage fallback",
         );
       } catch (fallbackError) {
         console.error("Fallback localStorage save also failed:", fallbackError);
@@ -807,7 +820,7 @@ export const loadAllConfigurations = async (): Promise<ConfigurationData> => {
 
 // Save all configurations to storage
 export const saveAllConfigurations = async (
-  config: ConfigurationData
+  config: ConfigurationData,
 ): Promise<void> => {
   await saveToStorage(config);
 };
@@ -815,7 +828,7 @@ export const saveAllConfigurations = async (
 // Individual save functions for backward compatibility
 export const saveStandardMenus = async (
   standardMenus: StandardMenu[],
-  onError?: (message: string) => void
+  onError?: (message: string) => void,
 ) => {
   try {
     const currentConfig = await loadFromStorage();
@@ -832,7 +845,7 @@ export const saveStandardMenus = async (
 
 export const saveCustomMenus = async (
   customMenus: CustomMenu[],
-  onError?: (message: string) => void
+  onError?: (message: string) => void,
 ) => {
   if (isImportingConfiguration) {
     return;
@@ -853,7 +866,7 @@ export const saveCustomMenus = async (
 
 export const saveMenuOrder = async (
   menuOrder: string[],
-  onError?: (message: string) => void
+  onError?: (message: string) => void,
 ) => {
   try {
     const currentConfig = await loadFromStorage();
@@ -870,7 +883,7 @@ export const saveMenuOrder = async (
 
 export const saveHomePageConfig = async (
   homePageConfig: HomePageConfig,
-  onError?: (message: string) => void
+  onError?: (message: string) => void,
 ) => {
   try {
     const currentConfig = await loadFromStorage();
@@ -898,7 +911,7 @@ export const saveHomePageConfig = async (
 
 export const saveAppConfig = async (
   appConfig: AppConfig,
-  onError?: (message: string) => void
+  onError?: (message: string) => void,
 ) => {
   if (isImportingConfiguration) {
     return;
@@ -937,7 +950,7 @@ export const saveAppConfig = async (
 
 export const saveFullAppConfig = async (
   fullAppConfig: FullAppConfig,
-  onError?: (message: string) => void
+  onError?: (message: string) => void,
 ) => {
   try {
     const currentConfig = await loadFromStorage();
@@ -965,7 +978,7 @@ export const saveFullAppConfig = async (
 
 export const saveStylingConfig = async (
   stylingConfig: StylingConfig,
-  onError?: (message: string) => void
+  onError?: (message: string) => void,
 ) => {
   try {
     const currentConfig = await loadFromStorage();
@@ -1007,7 +1020,7 @@ export const saveStylingConfig = async (
 
 export const saveUserConfig = async (
   userConfig: UserConfig,
-  onError?: (message: string) => void
+  onError?: (message: string) => void,
 ) => {
   try {
     const currentConfig = await loadFromStorage();
@@ -1189,7 +1202,7 @@ export const checkStorageHealth = async (): Promise<{
 // Load configuration from various sources
 export const loadConfigurationFromSource = async (
   source: ConfigurationSource,
-  updateFunctions?: ConfigurationUpdateFunctions
+  updateFunctions?: ConfigurationUpdateFunctions,
 ): Promise<{
   success: boolean;
   data?: ConfigurationData;
@@ -1238,7 +1251,7 @@ export const loadConfigurationFromSource = async (
         !expectedFields.includes(field) &&
         field !== "version" &&
         field !== "timestamp" &&
-        field !== "description"
+        field !== "description",
     );
 
     if (missingFields.length > 0) {
@@ -1275,7 +1288,7 @@ export const loadConfigurationFromSource = async (
     storedStandardMenus.forEach((storedMenu) => {
       if (
         !mergedStandardMenus.find(
-          (defaultMenu) => defaultMenu.id === storedMenu.id
+          (defaultMenu) => defaultMenu.id === storedMenu.id,
         )
       ) {
         mergedStandardMenus.push(storedMenu);
@@ -1285,10 +1298,10 @@ export const loadConfigurationFromSource = async (
     // Update stored menus with any new properties from DEFAULT_CONFIG
     mergedStandardMenus.forEach((mergedMenu) => {
       const storedMenu = storedStandardMenus.find(
-        (m) => m.id === mergedMenu.id
+        (m) => m.id === mergedMenu.id,
       );
       const defaultMenu = DEFAULT_CONFIG.standardMenus.find(
-        (m) => m.id === mergedMenu.id
+        (m) => m.id === mergedMenu.id,
       );
 
       if (storedMenu) {
@@ -1369,7 +1382,7 @@ export const loadConfigurationFromSource = async (
         searchDataSource: menu.searchDataSource,
         searchTokenString: menu.searchTokenString,
         runSearch: menu.runSearch,
-      }))
+      })),
     );
 
     // Validate that the imported data has the correct structure
@@ -1386,9 +1399,8 @@ export const loadConfigurationFromSource = async (
     }
 
     // Convert data URLs to IndexedDB references before applying
-    const configWithIndexedDB = await convertDataURLsToIndexedDBReferences(
-      mergedConfig
-    );
+    const configWithIndexedDB =
+      await convertDataURLsToIndexedDBReferences(mergedConfig);
 
     // If update functions are provided, automatically apply the configuration
     if (updateFunctions) {
@@ -1415,7 +1427,7 @@ export interface ConfigurationUpdateFunctions {
     id: string,
     field: string,
     value: string | boolean,
-    skipFaviconUpdate?: boolean
+    skipFaviconUpdate?: boolean,
   ) => void;
   addCustomMenu: (menu: CustomMenu) => void;
   clearCustomMenus?: () => void;
@@ -1430,7 +1442,7 @@ export interface ConfigurationUpdateFunctions {
 
 // Save configuration directly to storage (synchronous approach)
 export const saveConfigurationToStorage = async (
-  config: ConfigurationData
+  config: ConfigurationData,
 ): Promise<void> => {
   console.log("=== Saving Configuration to Storage ===");
   console.log("Configuration to save:", {
@@ -1457,7 +1469,7 @@ export const saveConfigurationToStorage = async (
 // Apply configuration to the app state (legacy approach - kept for backward compatibility)
 export const applyConfiguration = async (
   config: ConfigurationData,
-  updateFunctions: ConfigurationUpdateFunctions
+  updateFunctions: ConfigurationUpdateFunctions,
 ) => {
   console.log("=== Applying Configuration ===");
   console.log("Configuration to apply:", {
@@ -1488,7 +1500,7 @@ export const applyConfiguration = async (
   console.log("Styling config to apply:", config.stylingConfig);
   console.log(
     "String IDs in config:",
-    config.stylingConfig.embeddedContent?.stringIDs
+    config.stylingConfig.embeddedContent?.stringIDs,
   );
 
   // Ensure the styling config has proper structure
@@ -1533,7 +1545,7 @@ export const applyConfiguration = async (
       console.log(`Applying standard menu ${index + 1}:`, menu.name, menu.id);
       console.log(
         `Full menu object for ${menu.id}:`,
-        JSON.stringify(menu, null, 2)
+        JSON.stringify(menu, null, 2),
       );
 
       // Apply all updates for this menu - the debounced save mechanism will batch them
@@ -1543,35 +1555,35 @@ export const applyConfiguration = async (
         menu.id,
         "icon",
         menu.icon,
-        menu.id === "home"
+        menu.id === "home",
       );
 
       if (menu.homePageType) {
         updateFunctions.updateStandardMenu(
           menu.id,
           "homePageType",
-          menu.homePageType
+          menu.homePageType,
         );
       }
       if (menu.homePageValue) {
         updateFunctions.updateStandardMenu(
           menu.id,
           "homePageValue",
-          menu.homePageValue
+          menu.homePageValue,
         );
       }
       if (menu.homePageBackgroundColor !== undefined) {
         updateFunctions.updateStandardMenu(
           menu.id,
           "homePageBackgroundColor",
-          menu.homePageBackgroundColor
+          menu.homePageBackgroundColor,
         );
       }
       if (menu.homePageMaintainAspectRatio !== undefined) {
         updateFunctions.updateStandardMenu(
           menu.id,
           "homePageMaintainAspectRatio",
-          menu.homePageMaintainAspectRatio
+          menu.homePageMaintainAspectRatio,
         );
       }
       if (menu.modelId) {
@@ -1581,7 +1593,7 @@ export const applyConfiguration = async (
         updateFunctions.updateStandardMenu(
           menu.id,
           "contentId",
-          menu.contentId
+          menu.contentId,
         );
       }
 
@@ -1589,42 +1601,42 @@ export const applyConfiguration = async (
         updateFunctions.updateStandardMenu(
           menu.id,
           "namePattern",
-          menu.namePattern
+          menu.namePattern,
         );
       }
       if (menu.spotterModelId) {
         updateFunctions.updateStandardMenu(
           menu.id,
           "spotterModelId",
-          menu.spotterModelId
+          menu.spotterModelId,
         );
       }
       if (menu.spotterSearchQuery) {
         updateFunctions.updateStandardMenu(
           menu.id,
           "spotterSearchQuery",
-          menu.spotterSearchQuery
+          menu.spotterSearchQuery,
         );
       }
       if (menu.searchDataSource) {
         updateFunctions.updateStandardMenu(
           menu.id,
           "searchDataSource",
-          menu.searchDataSource
+          menu.searchDataSource,
         );
       }
       if (menu.searchTokenString) {
         updateFunctions.updateStandardMenu(
           menu.id,
           "searchTokenString",
-          menu.searchTokenString
+          menu.searchTokenString,
         );
       }
       if (menu.runSearch !== undefined) {
         updateFunctions.updateStandardMenu(
           menu.id,
           "runSearch",
-          menu.runSearch
+          menu.runSearch,
         );
       }
 
@@ -1633,7 +1645,7 @@ export const applyConfiguration = async (
         console.log(`[Config Import] Updating home menu icon to: ${menu.icon}`);
         console.log(
           `[Config Import] Current app config from config file:`,
-          config.appConfig
+          config.appConfig,
         );
         // Directly update app config with the icon from the config file
         const currentAppConfig = config.appConfig;
@@ -1644,14 +1656,14 @@ export const applyConfiguration = async (
         };
         console.log(`[Config Import] Updated app config:`, updatedAppConfig);
         console.log(
-          `[Config Import] About to call updateAppConfig for home menu icon`
+          `[Config Import] About to call updateAppConfig for home menu icon`,
         );
         console.trace(
-          "[Config Import] Call stack before updateAppConfig for home menu:"
+          "[Config Import] Call stack before updateAppConfig for home menu:",
         );
         updateFunctions.updateAppConfig(updatedAppConfig, true);
         console.log(
-          `[Config Import] updateAppConfig call completed for home menu icon`
+          `[Config Import] updateAppConfig call completed for home menu icon`,
         );
 
         // Also update the TopBar logo in styling config
@@ -1682,7 +1694,7 @@ export const applyConfiguration = async (
     updateFunctions.clearCustomMenus();
   } else {
     console.log(
-      "clearCustomMenus function not available, will rely on addCustomMenu to handle duplicates"
+      "clearCustomMenus function not available, will rely on addCustomMenu to handle duplicates",
     );
   }
 
@@ -1724,7 +1736,7 @@ export const applyConfiguration = async (
       const exists = allMenuIds.includes(menuId);
       if (!exists) {
         console.warn(
-          `Menu ID "${menuId}" in menu order not found in standard or custom menus`
+          `Menu ID "${menuId}" in menu order not found in standard or custom menus`,
         );
       }
       return exists;
@@ -1734,7 +1746,7 @@ export const applyConfiguration = async (
     updateFunctions.setMenuOrder(validMenuOrder);
   } else {
     console.log(
-      "Menu order not applied (no setMenuOrder function or empty order)"
+      "Menu order not applied (no setMenuOrder function or empty order)",
     );
   }
 
@@ -1753,7 +1765,7 @@ export const applyConfiguration = async (
     if (updateFunctions.setIsImportingConfiguration) {
       updateFunctions.setIsImportingConfiguration(false);
       console.log(
-        "[Config Service] Configuration import completed, auto-save re-enabled"
+        "[Config Service] Configuration import completed, auto-save re-enabled",
       );
     }
   }, 1000);
@@ -1761,7 +1773,7 @@ export const applyConfiguration = async (
 
 // Helper function to convert data URLs to IndexedDB references
 const convertDataURLsToIndexedDBReferences = async (
-  config: ConfigurationData
+  config: ConfigurationData,
 ): Promise<ConfigurationData> => {
   try {
     const convertedConfig = { ...config };
@@ -1769,14 +1781,13 @@ const convertDataURLsToIndexedDBReferences = async (
     // Convert appConfig.logo if it's a data URL
     if (convertedConfig.appConfig?.logo?.startsWith("data:image")) {
       try {
-        const { saveImageToIndexedDB, generateImageId } = await import(
-          "../components/ImageUpload"
-        );
+        const { saveImageToIndexedDB, generateImageId } =
+          await import("../components/ImageUpload");
         const imageId = generateImageId();
         await saveImageToIndexedDB(imageId, convertedConfig.appConfig.logo);
         convertedConfig.appConfig.logo = `indexeddb://${imageId}`;
         console.log(
-          "Converted appConfig.logo from data URL to IndexedDB reference"
+          "Converted appConfig.logo from data URL to IndexedDB reference",
         );
       } catch (error) {
         console.warn("Failed to convert appConfig.logo from data URL:", error);
@@ -1786,21 +1797,20 @@ const convertDataURLsToIndexedDBReferences = async (
     // Convert stylingConfig.application.topBar.logoUrl if it's a data URL
     if (
       convertedConfig.stylingConfig?.application?.topBar?.logoUrl?.startsWith(
-        "data:image"
+        "data:image",
       )
     ) {
       try {
-        const { saveImageToIndexedDB, generateImageId } = await import(
-          "../components/ImageUpload"
-        );
+        const { saveImageToIndexedDB, generateImageId } =
+          await import("../components/ImageUpload");
         const imageId = generateImageId();
         await saveImageToIndexedDB(
           imageId,
-          convertedConfig.stylingConfig.application.topBar.logoUrl
+          convertedConfig.stylingConfig.application.topBar.logoUrl,
         );
         convertedConfig.stylingConfig.application.topBar.logoUrl = `indexeddb://${imageId}`;
         console.log(
-          "Converted topBar.logoUrl from data URL to IndexedDB reference"
+          "Converted topBar.logoUrl from data URL to IndexedDB reference",
         );
       } catch (error) {
         console.warn("Failed to convert topBar.logoUrl from data URL:", error);
@@ -1810,9 +1820,8 @@ const convertDataURLsToIndexedDBReferences = async (
     // Convert favicon if it's a data URL
     if (convertedConfig.appConfig?.favicon?.startsWith("data:image")) {
       try {
-        const { saveImageToIndexedDB, generateImageId } = await import(
-          "../components/ImageUpload"
-        );
+        const { saveImageToIndexedDB, generateImageId } =
+          await import("../components/ImageUpload");
         const imageId = generateImageId();
         await saveImageToIndexedDB(imageId, convertedConfig.appConfig.favicon);
         convertedConfig.appConfig.favicon = `indexeddb://${imageId}`;
@@ -1827,19 +1836,18 @@ const convertDataURLsToIndexedDBReferences = async (
       for (const menu of convertedConfig.standardMenus) {
         if (menu.icon?.startsWith("data:image")) {
           try {
-            const { saveImageToIndexedDB, generateImageId } = await import(
-              "../components/ImageUpload"
-            );
+            const { saveImageToIndexedDB, generateImageId } =
+              await import("../components/ImageUpload");
             const imageId = generateImageId();
             await saveImageToIndexedDB(imageId, menu.icon);
             menu.icon = `indexeddb://${imageId}`;
             console.log(
-              `Converted menu ${menu.id} icon from data URL to IndexedDB reference`
+              `Converted menu ${menu.id} icon from data URL to IndexedDB reference`,
             );
           } catch (error) {
             console.warn(
               `Failed to convert menu ${menu.id} icon from data URL:`,
-              error
+              error,
             );
           }
         }
@@ -1850,19 +1858,18 @@ const convertDataURLsToIndexedDBReferences = async (
           menu.homePageValue?.startsWith("data:image")
         ) {
           try {
-            const { saveImageToIndexedDB, generateImageId } = await import(
-              "../components/ImageUpload"
-            );
+            const { saveImageToIndexedDB, generateImageId } =
+              await import("../components/ImageUpload");
             const imageId = generateImageId();
             await saveImageToIndexedDB(imageId, menu.homePageValue);
             menu.homePageValue = `indexeddb://${imageId}`;
             console.log(
-              `Converted menu ${menu.id} homePageValue from data URL to IndexedDB reference`
+              `Converted menu ${menu.id} homePageValue from data URL to IndexedDB reference`,
             );
           } catch (error) {
             console.warn(
               `Failed to convert menu ${menu.id} homePageValue from data URL:`,
-              error
+              error,
             );
           }
         }
@@ -1874,19 +1881,18 @@ const convertDataURLsToIndexedDBReferences = async (
       for (const menu of convertedConfig.customMenus) {
         if (menu.icon?.startsWith("data:image")) {
           try {
-            const { saveImageToIndexedDB, generateImageId } = await import(
-              "../components/ImageUpload"
-            );
+            const { saveImageToIndexedDB, generateImageId } =
+              await import("../components/ImageUpload");
             const imageId = generateImageId();
             await saveImageToIndexedDB(imageId, menu.icon);
             menu.icon = `indexeddb://${imageId}`;
             console.log(
-              `Converted custom menu ${menu.id} icon from data URL to IndexedDB reference`
+              `Converted custom menu ${menu.id} icon from data URL to IndexedDB reference`,
             );
           } catch (error) {
             console.warn(
               `Failed to convert custom menu ${menu.id} icon from data URL:`,
-              error
+              error,
             );
           }
         }
@@ -1902,7 +1908,7 @@ const convertDataURLsToIndexedDBReferences = async (
 
 // Helper function to convert IndexedDB references to data URLs
 const convertIndexedDBReferencesToDataURLs = async (
-  config: ConfigurationData
+  config: ConfigurationData,
 ): Promise<ConfigurationData> => {
   try {
     const convertedConfig = { ...config };
@@ -1910,12 +1916,11 @@ const convertIndexedDBReferencesToDataURLs = async (
     // Convert appConfig.logo if it's an IndexedDB reference
     if (convertedConfig.appConfig?.logo?.startsWith("indexeddb://")) {
       try {
-        const { getImageFromIndexedDB } = await import(
-          "../components/ImageUpload"
-        );
+        const { getImageFromIndexedDB } =
+          await import("../components/ImageUpload");
         const imageId = convertedConfig.appConfig.logo.replace(
           "indexeddb://",
-          ""
+          "",
         );
         const imageData = await getImageFromIndexedDB(imageId);
         if (imageData) {
@@ -1930,17 +1935,16 @@ const convertIndexedDBReferencesToDataURLs = async (
     // Convert stylingConfig.application.topBar.logoUrl if it's an IndexedDB reference
     if (
       convertedConfig.stylingConfig?.application?.topBar?.logoUrl?.startsWith(
-        "indexeddb://"
+        "indexeddb://",
       )
     ) {
       try {
-        const { getImageFromIndexedDB } = await import(
-          "../components/ImageUpload"
-        );
+        const { getImageFromIndexedDB } =
+          await import("../components/ImageUpload");
         const imageId =
           convertedConfig.stylingConfig.application.topBar.logoUrl.replace(
             "indexeddb://",
-            ""
+            "",
           );
         const imageData = await getImageFromIndexedDB(imageId);
         if (imageData) {
@@ -1955,12 +1959,11 @@ const convertIndexedDBReferencesToDataURLs = async (
     // Convert favicon if it's an IndexedDB reference
     if (convertedConfig.appConfig?.favicon?.startsWith("indexeddb://")) {
       try {
-        const { getImageFromIndexedDB } = await import(
-          "../components/ImageUpload"
-        );
+        const { getImageFromIndexedDB } =
+          await import("../components/ImageUpload");
         const imageId = convertedConfig.appConfig.favicon.replace(
           "indexeddb://",
-          ""
+          "",
         );
         const imageData = await getImageFromIndexedDB(imageId);
         if (imageData) {
@@ -1977,21 +1980,20 @@ const convertIndexedDBReferencesToDataURLs = async (
       for (const menu of convertedConfig.standardMenus) {
         if (menu.icon?.startsWith("indexeddb://")) {
           try {
-            const { getImageFromIndexedDB } = await import(
-              "../components/ImageUpload"
-            );
+            const { getImageFromIndexedDB } =
+              await import("../components/ImageUpload");
             const imageId = menu.icon.replace("indexeddb://", "");
             const imageData = await getImageFromIndexedDB(imageId);
             if (imageData) {
               menu.icon = imageData;
               console.log(
-                `Converted menu ${menu.id} icon from IndexedDB to data URL`
+                `Converted menu ${menu.id} icon from IndexedDB to data URL`,
               );
             }
           } catch (error) {
             console.warn(
               `Failed to convert menu ${menu.id} icon from IndexedDB:`,
-              error
+              error,
             );
           }
         }
@@ -2002,21 +2004,20 @@ const convertIndexedDBReferencesToDataURLs = async (
           menu.homePageValue?.startsWith("indexeddb://")
         ) {
           try {
-            const { getImageFromIndexedDB } = await import(
-              "../components/ImageUpload"
-            );
+            const { getImageFromIndexedDB } =
+              await import("../components/ImageUpload");
             const imageId = menu.homePageValue.replace("indexeddb://", "");
             const imageData = await getImageFromIndexedDB(imageId);
             if (imageData) {
               menu.homePageValue = imageData;
               console.log(
-                `Converted menu ${menu.id} homePageValue from IndexedDB to data URL`
+                `Converted menu ${menu.id} homePageValue from IndexedDB to data URL`,
               );
             }
           } catch (error) {
             console.warn(
               `Failed to convert menu ${menu.id} homePageValue from IndexedDB:`,
-              error
+              error,
             );
           }
         }
@@ -2028,21 +2029,20 @@ const convertIndexedDBReferencesToDataURLs = async (
       for (const menu of convertedConfig.customMenus) {
         if (menu.icon?.startsWith("indexeddb://")) {
           try {
-            const { getImageFromIndexedDB } = await import(
-              "../components/ImageUpload"
-            );
+            const { getImageFromIndexedDB } =
+              await import("../components/ImageUpload");
             const imageId = menu.icon.replace("indexeddb://", "");
             const imageData = await getImageFromIndexedDB(imageId);
             if (imageData) {
               menu.icon = imageData;
               console.log(
-                `Converted custom menu ${menu.id} icon from IndexedDB to data URL`
+                `Converted custom menu ${menu.id} icon from IndexedDB to data URL`,
               );
             }
           } catch (error) {
             console.warn(
               `Failed to convert custom menu ${menu.id} icon from IndexedDB:`,
-              error
+              error,
             );
           }
         }
@@ -2056,10 +2056,36 @@ const convertIndexedDBReferencesToDataURLs = async (
   }
 };
 
+/**
+ * Removes sensitive fields (password, trustedAuthToken) from the auth config
+ * before exporting. These are only stored locally.
+ */
+const sanitizeAuthConfigForExport = (
+  config: ConfigurationData,
+): ConfigurationData => {
+  if (!config.appConfig?.authConfig) return config;
+
+  const safeAuthConfig: AuthConfig = {
+    authType: config.appConfig.authConfig.authType,
+    username: config.appConfig.authConfig.username,
+    trustedAuthMode: config.appConfig.authConfig.trustedAuthMode,
+    secretKeyOrgId: config.appConfig.authConfig.secretKeyOrgId,
+    orgName: config.appConfig.authConfig.orgName,
+  };
+
+  return {
+    ...config,
+    appConfig: {
+      ...config.appConfig,
+      authConfig: safeAuthConfig,
+    },
+  };
+};
+
 // Export configuration as JSON file
 export const exportConfiguration = async (
   config: ConfigurationData,
-  customName?: string
+  customName?: string,
 ): Promise<void> => {
   try {
     console.log("Starting configuration export...");
@@ -2067,8 +2093,11 @@ export const exportConfiguration = async (
     // Convert any IndexedDB references to data URLs before exporting
     const configToExport = await convertIndexedDBReferencesToDataURLs(config);
 
+    // Strip sensitive auth fields (password, token) before export
+    const sanitizedConfig = sanitizeAuthConfigForExport(configToExport);
+
     const exportData = {
-      ...configToExport,
+      ...sanitizedConfig,
       version: "1.0.0",
       timestamp: new Date().toISOString(),
       description: "TSE Demo Builder Configuration Export",
@@ -2101,10 +2130,124 @@ export const exportConfiguration = async (
   }
 };
 
+export interface StyleExportData {
+  version: string;
+  timestamp: string;
+  description: string;
+  type: "style";
+  application: StylingConfig["application"];
+  embeddedContent: {
+    customCSS: StylingConfig["embeddedContent"]["customCSS"];
+    strings: Record<string, string>;
+    stringIDs: Record<string, string>;
+  };
+}
+
+export const exportStyleConfiguration = async (
+  stylingConfig: StylingConfig,
+  customName?: string,
+): Promise<void> => {
+  try {
+    const exportData: StyleExportData = {
+      version: "1.0.0",
+      timestamp: new Date().toISOString(),
+      description: "TSE Demo Builder Style Export",
+      type: "style",
+      application: stylingConfig.application,
+      embeddedContent: {
+        customCSS: stylingConfig.embeddedContent.customCSS,
+        strings: stylingConfig.embeddedContent.strings || {},
+        stringIDs: stylingConfig.embeddedContent.stringIDs || {},
+      },
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+
+    const fileName = customName
+      ? `${customName}.json`
+      : `tse-style-${new Date().toISOString().split("T")[0]}.json`;
+
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    console.log("Style configuration exported successfully");
+  } catch (error) {
+    console.error("Error exporting style configuration:", error);
+    throw error;
+  }
+};
+
+export interface StyleImportOptions {
+  appStyle: boolean;
+  cssStyle: boolean;
+  strings: boolean;
+}
+
+export const applyImportedStyle = (
+  currentStylingConfig: StylingConfig,
+  styleData: Record<string, unknown>,
+  options: StyleImportOptions,
+): StylingConfig => {
+  let result = { ...currentStylingConfig };
+
+  if (options.appStyle && styleData.application) {
+    result = {
+      ...result,
+      application: styleData.application as StylingConfig["application"],
+    };
+  }
+
+  if (options.cssStyle && styleData.embeddedContent) {
+    const importedEmbedded = styleData.embeddedContent as Record<
+      string,
+      unknown
+    >;
+    result = {
+      ...result,
+      embeddedContent: {
+        ...result.embeddedContent,
+        customCSS:
+          (importedEmbedded.customCSS as StylingConfig["embeddedContent"]["customCSS"]) ||
+          result.embeddedContent.customCSS,
+      },
+    };
+  }
+
+  if (options.strings && styleData.embeddedContent) {
+    const importedEmbedded = styleData.embeddedContent as Record<
+      string,
+      unknown
+    >;
+    result = {
+      ...result,
+      embeddedContent: {
+        ...result.embeddedContent,
+        strings:
+          (importedEmbedded.strings as Record<string, string>) ||
+          result.embeddedContent.strings,
+        stringIDs:
+          (importedEmbedded.stringIDs as Record<string, string>) ||
+          result.embeddedContent.stringIDs,
+      },
+    };
+  }
+
+  return result;
+};
+
 // Simplified configuration loading function
 export const loadConfigurationSimplified = async (
   source: ConfigurationSource,
-  onProgress?: (message: string, progress?: number) => void
+  onProgress?: (message: string, progress?: number) => void,
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     onProgress?.("Starting configuration load...", 10);
@@ -2170,9 +2313,8 @@ export const loadConfigurationSimplified = async (
     onProgress?.("Saving configuration to storage...", 80);
 
     // Step 4: Convert data URLs to IndexedDB references before saving
-    const configWithIndexedDB = await convertDataURLsToIndexedDBReferences(
-      mergedConfig
-    );
+    const configWithIndexedDB =
+      await convertDataURLsToIndexedDBReferences(mergedConfig);
 
     // Step 5: Save configuration to storage
     await saveToStorage(configWithIndexedDB);
@@ -2180,14 +2322,13 @@ export const loadConfigurationSimplified = async (
     // CRITICAL: Set the ThoughtSpot base URL immediately after saving
     // This ensures that any session checks or API calls after reload use the correct server
     // Import and call setThoughtSpotBaseUrl from thoughtspotApi
-    const { setThoughtSpotBaseUrl: setBaseUrl } = await import(
-      "./thoughtspotApi"
-    );
+    const { setThoughtSpotBaseUrl: setBaseUrl } =
+      await import("./thoughtspotApi");
     if (configWithIndexedDB.appConfig?.thoughtspotUrl) {
       setBaseUrl(configWithIndexedDB.appConfig.thoughtspotUrl);
       console.log(
         "[ConfigService] Set ThoughtSpot base URL after loading configuration:",
-        configWithIndexedDB.appConfig.thoughtspotUrl
+        configWithIndexedDB.appConfig.thoughtspotUrl,
       );
     }
 

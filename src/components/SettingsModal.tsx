@@ -18,6 +18,8 @@ import CSSVariablesEditor from "./CSSVariablesEditor";
 import CSSRulesEditor from "./CSSRulesEditor";
 import EmbedFlagsEditor from "./EmbedFlagsEditor";
 import DoubleClickEditor from "./DoubleClickEditor";
+import CustomActionsEditor from "./CustomActionsEditor";
+import StandardActionsEditor from "./StandardActionsEditor";
 import RuntimeFiltersEditor from "./RuntimeFiltersEditor";
 import {
   User,
@@ -27,27 +29,43 @@ import {
   StylingConfig,
   HomePageConfig,
   AppConfig,
+  AuthConfig,
+  AuthTypeOption,
+  TrustedAuthMode,
   FullAppConfig,
   StandardMenu,
+  SpotterVizConfig,
+  StarterPrompt,
+  SDKActionsConfig,
 } from "../types/thoughtspot";
 import HiddenActionsEditor from "./HiddenActionsEditor";
+import SDKActionsEditor from "./SDKActionsEditor";
 import TagFilterComponent from "./TagFilterComponent";
 import SearchableDropdown from "./SearchableDropdown";
 import MultiSelectDropdown from "./MultiSelectDropdown";
 import LoadingDialog from "./LoadingDialog";
 
-import { fetchSavedConfigurations } from "../services/githubApi";
+import {
+  fetchSavedConfigurations,
+  fetchSavedStyles,
+  loadStyleFromGitHub,
+  GitHubStyle,
+} from "../services/githubApi";
 import {
   checkStorageHealth,
   clearStorageAndReloadDefaults,
   DEFAULT_CONFIG,
   saveAllConfigurations,
+  exportStyleConfiguration,
+  applyImportedStyle,
+  StyleImportOptions,
 } from "../services/configurationService";
 import ThemeSelector from "./ThemeSelector";
 import { applyTheme } from "../types/themes";
 import ConfigurationWizard, {
   WizardConfiguration,
 } from "./ConfigurationWizard";
+import { fetchOrgs, ThoughtSpotOrg } from "../services/thoughtspotApi";
 
 // Configuration interfaces for compatibility
 interface ConfigurationData {
@@ -373,7 +391,7 @@ function HomePageAIGenerator({
           maxSizeMB={5}
           maxWidth={2000}
           maxHeight={2000}
-          useIndexedDB={false}
+          useIndexedDB={true}
         />
         <p
           style={{
@@ -743,6 +761,33 @@ function StandardMenusContent({
             </div>
           </div>
         );
+      case "spotter-viz":
+        return (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              fontSize: "16px",
+              color: "#6b7280",
+              textAlign: "center",
+              padding: "20px",
+            }}
+          >
+            <div>
+              <div style={{ fontSize: "48px", marginBottom: "16px" }}>✨</div>
+              <div style={{ fontWeight: "500", marginBottom: "8px" }}>
+                No Preview Available
+              </div>
+              <div style={{ fontSize: "14px", color: "#9ca3af" }}>
+                SpotterViz configuration does not have a preview.
+                <br />
+                The New Liveboard button will appear in the top bar when enabled.
+              </div>
+            </div>
+          </div>
+        );
       default:
         return <div>Page not found</div>;
     }
@@ -788,6 +833,11 @@ function StandardMenusContent({
       id: "chatbot",
       name: "Chatbot",
       icon: "💬",
+    },
+    {
+      id: "spotter-viz",
+      name: "SpotterViz",
+      icon: "✨",
     },
   ];
 
@@ -1431,6 +1481,262 @@ function StandardMenusContent({
                           question classification. Leave empty to use
                           environment variable SPOTGPT_API_KEY.
                         </p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Handle SpotterViz configuration
+                if (activeSubTab === "spotter-viz") {
+                  const updateSpotterViz = (updates: Partial<SpotterVizConfig>) => {
+                    updateAppConfig({
+                      ...appConfig,
+                      spotterViz: {
+                        enabled: appConfig.spotterViz?.enabled ?? false,
+                        ...appConfig.spotterViz,
+                        ...updates,
+                      },
+                    });
+                  };
+
+                  const prompts = appConfig.spotterViz?.customStarterPrompts || [];
+
+                  const updatePrompt = (index: number, field: keyof StarterPrompt, value: string) => {
+                    const updated = prompts.map((p, i) =>
+                      i === index ? { ...p, [field]: value } : p
+                    );
+                    updateSpotterViz({ customStarterPrompts: updated });
+                  };
+
+                  const addPrompt = () => {
+                    const newPrompt: StarterPrompt = {
+                      id: String(Date.now()),
+                      displayText: "",
+                      fullPrompt: "",
+                    };
+                    updateSpotterViz({ customStarterPrompts: [...prompts, newPrompt] });
+                  };
+
+                  const removePrompt = (index: number) => {
+                    updateSpotterViz({ customStarterPrompts: prompts.filter((_, i) => i !== index) });
+                  };
+
+                  const fieldStyle = {
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                    backgroundColor: "white",
+                    boxSizing: "border-box" as const,
+                  };
+
+                  const sectionStyle = {
+                    marginBottom: "20px",
+                    padding: "16px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "8px",
+                    backgroundColor: "#f9fafb",
+                  };
+
+                  const labelStyle = {
+                    display: "block",
+                    fontSize: "14px",
+                    fontWeight: "500" as const,
+                    color: "#374151",
+                    marginBottom: "6px",
+                  };
+
+                  const hintStyle = {
+                    fontSize: "12px",
+                    color: "#6b7280",
+                    margin: "6px 0 0 0",
+                  };
+
+                  return (
+                    <div>
+                      <h4 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "8px" }}>
+                        SpotterViz Configuration
+                      </h4>
+                      <div
+                        style={{
+                          marginBottom: "20px",
+                          padding: "10px 14px",
+                          backgroundColor: "#fffbeb",
+                          border: "1px solid #f59e0b",
+                          borderRadius: "6px",
+                          fontSize: "13px",
+                          color: "#92400e",
+                        }}
+                      >
+                        ⚠️ Requires ThoughtSpot version <strong>26.7+</strong>.
+                      </div>
+                      <p style={{ marginBottom: "20px", color: "#6b7280", fontSize: "14px" }}>
+                        Configure the SpotterViz experience for new liveboards created via the
+                        New Liveboard button.
+                      </p>
+
+                      {/* Enable / Disable */}
+                      <div style={sectionStyle}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                          <label style={{ fontSize: "16px", fontWeight: "500", color: "#374151" }}>
+                            Enable New Liveboard (SpotterViz)
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={appConfig.spotterViz?.enabled ?? false}
+                            onChange={(e) => updateSpotterViz({ enabled: e.target.checked })}
+                            style={{ width: "20px", height: "20px", cursor: "pointer" }}
+                          />
+                        </div>
+                        <p style={hintStyle}>
+                          Show or hide the New Liveboard button in the top bar.
+                        </p>
+                      </div>
+
+                      {/* Brand Name */}
+                      <div style={sectionStyle}>
+                        <label style={labelStyle}>Brand Name</label>
+                        <input
+                          type="text"
+                          value={appConfig.spotterViz?.brandName || ""}
+                          onChange={(e) => updateSpotterViz({ brandName: e.target.value })}
+                          placeholder="e.g. MyBrand"
+                          style={fieldStyle}
+                        />
+                        <p style={hintStyle}>The brand name displayed in the SpotterViz header.</p>
+                      </div>
+
+                      {/* Brand Headline */}
+                      <div style={sectionStyle}>
+                        <label style={labelStyle}>Brand Headline</label>
+                        <input
+                          type="text"
+                          value={appConfig.spotterViz?.brandHeadline || ""}
+                          onChange={(e) => updateSpotterViz({ brandHeadline: e.target.value })}
+                          placeholder="e.g. Hi, there! I'm"
+                          style={fieldStyle}
+                        />
+                        <p style={hintStyle}>The headline shown before the brand name in the greeting.</p>
+                      </div>
+
+                      {/* Description */}
+                      <div style={sectionStyle}>
+                        <label style={labelStyle}>Description</label>
+                        <input
+                          type="text"
+                          value={appConfig.spotterViz?.description || ""}
+                          onChange={(e) => updateSpotterViz({ description: e.target.value })}
+                          placeholder="e.g. Ask questions about your data"
+                          style={fieldStyle}
+                        />
+                        <p style={hintStyle}>A short description shown beneath the greeting.</p>
+                      </div>
+
+                      {/* Input Placeholder */}
+                      <div style={sectionStyle}>
+                        <label style={labelStyle}>Input Placeholder</label>
+                        <input
+                          type="text"
+                          value={appConfig.spotterViz?.inputChatPlaceholder || ""}
+                          onChange={(e) => updateSpotterViz({ inputChatPlaceholder: e.target.value })}
+                          placeholder="e.g. Ask a question..."
+                          style={fieldStyle}
+                        />
+                        <p style={hintStyle}>Placeholder text shown in the question input field.</p>
+                      </div>
+
+                      {/* Hide Starter Prompts */}
+                      <div style={sectionStyle}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                          <label style={{ fontSize: "14px", fontWeight: "500", color: "#374151" }}>
+                            Hide Starter Prompts
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={appConfig.spotterViz?.hideStarterPrompts ?? false}
+                            onChange={(e) => updateSpotterViz({ hideStarterPrompts: e.target.checked })}
+                            style={{ width: "20px", height: "20px", cursor: "pointer" }}
+                          />
+                        </div>
+                        <p style={hintStyle}>When checked, starter prompt suggestions are hidden from users.</p>
+                      </div>
+
+                      {/* Custom Starter Prompts */}
+                      <div style={{ ...sectionStyle, marginBottom: 0 }}>
+                        <label style={{ ...labelStyle, fontSize: "15px", marginBottom: "12px" }}>
+                          Custom Starter Questions
+                        </label>
+                        <p style={{ ...hintStyle, marginBottom: "16px" }}>
+                          Add suggested questions that appear when a user opens a new liveboard.
+                        </p>
+
+                        {prompts.map((prompt, index) => (
+                          <div
+                            key={prompt.id}
+                            style={{
+                              display: "flex",
+                              gap: "8px",
+                              marginBottom: "12px",
+                              alignItems: "flex-start",
+                              padding: "12px",
+                              border: "1px solid #d1d5db",
+                              borderRadius: "6px",
+                              backgroundColor: "white",
+                            }}
+                          >
+                            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
+                              <input
+                                type="text"
+                                value={prompt.displayText}
+                                onChange={(e) => updatePrompt(index, "displayText", e.target.value)}
+                                placeholder="Display text (e.g. Top products)"
+                                style={fieldStyle}
+                              />
+                              <input
+                                type="text"
+                                value={prompt.fullPrompt}
+                                onChange={(e) => updatePrompt(index, "fullPrompt", e.target.value)}
+                                placeholder="Full prompt (e.g. What are the top products by revenue?)"
+                                style={fieldStyle}
+                              />
+                            </div>
+                            <button
+                              onClick={() => removePrompt(index)}
+                              style={{
+                                padding: "6px 10px",
+                                border: "1px solid #ef4444",
+                                borderRadius: "4px",
+                                backgroundColor: "white",
+                                color: "#ef4444",
+                                cursor: "pointer",
+                                fontSize: "16px",
+                                lineHeight: "1",
+                                flexShrink: 0,
+                              }}
+                              title="Remove this starter question"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+
+                        <button
+                          onClick={addPrompt}
+                          style={{
+                            width: "100%",
+                            padding: "8px",
+                            border: "1px dashed #3182ce",
+                            borderRadius: "6px",
+                            backgroundColor: "#eff6ff",
+                            color: "#3182ce",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            fontWeight: "500",
+                          }}
+                        >
+                          + Add Starter Question
+                        </button>
                       </div>
                     </div>
                   );
@@ -2579,6 +2885,9 @@ function CustomMenusContent({
   const [availableTags, setAvailableTags] = useState<
     Array<{ id: string; name: string; color: string }>
   >([]);
+  const [availableCollections, setAvailableCollections] = useState<
+    Array<{ id: string; name: string; path: string }>
+  >([]);
   const [availableModels, setAvailableModels] = useState<
     Array<{ id: string; name: string }>
   >([]);
@@ -2590,6 +2899,7 @@ function CustomMenusContent({
   const [liveboardFilter, setLiveboardFilter] = useState("");
   const [answerFilter, setAnswerFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
+  const [collectionFilter, setCollectionFilter] = useState("");
   const [directEmbedFilter, setDirectEmbedFilter] = useState("");
 
   // Filtered lists
@@ -2603,6 +2913,10 @@ function CustomMenusContent({
 
   const filteredTags = availableTags.filter((tag) =>
     tag.name.toLowerCase().includes(tagFilter.toLowerCase())
+  );
+
+  const filteredCollections = availableCollections.filter((c) =>
+    c.path.toLowerCase().includes(collectionFilter.toLowerCase())
   );
 
   // Filtered lists for direct embed
@@ -2636,14 +2950,15 @@ function CustomMenusContent({
     const loadContent = async () => {
       try {
         setIsLoadingContent(true);
-        const { fetchLiveboards, fetchAnswers, fetchTags, fetchModels } =
+        const { fetchLiveboards, fetchAnswers, fetchTags, fetchModels, fetchCollections } =
           await import("../services/thoughtspotApi");
 
-        const [liveboards, answers, tags, models] = await Promise.all([
+        const [liveboards, answers, tags, models, collections] = await Promise.all([
           fetchLiveboards(),
           fetchAnswers(),
           fetchTags(),
           fetchModels(),
+          fetchCollections(),
         ]);
 
         setAvailableLiveboards(
@@ -2652,6 +2967,7 @@ function CustomMenusContent({
         setAvailableAnswers(answers.map((a) => ({ id: a.id, name: a.name })));
         setAvailableTags(tags);
         setAvailableModels(models.map((m) => ({ id: m.id, name: m.name })));
+        setAvailableCollections(collections);
       } catch (error) {
         console.error("Failed to load content:", error);
       } finally {
@@ -3058,6 +3374,32 @@ function CustomMenusContent({
                   <input
                     type="radio"
                     name="contentType"
+                    checked={editingMenu.contentSelection.type === "collection"}
+                    onChange={() =>
+                      setEditingMenu({
+                        ...editingMenu,
+                        contentSelection: {
+                          type: "collection",
+                          collectionId: "",
+                          collectionName: "",
+                        },
+                      })
+                    }
+                    style={{ cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: "14px" }}>Filter by collection</span>
+                </label>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="contentType"
                     checked={editingMenu.contentSelection.type === "direct"}
                     onChange={() =>
                       setEditingMenu({
@@ -3273,6 +3615,65 @@ function CustomMenusContent({
                   {filteredTags.map((tag) => (
                     <option key={tag.id} value={tag.name}>
                       {tag.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {editingMenu.contentSelection.type === "collection" && (
+              <div style={{ marginBottom: "16px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                  }}
+                >
+                  Collection
+                </label>
+                <input
+                  type="text"
+                  placeholder="Filter collections..."
+                  value={collectionFilter}
+                  onChange={(e) => setCollectionFilter(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                    marginBottom: "8px",
+                  }}
+                />
+                <select
+                  value={editingMenu.contentSelection.collectionId || ""}
+                  onChange={(e) => {
+                    const selected = filteredCollections.find(
+                      (c) => c.id === e.target.value
+                    );
+                    setEditingMenu({
+                      ...editingMenu,
+                      contentSelection: {
+                        ...editingMenu.contentSelection,
+                        collectionId: e.target.value,
+                        collectionName: selected?.path || selected?.name || "",
+                      },
+                    });
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "4px",
+                    fontSize: "14px",
+                  }}
+                >
+                  <option value="">Select a collection...</option>
+                  {filteredCollections.map((collection) => (
+                    <option key={collection.id} value={collection.id}>
+                      {collection.path}
                     </option>
                   ))}
                 </select>
@@ -3662,6 +4063,13 @@ function CustomMenusContent({
                     <>
                       {menu.contentSelection.tagIdentifiers?.length || 0} tags
                     </>
+                  ) : menu.contentSelection.type === "collection" ? (
+                    <>
+                      Collection:{" "}
+                      {menu.contentSelection.collectionName ||
+                        menu.contentSelection.collectionId ||
+                        "Not configured"}
+                    </>
                   ) : (
                     <>
                       Direct{" "}
@@ -3688,47 +4096,136 @@ function EventsContent({
   stylingConfig: StylingConfig;
   updateStylingConfig: (config: StylingConfig) => void;
 }) {
+  const [activeSubTab, setActiveSubTab] = useState<
+    "event-handling" | "sdk-actions" | "standard-actions" | "custom-actions"
+  >("event-handling");
+
+  const subTabs = [
+    { id: "event-handling" as const, name: "Event Handling" },
+    { id: "sdk-actions" as const, name: "Standard Actions" },
+    { id: "standard-actions" as const, name: "Predefined Custom Actions" },
+    { id: "custom-actions" as const, name: "Custom Actions" },
+  ];
+
+  const defaultSdkActionsConfig: SDKActionsConfig = {
+    enabled: false,
+    mode: "hidden",
+    actions: [],
+  };
+
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <h3
         style={{
-          marginBottom: "24px",
+          marginBottom: "16px",
           fontSize: "24px",
           fontWeight: "600",
           color: "#1f2937",
         }}
       >
-        Event Handling Configuration
+        Events &amp; Actions
       </h3>
       <p
         style={{
-          marginBottom: "24px",
+          marginBottom: "16px",
           color: "#6b7280",
           fontSize: "14px",
           lineHeight: "1.5",
         }}
       >
-        Configure how to handle various events in your ThoughtSpot embeds, such
-        as double-click events on visualization points.
+        Configure event handlers and custom actions for your ThoughtSpot embeds.
       </p>
 
+      {/* Sub-tabs navigation */}
+      <div
+        style={{
+          display: "flex",
+          gap: "4px",
+          borderBottom: "1px solid #e5e7eb",
+          marginBottom: "20px",
+        }}
+      >
+        {subTabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveSubTab(tab.id)}
+            style={{
+              padding: "10px 20px",
+              backgroundColor:
+                activeSubTab === tab.id ? "#ffffff" : "transparent",
+              border: "none",
+              borderBottom:
+                activeSubTab === tab.id
+                  ? "2px solid #3182ce"
+                  : "2px solid transparent",
+              color: activeSubTab === tab.id ? "#3182ce" : "#6b7280",
+              fontWeight: activeSubTab === tab.id ? "600" : "500",
+              fontSize: "14px",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+          >
+            {tab.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Sub-tab content */}
       <div style={{ flex: 1, overflow: "auto" }}>
-        <DoubleClickEditor
-          config={
-            stylingConfig.doubleClickHandling || {
-              enabled: false,
-              showDefaultModal: true,
-              customJavaScript: "",
-              modalTitle: "Double-Click Event Data",
+        {activeSubTab === "event-handling" && (
+          <DoubleClickEditor
+            config={
+              stylingConfig.doubleClickHandling || {
+                enabled: false,
+                showDefaultModal: true,
+                customJavaScript: "",
+                modalTitle: "Double-Click Event Data",
+              }
             }
-          }
-          onChange={(doubleClickHandling) =>
-            updateStylingConfig({
-              ...stylingConfig,
-              doubleClickHandling,
-            })
-          }
-        />
+            onChange={(doubleClickHandling) =>
+              updateStylingConfig({
+                ...stylingConfig,
+                doubleClickHandling,
+              })
+            }
+          />
+        )}
+
+        {activeSubTab === "sdk-actions" && (
+          <SDKActionsEditor
+            config={stylingConfig.sdkActions || defaultSdkActionsConfig}
+            onChange={(sdkActions) =>
+              updateStylingConfig({
+                ...stylingConfig,
+                sdkActions,
+              })
+            }
+          />
+        )}
+
+        {activeSubTab === "standard-actions" && (
+          <StandardActionsEditor
+            standardActions={stylingConfig.standardActions || []}
+            onChange={(standardActions) =>
+              updateStylingConfig({
+                ...stylingConfig,
+                standardActions,
+              })
+            }
+          />
+        )}
+
+        {activeSubTab === "custom-actions" && (
+          <CustomActionsEditor
+            customActions={stylingConfig.customActions || []}
+            onChange={(customActions) =>
+              updateStylingConfig({
+                ...stylingConfig,
+                customActions,
+              })
+            }
+          />
+        )}
       </div>
     </div>
   );
@@ -3753,6 +4250,26 @@ function StylingContent({
   const [isGeneratingStyle, setIsGeneratingStyle] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
+  // Style save/load state
+  const [showExportStyleDialog, setShowExportStyleDialog] = useState(false);
+  const [exportStyleName, setExportStyleName] = useState("");
+  const [showImportStyleDialog, setShowImportStyleDialog] = useState(false);
+  const [pendingStyleData, setPendingStyleData] = useState<Record<string, unknown> | null>(null);
+  const [pendingStyleSource, setPendingStyleSource] = useState("");
+  const [importOptions, setImportOptions] = useState<StyleImportOptions>({
+    appStyle: true,
+    cssStyle: true,
+    strings: true,
+  });
+  const [showGitHubStyleDialog, setShowGitHubStyleDialog] = useState(false);
+  const [savedStyles, setSavedStyles] = useState<GitHubStyle[]>([]);
+  const [isLoadingStyles, setIsLoadingStyles] = useState(false);
+  const [selectedStyle, setSelectedStyle] = useState("");
+  const [styleImportStatus, setStyleImportStatus] = useState<{
+    message: string;
+    type: "success" | "error" | null;
+  }>({ message: "", type: null });
+
   // Ensure we always have a valid sub-tab selected
   useEffect(() => {
     const validSubTabs = ["application", "embedded"];
@@ -3760,6 +4277,72 @@ function StylingContent({
       setActiveSubTab("application");
     }
   }, [activeSubTab]);
+
+  const loadSavedStyles = async () => {
+    try {
+      setIsLoadingStyles(true);
+      const styles = await fetchSavedStyles();
+      setSavedStyles(styles);
+    } catch (error) {
+      console.error("Failed to load saved styles:", error);
+      setStyleImportStatus({
+        message: "Failed to load saved styles from GitHub",
+        type: "error",
+      });
+    } finally {
+      setIsLoadingStyles(false);
+    }
+  };
+
+  const handleStyleFileSelect = async (file: File) => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      setPendingStyleData(data);
+      setPendingStyleSource(file.name);
+      setImportOptions({ appStyle: true, cssStyle: true, strings: true });
+      setShowImportStyleDialog(true);
+    } catch (error) {
+      console.error("Failed to read style file:", error);
+      setStyleImportStatus({
+        message: "Failed to read style file. Make sure it is valid JSON.",
+        type: "error",
+      });
+    }
+  };
+
+  const handleGitHubStyleSelect = async () => {
+    if (!selectedStyle) return;
+    try {
+      const data = await loadStyleFromGitHub(selectedStyle);
+      setPendingStyleData(data);
+      setPendingStyleSource(selectedStyle);
+      setImportOptions({ appStyle: true, cssStyle: true, strings: true });
+      setShowGitHubStyleDialog(false);
+      setSelectedStyle("");
+      setShowImportStyleDialog(true);
+    } catch (error) {
+      console.error("Failed to load style from GitHub:", error);
+      setStyleImportStatus({
+        message: `Failed to load style: ${error instanceof Error ? error.message : "Unknown error"}`,
+        type: "error",
+      });
+    }
+  };
+
+  const handleApplyImportedStyle = () => {
+    if (!pendingStyleData) return;
+    const updated = applyImportedStyle(stylingConfig, pendingStyleData, importOptions);
+    updateStylingConfig(updated);
+    setShowImportStyleDialog(false);
+    setPendingStyleData(null);
+    setPendingStyleSource("");
+    setStyleImportStatus({
+      message: "Style imported successfully!",
+      type: "success",
+    });
+    setTimeout(() => setStyleImportStatus({ message: "", type: null }), 5000);
+  };
 
   const subTabs = [
     { id: "application", name: "Application Styles", icon: "🎨" },
@@ -3993,46 +4576,523 @@ function StylingContent({
     }
   };
 
+  const handleClearStyles = () => {
+    if (confirm("Are you sure you want to clear all styles? This will reset application styles, CSS customizations, and string mappings to defaults.")) {
+      updateStylingConfig({
+        ...stylingConfig,
+        application: DEFAULT_CONFIG.stylingConfig.application,
+        embeddedContent: {
+          ...stylingConfig.embeddedContent,
+          customCSS: DEFAULT_CONFIG.stylingConfig.embeddedContent.customCSS,
+          strings: DEFAULT_CONFIG.stylingConfig.embeddedContent.strings || {},
+          stringIDs: DEFAULT_CONFIG.stylingConfig.embeddedContent.stringIDs || {},
+        },
+      });
+      setStyleImportStatus({
+        message: "Styles cleared and reset to defaults.",
+        type: "success",
+      });
+      setTimeout(() => setStyleImportStatus({ message: "", type: null }), 5000);
+    }
+  };
+
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <div
+      <h3
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
           marginBottom: "24px",
+          fontSize: "20px",
+          fontWeight: "bold",
         }}
       >
-        <h3
-          style={{
-            margin: 0,
-            fontSize: "20px",
-            fontWeight: "bold",
-          }}
-        >
-          Styling Configuration
-        </h3>
+        Styling Configuration
+      </h3>
+
+      {/* Style Action Buttons */}
+      <div
+        style={{
+          marginBottom: "32px",
+          padding: "20px",
+          backgroundColor: "#f8fafc",
+          border: "1px solid #e2e8f0",
+          borderRadius: "8px",
+          display: "flex",
+          gap: "12px",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+          <button
+            onClick={() => setShowStyleWizard(true)}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#8b5cf6",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "500",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+            title="Generate styles using AI based on your description"
+          >
+            <MaterialIcon icon="auto_fix_high" style={{ fontSize: "18px" }} />
+            Style Wizard
+          </button>
+          <button
+            onClick={() => {
+              setShowExportStyleDialog(true);
+              setExportStyleName("");
+            }}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#059669",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "500",
+            }}
+          >
+            Export Style
+          </button>
+          <label
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#3b82f6",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "500",
+              display: "inline-block",
+            }}
+          >
+            Import Style
+            <input
+              type="file"
+              accept=".json"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleStyleFileSelect(file);
+                e.target.value = "";
+              }}
+              style={{ display: "none" }}
+            />
+          </label>
+          <button
+            onClick={() => {
+              setShowGitHubStyleDialog(true);
+              loadSavedStyles();
+            }}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#8b5cf6",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "500",
+            }}
+          >
+            Load from GitHub
+          </button>
+        </div>
+
         <button
-          onClick={() => setShowStyleWizard(true)}
+          onClick={handleClearStyles}
           style={{
             padding: "10px 20px",
-            backgroundColor: "#8b5cf6",
+            backgroundColor: "#dc2626",
             color: "white",
             border: "none",
             borderRadius: "6px",
             cursor: "pointer",
             fontSize: "14px",
             fontWeight: "500",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
           }}
-          title="Generate styles using AI based on your description"
         >
-          <MaterialIcon icon="auto_fix_high" style={{ fontSize: "18px" }} />
-          Style Wizard
+          Clear Styles
         </button>
       </div>
+
+      {/* Style Import Status Message */}
+      {styleImportStatus.type && (
+        <div
+          style={{
+            marginBottom: "16px",
+            padding: "10px 16px",
+            borderRadius: "6px",
+            fontSize: "14px",
+            backgroundColor: styleImportStatus.type === "success" ? "#f0fdf4" : "#fef2f2",
+            color: styleImportStatus.type === "success" ? "#166534" : "#991b1b",
+            border: `1px solid ${styleImportStatus.type === "success" ? "#bbf7d0" : "#fecaca"}`,
+          }}
+        >
+          {styleImportStatus.message}
+        </div>
+      )}
+
+      {/* Export Style Dialog */}
+      {showExportStyleDialog && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "24px",
+              borderRadius: "8px",
+              minWidth: "400px",
+              maxWidth: "500px",
+            }}
+          >
+            <h3 style={{ marginBottom: "16px", fontSize: "18px", fontWeight: "bold" }}>
+              Save Style
+            </h3>
+            <p style={{ marginBottom: "16px", fontSize: "14px", color: "#6b7280" }}>
+              Export the current styling configuration (application styles, CSS customizations, and string mappings) to a file.
+            </p>
+            <input
+              type="text"
+              value={exportStyleName}
+              onChange={(e) => setExportStyleName(e.target.value)}
+              placeholder="e.g., dark-mode, corporate-blue"
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                border: "1px solid #d1d5db",
+                borderRadius: "4px",
+                fontSize: "14px",
+                marginBottom: "16px",
+                boxSizing: "border-box",
+              }}
+            />
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowExportStyleDialog(false)}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#6b7280",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const name = exportStyleName.trim().replace(/[^a-zA-Z0-9\s\-_]/g, "");
+                  await exportStyleConfiguration(stylingConfig, name || undefined);
+                  setShowExportStyleDialog(false);
+                  setExportStyleName("");
+                }}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#059669",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GitHub Style Browser Dialog */}
+      {showGitHubStyleDialog && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "24px",
+              borderRadius: "8px",
+              minWidth: "500px",
+              maxWidth: "600px",
+              maxHeight: "80vh",
+              overflow: "auto",
+            }}
+          >
+            <h3 style={{ marginBottom: "16px", fontSize: "18px", fontWeight: "bold" }}>
+              Load Style from GitHub
+            </h3>
+            <p style={{ marginBottom: "16px", fontSize: "14px", color: "#6b7280" }}>
+              Select a saved style from the ThoughtSpot repository.
+            </p>
+
+            {isLoadingStyles ? (
+              <div style={{ textAlign: "center", padding: "20px" }}>
+                <p>Loading saved styles...</p>
+              </div>
+            ) : savedStyles.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "20px" }}>
+                <p>No saved styles found.</p>
+              </div>
+            ) : (
+              <div style={{ marginBottom: "16px" }}>
+                <SearchableDropdown
+                  value={selectedStyle}
+                  onChange={setSelectedStyle}
+                  options={savedStyles.map((s) => ({
+                    id: s.filename,
+                    name: `${s.name}${s.description ? ` - ${s.description}` : ""}`,
+                  }))}
+                  placeholder="Choose a style..."
+                  searchPlaceholder="Search styles..."
+                  label="Select Style"
+                />
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  setShowGitHubStyleDialog(false);
+                  setSelectedStyle("");
+                }}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#6b7280",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleGitHubStyleSelect}
+                disabled={!selectedStyle}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: selectedStyle ? "#8b5cf6" : "#9ca3af",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: selectedStyle ? "pointer" : "not-allowed",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Load Style
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Style Selection Dialog */}
+      {showImportStyleDialog && pendingStyleData && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "24px",
+              borderRadius: "8px",
+              minWidth: "450px",
+              maxWidth: "550px",
+            }}
+          >
+            <h3 style={{ marginBottom: "8px", fontSize: "18px", fontWeight: "bold" }}>
+              Import Style
+            </h3>
+            <p style={{ marginBottom: "20px", fontSize: "14px", color: "#6b7280" }}>
+              Select which parts of <strong>{pendingStyleSource}</strong> to import:
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "24px" }}>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "12px 16px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  backgroundColor: importOptions.appStyle ? "#f0fdf4" : "white",
+                  transition: "background-color 0.15s",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={importOptions.appStyle}
+                  onChange={(e) =>
+                    setImportOptions({ ...importOptions, appStyle: e.target.checked })
+                  }
+                  style={{ width: "18px", height: "18px", accentColor: "#059669" }}
+                />
+                <div>
+                  <div style={{ fontWeight: "600", fontSize: "14px" }}>Application Style</div>
+                  <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                    Top bar, sidebar, footer, buttons, backgrounds, typography colors
+                  </div>
+                </div>
+              </label>
+
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "12px 16px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  backgroundColor: importOptions.cssStyle ? "#f0fdf4" : "white",
+                  transition: "background-color 0.15s",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={importOptions.cssStyle}
+                  onChange={(e) =>
+                    setImportOptions({ ...importOptions, cssStyle: e.target.checked })
+                  }
+                  style={{ width: "18px", height: "18px", accentColor: "#059669" }}
+                />
+                <div>
+                  <div style={{ fontWeight: "600", fontSize: "14px" }}>CSS Style</div>
+                  <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                    ThoughtSpot CSS variables and custom CSS rules for embedded content
+                  </div>
+                </div>
+              </label>
+
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "12px 16px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  backgroundColor: importOptions.strings ? "#f0fdf4" : "white",
+                  transition: "background-color 0.15s",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={importOptions.strings}
+                  onChange={(e) =>
+                    setImportOptions({ ...importOptions, strings: e.target.checked })
+                  }
+                  style={{ width: "18px", height: "18px", accentColor: "#059669" }}
+                />
+                <div>
+                  <div style={{ fontWeight: "600", fontSize: "14px" }}>Strings</div>
+                  <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                    String ID overrides and string text mappings
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  setShowImportStyleDialog(false);
+                  setPendingStyleData(null);
+                  setPendingStyleSource("");
+                }}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#6b7280",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApplyImportedStyle}
+                disabled={!importOptions.appStyle && !importOptions.cssStyle && !importOptions.strings}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor:
+                    !importOptions.appStyle && !importOptions.cssStyle && !importOptions.strings
+                      ? "#9ca3af"
+                      : "#059669",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor:
+                    !importOptions.appStyle && !importOptions.cssStyle && !importOptions.strings
+                      ? "not-allowed"
+                      : "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Import Selected
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sub-tabs */}
       <div
@@ -5736,25 +6796,27 @@ function UserConfigContent({
                 marginBottom: "12px",
               }}
             >
-              Hidden Actions Configuration
+              Standard Actions Override
             </h5>
-            <HiddenActionsEditor
+            <SDKActionsEditor
               config={
-                editingUser.access.hiddenActions || {
+                editingUser.access.sdkActionsOverride || {
                   enabled: false,
+                  mode: "hidden",
                   actions: [],
                 }
               }
-              onChange={(hiddenActionsConfig) => {
+              onChange={(sdkActionsOverride) => {
                 const updatedUser = {
                   ...editingUser,
                   access: {
                     ...editingUser.access,
-                    hiddenActions: hiddenActionsConfig,
+                    sdkActionsOverride,
                   },
                 };
                 setEditingUser(updatedUser);
               }}
+              isOverride
             />
           </div>
 
@@ -6001,13 +7063,15 @@ function UserConfigContent({
                       {user.access.customMenus.length !== 1 ? "s" : ""}
                     </>
                   )}
-                  {user.access.hiddenActions?.enabled && (
+                  {user.access.sdkActionsOverride?.enabled && (
                     <>
                       {" "}
-                      • {user.access.hiddenActions.actions.length} hidden action
-                      {user.access.hiddenActions.actions.length !== 1
+                      • {user.access.sdkActionsOverride.actions.length}{" "}
+                      {user.access.sdkActionsOverride.mode} action
+                      {user.access.sdkActionsOverride.actions.length !== 1
                         ? "s"
-                        : ""}
+                        : ""}{" "}
+                      override
                     </>
                   )}
                   {user.locale && <> • Locale: {user.locale}</>}
@@ -6035,6 +7099,552 @@ function UserConfigContent({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function AuthenticationSubTab({
+  appConfig,
+  updateAppConfig,
+}: {
+  appConfig: AppConfig;
+  updateAppConfig: (config: AppConfig, bypassClusterWarning?: boolean) => void;
+}) {
+  const authConfig: AuthConfig = appConfig.authConfig || { authType: "None" };
+
+  const updateAuthConfig = (patch: Partial<AuthConfig>) => {
+    updateAppConfig(
+      {
+        ...appConfig,
+        authConfig: { ...authConfig, ...patch },
+      },
+      true,
+    );
+  };
+
+  const [tokenTestStatus, setTokenTestStatus] = useState<{
+    message: string;
+    type: "success" | "error" | null;
+  }>({ message: "", type: null });
+  const [isFetchingToken, setIsFetchingToken] = useState(false);
+  const [orgs, setOrgs] = useState<ThoughtSpotOrg[]>([]);
+  const [orgsLoading, setOrgsLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    setOrgsLoading(true);
+    fetchOrgs()
+      .then((result) => {
+        if (isMounted) setOrgs(result);
+      })
+      .finally(() => {
+        if (isMounted) setOrgsLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleTestSecretKey = async () => {
+    setIsFetchingToken(true);
+    setTokenTestStatus({ message: "", type: null });
+    try {
+      const res = await fetch("/api/auth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          thoughtspotUrl: appConfig.thoughtspotUrl,
+          username: authConfig.username,
+          orgId: authConfig.secretKeyOrgId || "0",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTokenTestStatus({
+          message: data.error || "Failed to fetch token",
+          type: "error",
+        });
+      } else {
+        setTokenTestStatus({
+          message: `Token generated successfully (length: ${data.token?.length || 0})`,
+          type: "success",
+        });
+      }
+    } catch (err) {
+      setTokenTestStatus({
+        message: err instanceof Error ? err.message : "Network error",
+        type: "error",
+      });
+    } finally {
+      setIsFetchingToken(false);
+    }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "8px 12px",
+    border: "1px solid #d1d5db",
+    borderRadius: "4px",
+    fontSize: "14px",
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: "block",
+    marginBottom: "8px",
+    fontWeight: "500",
+    fontSize: "14px",
+  };
+
+  const helpTextStyle: React.CSSProperties = {
+    margin: "4px 0 0 0",
+    fontSize: "12px",
+    color: "#6b7280",
+  };
+
+  const sectionStyle: React.CSSProperties = {
+    marginBottom: "24px",
+  };
+
+  const authTypes: { value: AuthTypeOption; label: string; description: string }[] = [
+    {
+      value: "None",
+      label: "None",
+      description: "No authentication. Embeds will be public / unauthenticated.",
+    },
+    {
+      value: "Basic",
+      label: "Basic",
+      description:
+        "Authenticate with username and password. For development and testing only.",
+    },
+    {
+      value: "EmbeddedSSO",
+      label: "Embedded SSO",
+      description:
+        "Passthrough SSO via SAML/OIDC. Requires SSO configured on the ThoughtSpot cluster and IDP that supports iframe redirects.",
+    },
+    {
+      value: "TrustedAuthTokenCookieless",
+      label: "Trusted Auth (Cookieless)",
+      description:
+        "Token-based cookieless authentication. Recommended for production. Provide a token directly or use a server-side secret key.",
+    },
+  ];
+
+  return (
+    <div>
+      <h4
+        style={{
+          fontSize: "18px",
+          fontWeight: "600",
+          marginBottom: "20px",
+        }}
+      >
+        Authentication
+      </h4>
+      <p style={{ ...helpTextStyle, marginBottom: "24px", fontSize: "14px" }}>
+        Configure how the embedded ThoughtSpot content authenticates users.
+        If no authentication is configured, AuthType.None is used by default.
+      </p>
+
+      {/* Auth Type Selector */}
+      <div style={sectionStyle}>
+        <label style={labelStyle}>Authentication Type</label>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "12px",
+          }}
+        >
+          {authTypes.map((at) => (
+            <button
+              key={at.value}
+              onClick={() => {
+                const resetFields: Partial<AuthConfig> = {
+                  authType: at.value,
+                };
+                if (at.value === "None") {
+                  resetFields.username = undefined;
+                  resetFields.password = undefined;
+                  resetFields.trustedAuthMode = undefined;
+                  resetFields.trustedAuthToken = undefined;
+                  resetFields.secretKeyOrgId = undefined;
+                }
+                if (at.value === "TrustedAuthTokenCookieless") {
+                  resetFields.trustedAuthMode =
+                    authConfig.trustedAuthMode || "token";
+                }
+                updateAuthConfig(resetFields);
+              }}
+              style={{
+                padding: "16px",
+                border:
+                  authConfig.authType === at.value
+                    ? "2px solid #3182ce"
+                    : "1px solid #e2e8f0",
+                borderRadius: "8px",
+                background:
+                  authConfig.authType === at.value ? "#ebf8ff" : "white",
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "600",
+                  fontSize: "14px",
+                  marginBottom: "4px",
+                  color:
+                    authConfig.authType === at.value ? "#2b6cb0" : "#1a202c",
+                }}
+              >
+                {at.label}
+              </div>
+              <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                {at.description}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Org Name - applies to all authentication types */}
+      <div style={sectionStyle}>
+        {orgs.length > 0 ? (
+          <SearchableDropdown
+            value={authConfig.orgName || ""}
+            onChange={(value) =>
+              updateAuthConfig({ orgName: value || undefined })
+            }
+            options={orgs.map((org) => ({ id: org.name, name: org.name }))}
+            placeholder="Any org (no restriction)"
+            searchPlaceholder="Filter orgs..."
+            label="Org Name"
+          />
+        ) : (
+          <>
+            <label style={labelStyle}>Org Name</label>
+            <input
+              type="text"
+              value={authConfig.orgName || ""}
+              onChange={(e) =>
+                updateAuthConfig({ orgName: e.target.value || undefined })
+              }
+              placeholder={
+                orgsLoading ? "Loading orgs..." : "Leave blank to allow any org"
+              }
+              style={inputStyle}
+            />
+          </>
+        )}
+        <p style={helpTextStyle}>
+          {orgs.length > 0
+            ? "The ThoughtSpot org this application should run in. After signing in, if the user is in a different org they will be prompted to switch."
+            : "Sign in to the cluster to load a list of available orgs, or enter the org name directly. Leave blank to allow any org."}
+        </p>
+      </div>
+
+      {/* Basic Auth fields */}
+      {authConfig.authType === "Basic" && (
+        <div
+          style={{
+            padding: "20px",
+            backgroundColor: "#fffbeb",
+            border: "1px solid #fbbf24",
+            borderRadius: "8px",
+            marginBottom: "24px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginBottom: "16px",
+            }}
+          >
+            <MaterialIcon
+              icon="warning"
+              style={{ fontSize: "20px", color: "#d97706" }}
+            />
+            <span style={{ fontSize: "14px", fontWeight: "600", color: "#92400e" }}>
+              Basic auth is for development and testing only.
+            </span>
+          </div>
+          <div style={sectionStyle}>
+            <label style={labelStyle}>Username</label>
+            <input
+              type="text"
+              value={authConfig.username || ""}
+              onChange={(e) => updateAuthConfig({ username: e.target.value })}
+              placeholder="user@example.com"
+              style={inputStyle}
+            />
+            <p style={helpTextStyle}>ThoughtSpot username for basic authentication</p>
+          </div>
+          <div style={sectionStyle}>
+            <label style={labelStyle}>Password</label>
+            <input
+              type="password"
+              value={authConfig.password || ""}
+              onChange={(e) => updateAuthConfig({ password: e.target.value })}
+              placeholder="Enter password"
+              style={inputStyle}
+            />
+            <p style={helpTextStyle}>
+              Stored locally only. Not included in configuration exports.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* EmbeddedSSO info */}
+      {authConfig.authType === "EmbeddedSSO" && (
+        <div
+          style={{
+            padding: "20px",
+            backgroundColor: "#f0fdf4",
+            border: "1px solid #86efac",
+            borderRadius: "8px",
+            marginBottom: "24px",
+          }}
+        >
+          <p style={{ ...helpTextStyle, fontSize: "14px", margin: 0 }}>
+            No additional configuration needed. SSO must be configured on
+            the ThoughtSpot cluster, and your IDP must allow iframe redirects
+            (e.g. enable iframe embedding in Okta). The user must already be
+            authenticated through the IDP before loading the embedded content.
+            If SSO is not configured or the user is not already logged in,
+            this behaves identically to AuthType.None.
+          </p>
+        </div>
+      )}
+
+      {/* TrustedAuthTokenCookieless fields */}
+      {authConfig.authType === "TrustedAuthTokenCookieless" && (
+        <div
+          style={{
+            padding: "20px",
+            backgroundColor: "#eff6ff",
+            border: "1px solid #93c5fd",
+            borderRadius: "8px",
+            marginBottom: "24px",
+          }}
+        >
+          <div style={sectionStyle}>
+            <label style={labelStyle}>Mode</label>
+            <div style={{ display: "flex", gap: "12px" }}>
+              {(
+                [
+                  {
+                    value: "token" as TrustedAuthMode,
+                    label: "Provide Token",
+                    icon: "key",
+                  },
+                  {
+                    value: "secret_key" as TrustedAuthMode,
+                    label: "Server-side Secret Key",
+                    icon: "vpn_key",
+                  },
+                ] as const
+              ).map((mode) => (
+                <button
+                  key={mode.value}
+                  onClick={() =>
+                    updateAuthConfig({ trustedAuthMode: mode.value })
+                  }
+                  style={{
+                    flex: 1,
+                    padding: "12px 16px",
+                    border:
+                      authConfig.trustedAuthMode === mode.value
+                        ? "2px solid #3182ce"
+                        : "1px solid #e2e8f0",
+                    borderRadius: "8px",
+                    background:
+                      authConfig.trustedAuthMode === mode.value
+                        ? "#dbeafe"
+                        : "white",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontSize: "14px",
+                    fontWeight:
+                      authConfig.trustedAuthMode === mode.value ? "600" : "400",
+                  }}
+                >
+                  <MaterialIcon icon={mode.icon} style={{ fontSize: "18px" }} />
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Token mode */}
+          {authConfig.trustedAuthMode === "token" && (
+            <>
+              <div style={sectionStyle}>
+                <label style={labelStyle}>Auth Token</label>
+                <input
+                  type="password"
+                  value={authConfig.trustedAuthToken || ""}
+                  onChange={(e) =>
+                    updateAuthConfig({ trustedAuthToken: e.target.value })
+                  }
+                  placeholder="Paste your bearer token here"
+                  style={inputStyle}
+                />
+                <p style={helpTextStyle}>
+                  A bearer token from ThoughtSpot. Stored locally only,
+                  not included in configuration exports.
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* Secret key mode */}
+          {authConfig.trustedAuthMode === "secret_key" && (
+            <>
+              <div style={sectionStyle}>
+                <label style={labelStyle}>Username</label>
+                <input
+                  type="text"
+                  value={authConfig.username || ""}
+                  onChange={(e) =>
+                    updateAuthConfig({ username: e.target.value })
+                  }
+                  placeholder="user@example.com"
+                  style={inputStyle}
+                />
+                <p style={helpTextStyle}>
+                  The ThoughtSpot username to generate a token for
+                </p>
+              </div>
+              <div style={sectionStyle}>
+                <label style={labelStyle}>Secret Key Org ID</label>
+                <input
+                  type="text"
+                  value={authConfig.secretKeyOrgId || "0"}
+                  onChange={(e) =>
+                    updateAuthConfig({ secretKeyOrgId: e.target.value })
+                  }
+                  placeholder="0"
+                  style={inputStyle}
+                />
+                <p style={helpTextStyle}>
+                  The ThoughtSpot org ID to generate the trusted auth token
+                  for (defaults to 0)
+                </p>
+              </div>
+              <div
+                style={{
+                  padding: "16px",
+                  backgroundColor: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "6px",
+                  marginBottom: "16px",
+                }}
+              >
+                <p style={{ ...helpTextStyle, marginBottom: "8px" }}>
+                  <strong>Environment variable required:</strong> The secret key
+                  must be set in your{" "}
+                  <code
+                    style={{
+                      padding: "2px 6px",
+                      backgroundColor: "#e2e8f0",
+                      borderRadius: "3px",
+                      fontSize: "12px",
+                    }}
+                  >
+                    .env.local
+                  </code>{" "}
+                  file:
+                </p>
+                <code
+                  style={{
+                    display: "block",
+                    padding: "8px 12px",
+                    backgroundColor: "#1e293b",
+                    color: "#e2e8f0",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                    fontFamily: "monospace",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  {(() => {
+                    try {
+                      const hostname = new URL(
+                        appConfig.thoughtspotUrl,
+                      ).hostname;
+                      const hash = hostname.replace(/[.\-]/g, "_");
+                      return `TS_SECRET_KEY_${hash}_${authConfig.secretKeyOrgId || "0"}=your-secret-key`;
+                    } catch {
+                      return "TS_SECRET_KEY_<cluster>_<org>=your-secret-key";
+                    }
+                  })()}
+                </code>
+              </div>
+              <button
+                onClick={handleTestSecretKey}
+                disabled={isFetchingToken || !authConfig.username}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor:
+                    isFetchingToken || !authConfig.username
+                      ? "#9ca3af"
+                      : "#3b82f6",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor:
+                    isFetchingToken || !authConfig.username
+                      ? "not-allowed"
+                      : "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <MaterialIcon
+                  icon={isFetchingToken ? "hourglass_empty" : "verified"}
+                  style={{ fontSize: "18px" }}
+                />
+                {isFetchingToken ? "Testing..." : "Test Token Generation"}
+              </button>
+              {tokenTestStatus.type && (
+                <div
+                  style={{
+                    marginTop: "12px",
+                    padding: "10px 14px",
+                    borderRadius: "6px",
+                    fontSize: "13px",
+                    backgroundColor:
+                      tokenTestStatus.type === "success"
+                        ? "#d1fae5"
+                        : "#fee2e2",
+                    color:
+                      tokenTestStatus.type === "success"
+                        ? "#065f46"
+                        : "#991b1b",
+                    border: `1px solid ${
+                      tokenTestStatus.type === "success"
+                        ? "#a7f3d0"
+                        : "#fecaca"
+                    }`,
+                  }}
+                >
+                  {tokenTestStatus.message}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -6100,7 +7710,7 @@ function ConfigurationContent({
 
   // Validate initial state on mount
   useEffect(() => {
-    const validSubTabs = ["general", "embedFlags"];
+    const validSubTabs = ["general", "authentication", "embedFlags"];
     if (!activeSubTab || !validSubTabs.includes(activeSubTab)) {
       setActiveSubTab("general");
     }
@@ -6108,7 +7718,7 @@ function ConfigurationContent({
 
   // Update activeSubTab when initialSubTab changes
   useEffect(() => {
-    const validSubTabs = ["general", "embedFlags"];
+    const validSubTabs = ["general", "authentication", "embedFlags"];
 
     if (
       initialSubTab &&
@@ -6121,6 +7731,7 @@ function ConfigurationContent({
 
   const subTabs = [
     { id: "general", name: "General", icon: "settings" },
+    { id: "authentication", name: "Authentication", icon: "lock" },
     { id: "embedFlags", name: "Embed Flags", icon: "flag" },
   ];
 
@@ -6619,6 +8230,12 @@ function ConfigurationContent({
                     type: "tag",
                     tagIdentifiers: menu.tagIdentifiers || [],
                   }
+                : menu.type === "collection"
+                ? {
+                    type: "collection",
+                    collectionId: menu.collectionId || "",
+                    collectionName: menu.collectionName || "",
+                  }
                 : menu.type === "direct"
                 ? {
                     type: "direct",
@@ -6641,7 +8258,7 @@ function ConfigurationContent({
             // Use different icons based on menu type:
             // - Tag-based menus show a collection of content, so use a folder emoji
             // - Direct menus show a specific item, so use chart emoji
-            const iconForType = menu.type === "tag" ? "📁" : "📊";
+            const iconForType = menu.type === "tag" || menu.type === "collection" ? "📁" : "📊";
 
             return {
               id: `custom-${Date.now()}-${index}`,
@@ -7288,6 +8905,43 @@ function ConfigurationContent({
                     use the full available space
                   </p>
                 </div>
+
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      color: "#4a5568",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={appConfig.showVizPicker ?? false}
+                      onChange={(e) =>
+                        updateAppConfig({
+                          ...appConfig,
+                          showVizPicker: e.target.checked,
+                        })
+                      }
+                      style={{ cursor: "pointer" }}
+                    />
+                    <span>Enable Viz Picker</span>
+                  </label>
+                  <p
+                    style={{
+                      margin: "4px 0 0 0",
+                      fontSize: "12px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    When enabled, the Viz Picker button appears in the top bar,
+                    allowing visualizations to be copied between liveboards
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -7673,6 +9327,13 @@ function ConfigurationContent({
               standardMenus={standardMenus || []}
             />
           </div>
+        )}
+
+        {activeSubTab === "authentication" && (
+          <AuthenticationSubTab
+            appConfig={appConfig}
+            updateAppConfig={updateAppConfig}
+          />
         )}
 
         {activeSubTab === "embedFlags" && (
@@ -8305,7 +9966,7 @@ export default function SettingsModal({
     },
     {
       id: "events",
-      name: "Events",
+      name: "Actions",
       content: (
         <EventsContent
           stylingConfig={pendingStylingConfig}

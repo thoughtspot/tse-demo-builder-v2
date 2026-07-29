@@ -13,7 +13,7 @@ touch .env.local
 
 2. Add your Anthropic API key to the file:
 ```
-ANTHROPIC_API_KEY=sk-ant-api03-your-actual-key-here
+ANTHROPIC_API_KEY=<anthropic-key>
 ```
 
 3. Restart your development server:

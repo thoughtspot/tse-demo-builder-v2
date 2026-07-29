@@ -15,7 +15,7 @@ SPOTGPT_API_KEY=your_spotgpt_api_key_here
 
 Example:
 ```bash
-SPOTGPT_API_KEY=sk-1234567890abcdef1234567890abcdef
+SPOTGPT_API_KEY=<secret-key>
 ```
 
 ## How It Works
