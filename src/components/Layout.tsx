@@ -8,6 +8,7 @@ import React, {
   useRef,
   useCallback,
   startTransition,
+  Suspense,
 } from "react";
 import { useSearchParams } from "next/navigation";
 import TopBar from "./TopBar";
@@ -298,13 +299,17 @@ interface ConfigurationSource {
   data: File | string; // File for local, string (filename) for GitHub
 }
 
+function ChatBubbleConditional() {
+  const searchParams = useSearchParams();
+  if (searchParams.get("demo")) return <ChatBubble />;
+  return null;
+}
+
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const searchParams = useSearchParams();
-  const isLandingPage = !searchParams.get("demo");
 
   // Fix hydration issues and suppress third-party console errors (like Mixpanel)
   useEffect(() => {
@@ -3002,7 +3007,9 @@ export default function Layout({ children }: LayoutProps) {
             )}
 
             {/* Chat Bubble */}
-            {!isLandingPage && <ChatBubble />}
+            <Suspense>
+              <ChatBubbleConditional />
+            </Suspense>
 
             {/* Loading Dialog */}
             <LoadingDialog
