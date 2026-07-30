@@ -44,6 +44,19 @@ const ConfigurationLoader: React.FC<ConfigurationLoaderProps> = ({
       }
 
       console.log("Configuration loaded successfully!");
+
+      // If the app is already showing (URL has &loaded=1), a settings-triggered
+      // load has replaced the previous demo config. Navigate to /?demo=manual&loaded=1
+      // so the URL no longer references the old demo name. This also cancels the
+      // window.location.reload() that loadConfigurationSimplified scheduled.
+      // When DemoLoader triggers a load the URL has no &loaded=1, so we leave
+      // navigation to DemoLoader's own .then() handler.
+      const currentParams = new URLSearchParams(window.location.search);
+      if (currentParams.get("loaded") === "1") {
+        window.location.replace("/?demo=manual&loaded=1");
+        return;
+      }
+
       onLoadComplete?.();
     } catch (error) {
       console.error("Error loading configuration:", error);

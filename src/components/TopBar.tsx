@@ -411,6 +411,48 @@ export default function TopBar({
               </button>
             ))}
 
+            {/* Exit to demo picker */}
+            <hr
+              style={{
+                margin: "8px 0",
+                border: "none",
+                borderTop: "1px solid #e2e8f0",
+              }}
+            />
+            <button
+              onClick={() => {
+                window.location.href = "/";
+              }}
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                textAlign: "left",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                color: "#4a5568",
+              }}
+            >
+              <div
+                style={{
+                  width: "24px",
+                  height: "24px",
+                  borderRadius: "50%",
+                  backgroundColor: "#e2e8f0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "14px",
+                }}
+              >
+                ←
+              </div>
+              <span>Exit to demo list</span>
+            </button>
+
             {/* Version display */}
             {thoughtSpotVersion && (
               <>

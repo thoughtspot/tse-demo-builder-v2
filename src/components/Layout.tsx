@@ -9,6 +9,7 @@ import React, {
   useCallback,
   startTransition,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import TopBar from "./TopBar";
 import SideNav from "./SideNav";
 import SettingsModal from "./SettingsModal";
@@ -106,6 +107,7 @@ interface AppContextType {
   exportConfiguration: (customName?: string) => Promise<void>;
   lastClusterChangeTime: number;
   configVersion: number;
+  isInitialLoadInProgress: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -301,6 +303,9 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const searchParams = useSearchParams();
+  const isLandingPage = !searchParams.get("demo");
+
   // Fix hydration issues and suppress third-party console errors (like Mixpanel)
   useEffect(() => {
     // Fix hydration mismatches caused by browser extensions
@@ -2665,6 +2670,7 @@ export default function Layout({ children }: LayoutProps) {
     exportConfiguration: handleExportConfiguration,
     lastClusterChangeTime,
     configVersion,
+    isInitialLoadInProgress,
   };
 
   return (
@@ -2996,7 +3002,7 @@ export default function Layout({ children }: LayoutProps) {
             )}
 
             {/* Chat Bubble */}
-            <ChatBubble />
+            {!isLandingPage && <ChatBubble />}
 
             {/* Loading Dialog */}
             <LoadingDialog

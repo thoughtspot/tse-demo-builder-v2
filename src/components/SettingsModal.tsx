@@ -9232,7 +9232,7 @@ function ConfigurationContent({
                         onChange={setSelectedConfiguration}
                         options={savedConfigurations.map((config) => ({
                           id: config.filename,
-                          name: `${config.name} - ${config.description}`,
+                          name: config.name,
                         }))}
                         placeholder="Choose a configuration..."
                         searchPlaceholder="Search configurations..."
