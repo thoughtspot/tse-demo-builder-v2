@@ -222,8 +222,10 @@ export default function LandingPage() {
       .then(setDemos)
       .catch((err) =>
         setFetchError(
-          err instanceof Error ? err.message : "Failed to load demos from GitHub"
-        )
+          err instanceof Error
+            ? err.message
+            : "Failed to load demos from GitHub",
+        ),
       )
       .finally(() => setIsFetching(false));
   }, []);
@@ -255,7 +257,8 @@ export default function LandingPage() {
             Choose a Demo
           </h1>
           <p style={{ margin: 0, fontSize: "15px", color: "#718096" }}>
-            Select a pre-built demo to load, or start fresh.
+            Select a pre-built demo to load, or start fresh. All pre-built demos
+            run against the PMM instance in the Prod org.
           </p>
           {fetchError && (
             <p
