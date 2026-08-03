@@ -33,12 +33,14 @@ export default function DemoLoader({ demo }: { demo: string }) {
     // config is saved. The window.location.reload() that loadConfigurationSimplified
     // schedules is abandoned when we navigate away.
     if (demo === "manual") {
+      sessionStorage.setItem("currentDemo", "manual");
       window.location.href = `/?demo=manual&loaded=1`;
       return;
     }
 
     triggerLoad(demo)
       .then(() => {
+        sessionStorage.setItem("currentDemo", demo);
         window.location.href = `/?demo=${encodeURIComponent(demo)}&loaded=1`;
       })
       .catch((err) => {

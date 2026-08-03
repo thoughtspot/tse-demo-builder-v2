@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { CustomMenu, UserConfig, StandardMenu } from "../types/thoughtspot";
 import MaterialIcon from "./MaterialIcon";
@@ -90,6 +90,7 @@ export default function SideNav({
 }: SideNavProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
@@ -253,6 +254,21 @@ export default function SideNav({
   // }
 
   const handleNavClick = (route: string) => {
+    const demo =
+      searchParams.get("demo") ||
+      (typeof window !== "undefined"
+        ? sessionStorage.getItem("currentDemo")
+        : null);
+
+    if (demo) {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("currentDemo", demo);
+      }
+      const params = new URLSearchParams({ demo, loaded: "1" });
+      router.push(`${route}?${params.toString()}`);
+      return;
+    }
+
     router.push(route);
   };
 

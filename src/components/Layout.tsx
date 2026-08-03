@@ -2728,25 +2728,27 @@ export default function Layout({ children }: LayoutProps) {
             {/* Main Content Area */}
             <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
               {/* Side Navigation */}
-              <SideNav
-                onSettingsClick={() => setIsSettingsOpen(true)}
-                standardMenus={accessibleStandardMenus}
-                customMenus={accessibleCustomMenus}
-                menuOrder={menuOrder}
-                onMenuOrderChange={setMenuOrder}
-                userConfig={userConfig}
-                backgroundColor={
-                  stylingConfig.application.sidebar.backgroundColor
-                }
-                foregroundColor={
-                  stylingConfig.application.sidebar.foregroundColor
-                }
-                hoverColor={stylingConfig.application.sidebar.hoverColor}
-                selectedColor={stylingConfig.application.sidebar.selectedColor}
-                selectedTextColor={
-                  stylingConfig.application.sidebar.selectedTextColor
-                }
-              />
+              <Suspense fallback={<div style={{ width: "60px", flexShrink: 0 }} />}>
+                <SideNav
+                  onSettingsClick={() => setIsSettingsOpen(true)}
+                  standardMenus={accessibleStandardMenus}
+                  customMenus={accessibleCustomMenus}
+                  menuOrder={menuOrder}
+                  onMenuOrderChange={setMenuOrder}
+                  userConfig={userConfig}
+                  backgroundColor={
+                    stylingConfig.application.sidebar.backgroundColor
+                  }
+                  foregroundColor={
+                    stylingConfig.application.sidebar.foregroundColor
+                  }
+                  hoverColor={stylingConfig.application.sidebar.hoverColor}
+                  selectedColor={stylingConfig.application.sidebar.selectedColor}
+                  selectedTextColor={
+                    stylingConfig.application.sidebar.selectedTextColor
+                  }
+                />
+              </Suspense>
 
               {/* Content Area */}
               <div
