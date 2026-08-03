@@ -10,7 +10,7 @@ import React, {
   startTransition,
   Suspense,
 } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import TopBar from "./TopBar";
 import SideNav from "./SideNav";
 import SettingsModal from "./SettingsModal";
@@ -310,6 +310,7 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const router = useRouter();
 
   // Fix hydration issues and suppress third-party console errors (like Mixpanel)
   useEffect(() => {
@@ -2261,6 +2262,8 @@ export default function Layout({ children }: LayoutProps) {
         users: defaultUsers,
         currentUserId: defaultUsers[0].id,
       });
+
+      router.push("/?demo=manual");
     } catch (error) {
       console.error("Failed to clear configurations:", error);
     }
