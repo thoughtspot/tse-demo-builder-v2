@@ -45,7 +45,10 @@ export default function ThoughtSpotEmbed({
     useState<VizPointClickData | null>(null);
   const embedRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const embedInstanceRef = useRef<{ destroy?: () => void; trigger?: (event: any, data?: unknown) => unknown } | null>(null);
+  const embedInstanceRef = useRef<{
+    destroy?: () => void;
+    trigger?: (event: any, data?: unknown) => unknown;
+  } | null>(null);
   const context = useAppContext();
 
   const handleDoubleClickEvent = useCallback(
@@ -55,7 +58,7 @@ export default function ThoughtSpotEmbed({
       if (!doubleClickConfig?.enabled) return;
 
       const vizPointClick = TabularData.createFromJSON(
-        event
+        event,
       ) as VizPointClickData;
 
       // Store the event data for potential modal display
@@ -95,13 +98,13 @@ export default function ThoughtSpotEmbed({
             "tabularData",
             "modal",
             "embedInstance",
-            doubleClickConfig.customJavaScript
+            doubleClickConfig.customJavaScript,
           );
           customFunction(vizPointClick, modalElement, embedInstanceRef.current);
         } catch (error) {
           console.error(
             "Error executing custom double-click JavaScript:",
-            error
+            error,
           );
           // If custom JavaScript fails and showDefaultModal is true, show the default modal
           if (doubleClickConfig.showDefaultModal) {
@@ -122,7 +125,7 @@ export default function ThoughtSpotEmbed({
         }, 100);
       }
     },
-    [context.stylingConfig.doubleClickHandling]
+    [context.stylingConfig.doubleClickHandling],
   );
 
   // Handle custom action events (both custom and standard actions)
@@ -138,27 +141,27 @@ export default function ThoughtSpotEmbed({
       if (!actionId) {
         console.warn(
           "[ThoughtSpotEmbed] Custom action triggered without ID:",
-          payload
+          payload,
         );
         return;
       }
 
       // First check if this is a standard action
       const standardActionConfig = standardActions.find(
-        (action) => action.standardActionId === actionId && action.enabled
+        (action) => action.standardActionId === actionId && action.enabled,
       );
 
       if (standardActionConfig) {
         // Find the standard action definition to get the handler ID
         const definition = getStandardActionDefinitions().find(
-          (d) => d.id === standardActionConfig.standardActionId
+          (d) => d.id === standardActionConfig.standardActionId,
         );
 
         if (definition) {
           console.log(
             "[ThoughtSpotEmbed] Executing standard action:",
             actionId,
-            standardActionConfig
+            standardActionConfig,
           );
 
           // Get the handler and execute it with the configured params
@@ -193,18 +196,18 @@ export default function ThoughtSpotEmbed({
               handler(
                 enhancedPayload as CustomActionPayload,
                 params,
-                embedInstanceRef.current
-              )
+                embedInstanceRef.current,
+              ),
             ).catch((error: unknown) => {
               console.error(
                 `[ThoughtSpotEmbed] Error executing standard action handler for ${actionId}:`,
-                error
+                error,
               );
             });
             return;
           } else {
             console.error(
-              `[ThoughtSpotEmbed] Handler not found for standard action: ${definition.handlerId}`
+              `[ThoughtSpotEmbed] Handler not found for standard action: ${definition.handlerId}`,
             );
           }
         }
@@ -213,12 +216,12 @@ export default function ThoughtSpotEmbed({
 
       // Find the matching custom action configuration
       const actionConfig = customActions.find(
-        (action) => action.id === actionId && action.enabled
+        (action) => action.id === actionId && action.enabled,
       );
 
       if (!actionConfig) {
         console.log(
-          `[ThoughtSpotEmbed] No enabled custom action found for ID: ${actionId}`
+          `[ThoughtSpotEmbed] No enabled custom action found for ID: ${actionId}`,
         );
         return;
       }
@@ -226,18 +229,18 @@ export default function ThoughtSpotEmbed({
       console.log(
         "[ThoughtSpotEmbed] Executing custom action:",
         actionId,
-        actionConfig
+        actionConfig,
       );
 
       // Execute the handler
       executeCustomActionHandler(
         actionConfig.handler,
         actionPayload,
-        embedInstanceRef.current
+        embedInstanceRef.current,
       ).catch((error) => {
         console.error(
           `[ThoughtSpotEmbed] Error executing custom action handler for ${actionId}:`,
-          error
+          error,
         );
       });
     },
@@ -248,7 +251,7 @@ export default function ThoughtSpotEmbed({
       content.id,
       content.name,
       content.type,
-    ]
+    ],
   );
 
   useEffect(() => {
@@ -258,7 +261,7 @@ export default function ThoughtSpotEmbed({
       // Check if component is still mounted
       if (!isMounted) {
         console.log(
-          "[ThoughtSpotEmbed] Component unmounted, skipping initialization"
+          "[ThoughtSpotEmbed] Component unmounted, skipping initialization",
         );
         return;
       }
@@ -266,7 +269,7 @@ export default function ThoughtSpotEmbed({
       // Ensure the DOM element is available
       if (!embedRef.current) {
         console.warn(
-          "[ThoughtSpotEmbed] embedRef.current is null, waiting for DOM..."
+          "[ThoughtSpotEmbed] embedRef.current is null, waiting for DOM...",
         );
         // Wait a bit more for the DOM to be ready
         await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -283,7 +286,7 @@ export default function ThoughtSpotEmbed({
         // Check if component is still mounted
         if (!isMounted) {
           console.log(
-            "[ThoughtSpotEmbed] Component unmounted during initialization, skipping"
+            "[ThoughtSpotEmbed] Component unmounted during initialization, skipping",
           );
           return;
         }
@@ -297,7 +300,7 @@ export default function ThoughtSpotEmbed({
         // Check again after the delay
         if (!isMounted) {
           console.log(
-            "[ThoughtSpotEmbed] Component unmounted after delay, skipping"
+            "[ThoughtSpotEmbed] Component unmounted after delay, skipping",
           );
           return;
         }
@@ -314,20 +317,20 @@ export default function ThoughtSpotEmbed({
         // Check if component is still mounted after SDK import
         if (!isMounted) {
           console.log(
-            "[ThoughtSpotEmbed] Component unmounted after SDK import, skipping"
+            "[ThoughtSpotEmbed] Component unmounted after SDK import, skipping",
           );
           return;
         }
 
         console.log(
           "[ThoughtSpotEmbed] Initializing embed with cluster URL:",
-          context.appConfig.thoughtspotUrl
+          context.appConfig.thoughtspotUrl,
         );
         console.log(
           "[ThoughtSpotEmbed] Content type:",
           content.type,
           "Content ID:",
-          content.id
+          content.id,
         );
 
         let embedInstance;
@@ -344,16 +347,15 @@ export default function ThoughtSpotEmbed({
 
         // Get current user
         const currentUser = context.userConfig.users.find(
-          (u) => u.id === context.userConfig.currentUserId
+          (u) => u.id === context.userConfig.currentUserId,
         );
 
         // Resolve SDK actions config: user override takes precedence over global
         const globalSdkActions = context.stylingConfig.sdkActions;
         const userSdkOverride = currentUser?.access.sdkActionsOverride;
-        const activeSdkActions =
-          userSdkOverride?.enabled
-            ? userSdkOverride
-            : globalSdkActions?.enabled
+        const activeSdkActions = userSdkOverride?.enabled
+          ? userSdkOverride
+          : globalSdkActions?.enabled
             ? globalSdkActions
             : null;
 
@@ -364,7 +366,7 @@ export default function ThoughtSpotEmbed({
           strings.map((actionString) => {
             // 1. Match by enum value (exact)
             const byValue = Object.keys(Action).find(
-              (key) => Action[key as keyof typeof Action] === actionString
+              (key) => Action[key as keyof typeof Action] === actionString,
             );
             if (byValue) return Action[byValue as keyof typeof Action];
             // 2. Match by enum key name (e.g. user typed "SpotterSidebarFooter")
@@ -373,9 +375,10 @@ export default function ThoughtSpotEmbed({
             }
             // 3. Case-insensitive key match
             const byKeyCaseInsensitive = Object.keys(Action).find(
-              (key) => key.toLowerCase() === actionString.toLowerCase()
+              (key) => key.toLowerCase() === actionString.toLowerCase(),
             );
-            if (byKeyCaseInsensitive) return Action[byKeyCaseInsensitive as keyof typeof Action];
+            if (byKeyCaseInsensitive)
+              return Action[byKeyCaseInsensitive as keyof typeof Action];
             // 4. Unknown / newer action — pass through as-is so the SDK can handle it
             return actionString;
           }) as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -385,9 +388,18 @@ export default function ThoughtSpotEmbed({
           userSdkOverride,
           activeSdkActions,
           resolvedAfterConversion: {
-            hidden: activeSdkActions?.mode === "hidden" ? toActionEnums(activeSdkActions.actions) : [],
-            disabled: activeSdkActions?.mode === "disabled" ? toActionEnums(activeSdkActions.actions) : [],
-            visible: activeSdkActions?.mode === "visible" ? toActionEnums(activeSdkActions.actions) : [],
+            hidden:
+              activeSdkActions?.mode === "hidden"
+                ? toActionEnums(activeSdkActions.actions)
+                : [],
+            disabled:
+              activeSdkActions?.mode === "disabled"
+                ? toActionEnums(activeSdkActions.actions)
+                : [],
+            visible:
+              activeSdkActions?.mode === "visible"
+                ? toActionEnums(activeSdkActions.actions)
+                : [],
           },
         });
 
@@ -425,7 +437,12 @@ export default function ThoughtSpotEmbed({
 
         // Strip action fields from embed flags — we manage them explicitly via sdkActions config
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { visibleActions, hiddenActions: _flagHidden, disabledActions: _flagDisabled, ...filteredEmbedFlags } = embedFlags as Record<string, unknown>;
+        const {
+          visibleActions,
+          hiddenActions: _flagHidden,
+          disabledActions: _flagDisabled,
+          ...filteredEmbedFlags
+        } = embedFlags as Record<string, unknown>;
 
         // Get runtime filters from current user
         const runtimeFilters = currentUser?.access.runtimeFilters || [];
@@ -467,7 +484,7 @@ export default function ThoughtSpotEmbed({
           .map((action) => {
             // Get the definition to get the display name
             const definition = standardActionDefinitions.find(
-              (d) => d.id === action.standardActionId
+              (d) => d.id === action.standardActionId,
             );
 
             // Transform to SDK format
@@ -539,7 +556,7 @@ export default function ThoughtSpotEmbed({
 
         console.log(
           "[ThoughtSpotEmbed] Actions for SDK (standard + custom):",
-          allSdkActions
+          allSdkActions,
         );
 
         // Base embed configuration with customizations
@@ -550,10 +567,18 @@ export default function ThoughtSpotEmbed({
           },
           locale: userLocale,
           ...filteredEmbedFlags,
-          ...(resolvedDisabledActions.length > 0 && { disabledActions: resolvedDisabledActions }),
-          ...(resolvedDisabledReason && { disabledActionReason: resolvedDisabledReason }),
-          ...(resolvedHiddenActions.length > 0 && { hiddenActions: resolvedHiddenActions }),
-          ...(resolvedVisibleActions.length > 0 && { visibleActions: resolvedVisibleActions }),
+          ...(resolvedDisabledActions.length > 0 && {
+            disabledActions: resolvedDisabledActions,
+          }),
+          ...(resolvedDisabledReason && {
+            disabledActionReason: resolvedDisabledReason,
+          }),
+          ...(resolvedHiddenActions.length > 0 && {
+            hiddenActions: resolvedHiddenActions,
+          }),
+          ...(resolvedVisibleActions.length > 0 && {
+            visibleActions: resolvedVisibleActions,
+          }),
           ...(runtimeFilters.length > 0 && { runtimeFilters }),
           ...(allSdkActions.length > 0 && {
             customActions: allSdkActions,
@@ -576,7 +601,7 @@ export default function ThoughtSpotEmbed({
 
         console.log(
           "ThoughtSpotEmbed: baseEmbedConfig.customizations.content =",
-          baseEmbedConfig.customizations.content
+          baseEmbedConfig.customizations.content,
         );
 
         if (content.type === "liveboard") {
@@ -586,7 +611,7 @@ export default function ThoughtSpotEmbed({
               liveboardId: content.id,
               vizId: content.vizId,
               ...baseEmbedConfig,
-            }
+            },
           );
           embedInstance = new LiveboardEmbed(embedRef.current, {
             liveboardId: content.id,
@@ -609,8 +634,18 @@ export default function ThoughtSpotEmbed({
             worksheetId: content.id,
             ...baseEmbedConfig,
           };
-          console.log("[ThoughtSpotEmbed] Creating SpotterEmbed with config:", spotterConfig);
-          console.log("[ThoughtSpotEmbed] SpotterEmbed hiddenActions:", spotterConfig.hiddenActions, "visibleActions:", spotterConfig.visibleActions, "disabledActions:", spotterConfig.disabledActions);
+          console.log(
+            "[ThoughtSpotEmbed] Creating SpotterEmbed with config:",
+            spotterConfig,
+          );
+          console.log(
+            "[ThoughtSpotEmbed] SpotterEmbed hiddenActions:",
+            spotterConfig.hiddenActions,
+            "visibleActions:",
+            spotterConfig.visibleActions,
+            "disabledActions:",
+            spotterConfig.disabledActions,
+          );
           embedInstance = new SpotterEmbed(embedRef.current, spotterConfig);
         }
 
@@ -618,7 +653,7 @@ export default function ThoughtSpotEmbed({
           // Check if component is still mounted before proceeding
           if (!isMounted) {
             console.log(
-              "[ThoughtSpotEmbed] Component unmounted before embed setup, skipping"
+              "[ThoughtSpotEmbed] Component unmounted before embed setup, skipping",
             );
             return;
           }
@@ -630,7 +665,7 @@ export default function ThoughtSpotEmbed({
           if (doubleClickConfig?.enabled) {
             embedInstance.on(
               EmbedEvent.VizPointDoubleClick,
-              handleDoubleClickEvent
+              handleDoubleClickEvent,
             );
           }
 
@@ -640,7 +675,7 @@ export default function ThoughtSpotEmbed({
             console.log(
               "[ThoughtSpotEmbed] Custom action event listener registered for",
               allSdkActions.length,
-              "actions"
+              "actions",
             );
           }
 
@@ -648,7 +683,7 @@ export default function ThoughtSpotEmbed({
             // Check if component is still mounted
             if (!isMounted) {
               console.log(
-                "[ThoughtSpotEmbed] Component unmounted during render, skipping"
+                "[ThoughtSpotEmbed] Component unmounted during render, skipping",
               );
               return;
             }
@@ -656,7 +691,7 @@ export default function ThoughtSpotEmbed({
             // Ensure the DOM element is still available before rendering
             if (!embedRef.current) {
               console.warn(
-                "[ThoughtSpotEmbed] DOM element was removed before render, skipping render"
+                "[ThoughtSpotEmbed] DOM element was removed before render, skipping render",
               );
               if (isMounted) {
                 setIsLoading(false);
@@ -665,12 +700,18 @@ export default function ThoughtSpotEmbed({
             }
 
             if (startInEditMode && content.type === "liveboard") {
-              embedInstance.on(EmbedEvent.Load, () => {
-                setTimeout(() => {
-                  embedInstanceRef.current?.trigger?.(HostEvent.Edit);
-                }, 300);
+              // embedInstance.on(EmbedEvent.LiveboardRendered, () => {
+              embedInstance.on("CloseSpotterVizPanel Subscribed", () => {
+                embedInstanceRef.current?.trigger?.(HostEvent.Edit);
               });
             }
+
+            embedInstance.on(
+              EmbedEvent.ALL,
+              (event: unknown, data?: unknown) => {
+                console.log("[ThoughtSpotEmbed] Embed event:", event, data);
+              },
+            );
 
             await embedInstance.render();
             if (isMounted) {
@@ -685,7 +726,7 @@ export default function ThoughtSpotEmbed({
                   renderError instanceof Error
                     ? renderError.message
                     : "Unknown error"
-                }`
+                }`,
               );
               setIsLoading(false);
             }
@@ -711,7 +752,7 @@ export default function ThoughtSpotEmbed({
       isMounted = false;
       console.log(
         "[ThoughtSpotEmbed] Cleaning up embed instance for:",
-        content.id
+        content.id,
       );
       if (
         embedInstanceRef.current &&
@@ -720,7 +761,7 @@ export default function ThoughtSpotEmbed({
         embedInstanceRef.current.destroy();
         console.log(
           "[ThoughtSpotEmbed] Embed instance destroyed for:",
-          content.id
+          content.id,
         );
       }
     };
