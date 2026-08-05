@@ -706,12 +706,14 @@ export default function ThoughtSpotEmbed({
               });
             }
 
+            /*
             embedInstance.on(
               EmbedEvent.ALL,
               (event: unknown, data?: unknown) => {
                 console.log("[ThoughtSpotEmbed] Embed event:", event, data);
               },
             );
+            */
 
             await embedInstance.render();
             if (isMounted) {
