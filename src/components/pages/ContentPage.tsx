@@ -421,7 +421,7 @@ export default function ContentPage({
       </div>
 
       {/* Name filter search box */}
-      <div style={{ marginBottom: "16px" }}>
+      <div style={{ marginBottom: "16px", paddingLeft: "24px" }}>
         <input
           type="search"
           placeholder="Search by name..."
@@ -429,7 +429,7 @@ export default function ContentPage({
           onChange={(e) => setNameFilter(e.target.value)}
           style={{
             width: "20ch",
-            padding: "8px 12px 8px 20px",
+            padding: "8px 12px",
             fontSize: "14px",
             border: `1px solid ${
               stylingConfig.application.backgrounds?.borderColor || "#e5e7eb"

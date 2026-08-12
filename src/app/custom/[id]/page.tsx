@@ -19,6 +19,7 @@ function CustomMenuPageContent() {
   const [selectedContent, setSelectedContent] =
     useState<ThoughtSpotContent | null>(null);
   const [showContentDirectly, setShowContentDirectly] = useState(false);
+  const [nameFilter, setNameFilter] = useState("");
 
   // Prevent hydration mismatch
   useEffect(() => {
@@ -484,6 +485,30 @@ function CustomMenuPageContent() {
         </div>
       </div>
 
+      {/* Name filter search box */}
+      <div style={{ marginBottom: "16px", paddingLeft: "24px" }}>
+        <input
+          type="search"
+          placeholder="Search by name..."
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+          style={{
+            width: "20ch",
+            padding: "8px 12px",
+            fontSize: "14px",
+            border: `1px solid ${
+              stylingConfig.application.backgrounds?.borderColor || "#e5e7eb"
+            }`,
+            borderRadius: "6px",
+            backgroundColor:
+              stylingConfig.application.backgrounds?.cardBackground || "#ffffff",
+            color:
+              stylingConfig.application.typography?.primaryColor || "#1f2937",
+            outline: "none",
+          }}
+        />
+      </div>
+
       <ContentGrid
         title={customMenu.name}
         subtitle={getDynamicSubtitle()}
@@ -496,13 +521,12 @@ function CustomMenuPageContent() {
           ...customMenu,
           contentSelection: {
             ...customMenu.contentSelection,
-            // Don't apply content type filtering here - let the custom menu's content selection work
-            // The tabs will filter the content that's already fetched
           },
         }}
         tabContentType={
           selectedContentType === "all" ? undefined : selectedContentType
         }
+        runtimeNameFilter={nameFilter}
       />
     </div>
   );
