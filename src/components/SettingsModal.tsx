@@ -4774,6 +4774,7 @@ function StylingContent({
           <div
             style={{
               backgroundColor: "white",
+              color: "#1f2937",
               padding: "24px",
               borderRadius: "8px",
               minWidth: "400px",
@@ -4861,6 +4862,7 @@ function StylingContent({
           <div
             style={{
               backgroundColor: "white",
+              color: "#1f2937",
               padding: "24px",
               borderRadius: "8px",
               minWidth: "500px",
@@ -4959,6 +4961,7 @@ function StylingContent({
           <div
             style={{
               backgroundColor: "white",
+              color: "#1f2937",
               padding: "24px",
               borderRadius: "8px",
               minWidth: "450px",
@@ -5840,6 +5843,7 @@ function StylingContent({
           <div
             style={{
               backgroundColor: "white",
+              color: "#1f2937",
               borderRadius: "12px",
               maxWidth: "600px",
               width: "100%",
@@ -9394,6 +9398,7 @@ function ConfigurationContent({
                 <div
                   style={{
                     backgroundColor: "white",
+                    color: "#1f2937",
                     padding: "24px",
                     borderRadius: "8px",
                     minWidth: "400px",
@@ -9551,6 +9556,7 @@ function ConfigurationContent({
                 <div
                   style={{
                     backgroundColor: "white",
+                    color: "#1f2937",
                     padding: "24px",
                     borderRadius: "8px",
                     minWidth: "500px",
@@ -10362,6 +10368,7 @@ export default function SettingsModal({
       <div
         style={{
           backgroundColor: "white",
+          color: "#1f2937",
           borderRadius: "12px",
           width: "90vw",
           maxWidth: "1200px",
@@ -10601,6 +10608,7 @@ export default function SettingsModal({
           <div
             style={{
               backgroundColor: "white",
+              color: "#1f2937",
               borderRadius: "8px",
               padding: "24px",
               maxWidth: "400px",
