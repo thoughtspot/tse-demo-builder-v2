@@ -674,6 +674,56 @@
       "additionalProperties": false
     },
 
+    "LayoutConfig": {
+      "type": "object",
+      "description": "Layout, spacing, and typography settings for the TSE Demo Builder chrome.",
+      "required": [
+        "navPosition", "sideNavBehavior", "topBarHeight", "borderRadius",
+        "density", "shadowStyle", "cardStyle", "animationSpeed", "fontFamily"
+      ],
+      "properties": {
+        "navPosition": {
+          "type": "string",
+          "enum": ["side", "top"]
+        },
+        "sideNavBehavior": {
+          "type": "string",
+          "enum": ["hover-expand", "always-expanded", "icon-only"]
+        },
+        "topBarHeight": {
+          "type": "string",
+          "enum": ["compact", "default", "tall"]
+        },
+        "borderRadius": {
+          "type": "string",
+          "enum": ["sharp", "soft", "round"]
+        },
+        "density": {
+          "type": "string",
+          "enum": ["compact", "default", "comfortable"]
+        },
+        "shadowStyle": {
+          "type": "string",
+          "enum": ["flat", "subtle", "elevated"]
+        },
+        "cardStyle": {
+          "type": "string",
+          "enum": ["bordered", "shadowed", "borderless"]
+        },
+        "animationSpeed": {
+          "type": "string",
+          "enum": ["none", "fast", "default"]
+        },
+        "fontFamily": {
+          "type": "string",
+          "enum": ["system", "inter", "roboto", "dm-sans", "custom"]
+        },
+        "customFontFamily": { "type": "string" },
+        "hideBorders": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+
     "StylingConfig": {
       "type": "object",
       "required": ["application", "embeddedContent"],
@@ -698,7 +748,8 @@
             "hideDescription": { "type": "boolean" }
           },
           "additionalProperties": false
-        }
+        },
+        "layout": { "$ref": "#/definitions/LayoutConfig" }
       },
       "additionalProperties": false
     }

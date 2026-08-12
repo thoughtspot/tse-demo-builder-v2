@@ -28,6 +28,7 @@ interface TopBarProps {
   onSettingsClick?: () => void;
   height?: "compact" | "default" | "tall";
   navItems?: TopBarNavItem[];
+  hideBorders?: boolean;
 }
 
 const HEIGHT_PADDING: Record<string, string> = {
@@ -56,6 +57,7 @@ export default function TopBar({
   onSettingsClick,
   height = "default",
   navItems,
+  hideBorders = false,
 }: TopBarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -198,7 +200,7 @@ export default function TopBar({
   const hasTopNav = navItems && navItems.length > 0;
 
   return (
-    <div style={{ backgroundColor, borderBottom: "1px solid #e2e8f0", boxShadow: "var(--shadow-topbar, 0 1px 3px rgba(0,0,0,0.1))" }}>
+    <div style={{ backgroundColor, borderBottom: hideBorders ? "none" : "1px solid #e2e8f0", boxShadow: "var(--shadow-topbar, 0 1px 3px rgba(0,0,0,0.1))" }}>
       {/* Brand bar */}
       <div
         style={{
@@ -527,7 +529,7 @@ export default function TopBar({
         style={{
           display: "flex",
           alignItems: "stretch",
-          borderTop: "1px solid rgba(0,0,0,0.08)",
+          borderTop: hideBorders ? "none" : "1px solid rgba(0,0,0,0.08)",
           overflowX: "auto",
           paddingLeft: "8px",
         }}

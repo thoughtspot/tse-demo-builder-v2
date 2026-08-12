@@ -361,6 +361,7 @@ export interface LayoutConfig {
   animationSpeed: AnimationSpeed;
   fontFamily: FontFamily;
   customFontFamily?: string;
+  hideBorders?: boolean;
 }
 
 // Styling configuration types

@@ -2710,6 +2710,7 @@ export default function Layout({ children }: LayoutProps) {
               const navPosition = stylingConfig.layout?.navPosition ?? "side";
               const topBarHeight = stylingConfig.layout?.topBarHeight ?? "default";
               const sideNavBehavior = stylingConfig.layout?.sideNavBehavior ?? "hover-expand";
+              const hideBorders = stylingConfig.layout?.hideBorders ?? false;
 
               // Build nav items for top-nav mode
               const routeMap: Record<string, string> = {
@@ -2743,7 +2744,7 @@ export default function Layout({ children }: LayoutProps) {
               return (
                 <>
                   <Suspense fallback={
-                    <div style={{ height: "var(--topbar-height, 56px)", backgroundColor: stylingConfig.application.topBar.backgroundColor, borderBottom: "1px solid #e2e8f0" }} />
+                    <div style={{ height: "var(--topbar-height, 56px)", backgroundColor: stylingConfig.application.topBar.backgroundColor, borderBottom: hideBorders ? "none" : "1px solid #e2e8f0" }} />
                   }>
                     <TopBar
                       title={appConfig.applicationName || "TSE Demo Builder"}
@@ -2764,6 +2765,7 @@ export default function Layout({ children }: LayoutProps) {
                       height={topBarHeight}
                       navItems={navPosition === "top" ? orderedNavItems : undefined}
                       onSettingsClick={navPosition === "top" ? () => setIsSettingsOpen(true) : undefined}
+                      hideBorders={hideBorders}
                     />
                   </Suspense>
 
@@ -2785,6 +2787,7 @@ export default function Layout({ children }: LayoutProps) {
                           selectedColor={stylingConfig.application.sidebar.selectedColor}
                           selectedTextColor={stylingConfig.application.sidebar.selectedTextColor}
                           behavior={sideNavBehavior}
+                          hideBorders={hideBorders}
                         />
                       </Suspense>
                     )}
@@ -2808,6 +2811,7 @@ export default function Layout({ children }: LayoutProps) {
                         <Footer
                           backgroundColor={stylingConfig.application.footer.backgroundColor}
                           foregroundColor={stylingConfig.application.footer.foregroundColor}
+                          hideBorders={hideBorders}
                         />
                       )}
                     </div>

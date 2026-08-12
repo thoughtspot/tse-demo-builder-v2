@@ -154,7 +154,7 @@ export default function ContentPage({
                 "#f7fafc",
               padding: "24px",
               borderRadius: "8px",
-              border: `1px solid ${
+              border: stylingConfig.layout?.hideBorders ? "none" : `1px solid ${
                 stylingConfig.application.backgrounds?.borderColor || "#e2e8f0"
               }`,
               flex: 1,
@@ -191,7 +191,7 @@ export default function ContentPage({
               )}
             <div
               style={{
-                border: `1px solid var(--border-color, #e2e8f0)`,
+                border: stylingConfig.layout?.hideBorders ? "none" : `1px solid var(--border-color, #e2e8f0)`,
                 borderRadius: "8px",
                 backgroundColor: "var(--content-background, white)",
                 flex: 1,

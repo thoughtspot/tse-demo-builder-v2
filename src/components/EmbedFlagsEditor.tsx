@@ -317,41 +317,16 @@ export default function EmbedFlagsEditor({
             backgroundColor: "#fafafa",
           }}
         >
-          <div
+          <h5
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "8px",
+              fontSize: "16px",
+              fontWeight: "600",
+              color: "#2d3748",
+              margin: "0 0 8px 0",
             }}
           >
-            <h5
-              style={{
-                fontSize: "16px",
-                fontWeight: "600",
-                color: "#2d3748",
-                margin: 0,
-              }}
-            >
-              {name}
-            </h5>
-            <button
-              onClick={() => applyChanges(key)}
-              disabled={!unsavedChanges[key]}
-              style={{
-                padding: "6px 12px",
-                backgroundColor: unsavedChanges[key] ? "#10b981" : "#9ca3af",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: unsavedChanges[key] ? "pointer" : "not-allowed",
-                fontSize: "12px",
-                fontWeight: "500",
-              }}
-            >
-              {unsavedChanges[key] ? "Apply" : "Applied"}
-            </button>
-          </div>
+            {name}
+          </h5>
           <p
             style={{
               fontSize: "12px",
@@ -378,7 +353,6 @@ export default function EmbedFlagsEditor({
               value={localFlags[key]}
               onChange={(e) => validateAndUpdate(key, e.target.value)}
               onKeyDown={(e) => {
-                // Prevent form submission on Enter
                 if (e.key === "Enter" && e.ctrlKey) {
                   e.preventDefault();
                   applyChanges(key);
@@ -418,6 +392,31 @@ export default function EmbedFlagsEditor({
               Enter valid JSON or JavaScript object literal syntax. Click
               &quot;Apply&quot; to save changes.
             </p>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: "12px",
+            }}
+          >
+            <button
+              onClick={() => applyChanges(key)}
+              disabled={!unsavedChanges[key]}
+              style={{
+                padding: "6px 16px",
+                backgroundColor: unsavedChanges[key] ? "#10b981" : "#9ca3af",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: unsavedChanges[key] ? "pointer" : "not-allowed",
+                fontSize: "14px",
+                fontWeight: "500",
+              }}
+            >
+              {unsavedChanges[key] ? "Apply" : "Applied"}
+            </button>
           </div>
         </div>
       ))}

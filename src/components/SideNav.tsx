@@ -74,6 +74,7 @@ interface SideNavProps {
   selectedColor?: string;
   selectedTextColor?: string;
   behavior?: "hover-expand" | "always-expanded" | "icon-only";
+  hideBorders?: boolean;
 }
 
 export default function SideNav({
@@ -89,6 +90,7 @@ export default function SideNav({
   selectedColor,
   selectedTextColor,
   behavior = "hover-expand",
+  hideBorders = false,
 }: SideNavProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -351,7 +353,7 @@ export default function SideNav({
       style={{
         width: isHovered ? "250px" : "60px",
         backgroundColor: backgroundColor,
-        borderRight: "1px solid #e2e8f0",
+        borderRight: hideBorders ? "none" : "1px solid #e2e8f0",
         height: "100%",
         display: "flex",
         flexDirection: "column",
@@ -483,7 +485,7 @@ export default function SideNav({
       <div
         style={{
           padding: isHovered ? "16px 24px" : "16px 8px",
-          borderTop: "1px solid #e2e8f0",
+          borderTop: hideBorders ? "none" : "1px solid #e2e8f0",
         }}
       >
         <button

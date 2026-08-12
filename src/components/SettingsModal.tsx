@@ -6477,6 +6477,62 @@ function StylingContent({
               </div>
             )}
           </div>
+
+          {/* Hide Structural Borders */}
+          <div
+            style={{
+              marginBottom: "28px",
+              padding: "20px",
+              border: "1px solid #e5e7eb",
+              borderRadius: "8px",
+              backgroundColor: "#f9fafb",
+            }}
+          >
+            <div style={{ marginBottom: "4px" }}>
+              <p style={{ fontSize: "15px", fontWeight: "600", color: "#111827", margin: 0 }}>
+                Hide Structural Borders
+              </p>
+              <p style={{ fontSize: "13px", color: "#6b7280", margin: "4px 0 0 0" }}>
+                Remove the dividing lines between the header, sidebar, footer, and content area for a seamless single-page look.
+              </p>
+            </div>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                cursor: "pointer",
+                marginTop: "14px",
+                fontSize: "14px",
+                color: "#374151",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={stylingConfig.layout?.hideBorders ?? false}
+                onChange={(e) => {
+                  updateStylingConfig({
+                    ...stylingConfig,
+                    layout: {
+                      navPosition: "side",
+                      sideNavBehavior: "hover-expand",
+                      topBarHeight: "default",
+                      borderRadius: "soft",
+                      density: "default",
+                      shadowStyle: "subtle",
+                      cardStyle: "bordered",
+                      animationSpeed: "default",
+                      fontFamily: "system",
+                      ...stylingConfig.layout,
+                      hideBorders: e.target.checked,
+                    },
+                  });
+                }}
+                style={{ width: "16px", height: "16px", cursor: "pointer" }}
+              />
+              Hide borders between header, sidebar, footer, and content
+            </label>
+          </div>
         </div>
       )}
     </div>
