@@ -128,7 +128,7 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     {
       id: "full-app",
       name: "Full App",
-      enabled: true,
+      enabled: false,
       icon: "full-app",
       homePageType: "html",
       homePageValue: "<h1>Full App</h1>",
@@ -136,7 +136,7 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     {
       id: "all-content",
       name: "All Content",
-      enabled: true,
+      enabled: false,
       icon: "📚",
       homePageType: "html",
       homePageValue: "<h1>All Content</h1>",
@@ -240,8 +240,9 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     embeddedContent: {
       strings: {},
       stringIDs: {
-        "liveboard.highlights.title": "Shopper Highlights",
-        "convAssist.landingpage.description2": "Ask a question about sales.",
+        "liveboard.highlights.title": "Smart Highlights",
+        "convAssist.landingpage.description2":
+          "Ask a question about your data.",
       },
       cssUrl: "",
       iconSpriteUrl: "",
@@ -253,13 +254,28 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     embedFlags: {
       spotterEmbed: {
         updatedSpotterChatPrompt: true,
+        spotterSidebarConfig: {
+          enablePastConversationsSidebar: true,
+          spotterAnalystLabel: "Recent Conversations",
+          spotterSideBarDefaultExpanded: false,
+        },
+        enableStopAnswerGenerationEmbed: true,
+        spotterChatConfig: {
+          hideToolResponseCardBranding: true,
+          toolResponseCardBrandingLabel: "My AI",
+        },
       },
       liveboardEmbed: {
+        updatedSpotterChatPrompt: true,
         enable2ColumnLayout: true,
-        isLiveboardStylingAndGroupingEnabled: true,
         isLiveboardMasterpiecesEnabled: true,
+        spotterChatConfig: {
+          hideToolResponseCardBranding: true,
+          toolResponseCardBrandingLabel: "My AI",
+        },
       },
       appEmbed: {
+        updatedSpotterChatPrompt: true,
         enable2ColumnLayout: true,
         isLiveboardStylingAndGroupingEnabled: true,
         isLiveboardMasterpiecesEnabled: true,
@@ -268,6 +284,15 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     embedDisplay: {
       hideTitle: false,
       hideDescription: false,
+    },
+    sdkActions: {
+      enabled: false,
+      mode: "hidden" as const,
+      actions: [],
+    },
+    doubleClickHandling: {
+      enabled: false,
+      showDefaultModal: true,
     },
   },
   userConfig: {
@@ -679,6 +704,26 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
       });
 
       return mergedConfig;
+    }
+
+    // No stored config found — try to apply the standard template from public/
+    try {
+      const { fetchStandardTemplateYaml, applyStarterSettings } =
+        await import("./defaultSettingsService");
+      const yamlText = await fetchStandardTemplateYaml();
+      if (yamlText) {
+        const templateConfig = applyStarterSettings(yamlText);
+        await saveToStorage(templateConfig);
+        console.log(
+          "[ConfigService] Applied standard template for new configuration",
+        );
+        return templateConfig;
+      }
+    } catch (templateError) {
+      console.warn(
+        "[ConfigService] Could not load standard template, using built-in defaults:",
+        templateError,
+      );
     }
 
     return DEFAULT_CONFIG;

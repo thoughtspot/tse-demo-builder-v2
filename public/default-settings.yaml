@@ -1,0 +1,195 @@
+# TSE Demo Builder - Standard Template
+# Version: 1.0
+#
+# This file is the code-based default configuration.
+# It is applied automatically when:
+#   - A user opens the app for the first time (no stored config)
+#   - A user clears all configurations and reloads
+#
+# To change the default experience for everyone:
+#   1. Edit this file
+#   2. Redeploy the app
+#
+# Fields not listed here fall back to built-in defaults.
+# Unknown or renamed fields are safely ignored (forward/backward compatible).
+# Image fields (logo, favicon) are not included — configure via the UI.
+
+# ----------------------------------------------------------
+# ThoughtSpot Connection
+# ----------------------------------------------------------
+appConfig:
+  # Your ThoughtSpot cloud URL (required for embeds to work)
+  thoughtspotUrl: ""
+  applicationName: TSE Demo Builder
+  # Early access flags — one per line
+  earlyAccessFlags: "enable-modular-home\nenable-custom-styling"
+  showFooter: true
+  showLogo: true
+  showVizPicker: false
+  faviconSyncEnabled: false
+
+  # Authentication
+  # authType options: None | Basic | EmbeddedSSO | TrustedAuthTokenCookieless
+  authConfig:
+    authType: None
+    username: ""
+
+  # AI Chatbot
+  chatbot:
+    enabled: true
+    welcomeMessage: "Hello! I'm your AI assistant. What would you like to know about your data?"
+    position: bottom-right
+
+  # Spotter Visualization
+  spotterViz:
+    enabled: true
+
+# ----------------------------------------------------------
+# Navigation
+# ----------------------------------------------------------
+fullAppConfig:
+  showPrimaryNavbar: true
+  hideHomepageLeftNav: false
+
+# ----------------------------------------------------------
+# Standard Menus
+# Only id, name, and enabled are used from this section.
+# Set enabled: false to hide a menu by default.
+# ----------------------------------------------------------
+standardMenus:
+  - id: home
+    name: Home
+    enabled: true
+  - id: favorites
+    name: Favorites
+    enabled: true
+  - id: my-reports
+    name: My Reports
+    enabled: true
+  - id: spotter
+    name: Spotter
+    enabled: true
+  - id: search
+    name: Search
+    enabled: true
+  - id: full-app
+    name: Full App
+    enabled: false
+  - id: all-content
+    name: All Content
+    enabled: false
+
+# Menu display order (list of menu IDs)
+menuOrder:
+  - home
+  - favorites
+  - my-reports
+  - spotter
+  - search
+  - full-app
+  - all-content
+
+# ----------------------------------------------------------
+# Styling
+# ----------------------------------------------------------
+stylingConfig:
+  application:
+    selectedTheme: default
+    topBar:
+      backgroundColor: "#ffffff"
+      foregroundColor: "#333333"
+    sidebar:
+      backgroundColor: "#f5f5f5"
+      foregroundColor: "#333333"
+    footer:
+      backgroundColor: "#ffffff"
+      foregroundColor: "#333333"
+    dialogs:
+      backgroundColor: "#ffffff"
+      foregroundColor: "#333333"
+    buttons:
+      primary:
+        backgroundColor: "#3182ce"
+        foregroundColor: "#ffffff"
+        borderColor: "#3182ce"
+        hoverBackgroundColor: "#2c5aa0"
+        hoverForegroundColor: "#ffffff"
+      secondary:
+        backgroundColor: "#ffffff"
+        foregroundColor: "#374151"
+        borderColor: "#d1d5db"
+        hoverBackgroundColor: "#f9fafb"
+        hoverForegroundColor: "#374151"
+    backgrounds:
+      mainBackground: "#f7fafc"
+      contentBackground: "#ffffff"
+      cardBackground: "#ffffff"
+      borderColor: "#e2e8f0"
+    typography:
+      primaryColor: "#1f2937"
+      secondaryColor: "#6b7280"
+      linkColor: "#3182ce"
+      linkHoverColor: "#2c5aa0"
+  embeddedContent:
+    strings: {}
+    stringIDs:
+      "liveboard.highlights.title": Shopper Highlights
+      "convAssist.landingpage.description2": Ask a question about sales.
+    cssUrl: ""
+    iconSpriteUrl: ""
+    customCSS:
+      variables: {}
+      rules_UNSTABLE: {}
+  embedFlags:
+    spotterEmbed:
+      updatedSpotterChatPrompt: true
+      spotterSidebarConfig:
+        enablePastConversationsSidebar: true
+        spotterAnalystLabel: "Recent Conversations"
+        spotterSideBarDefaultExpanded: false
+      enableStopAnswerGenerationEmbed: true
+      spotterChatConfig:
+        hideToolResponseCardBranding: true
+        toolResponseCardBrandingLabel: "ThoughtSpot"
+    liveboardEmbed:
+      enable2ColumnLayout: true
+      isLiveboardStylingAndGroupingEnabled: true
+      isLiveboardMasterpiecesEnabled: true
+      spotterChatConfig:
+        hideToolResponseCardBranding: true
+        toolResponseCardBrandingLabel: "ThoughtSpot"
+    appEmbed:
+      enable2ColumnLayout: true
+      isLiveboardStylingAndGroupingEnabled: true
+      isLiveboardMasterpiecesEnabled: true
+  embedDisplay:
+    hideTitle: false
+    hideDescription: false
+  # Double-click handling — opens a modal with drill-down context when a viz is double-clicked
+  doubleClickHandling:
+    enabled: true
+    showDefaultModal: true
+
+  # Action visibility configuration
+  # mode: hidden  — listed actions are removed from the UI entirely
+  # mode: visible — only listed actions are shown (all others hidden)
+  # mode: disabled — listed actions are grayed out and non-interactive
+  # Note: hidden and visible are mutually exclusive — pick one.
+  # disabledReason is only shown when mode is "disabled".
+  sdkActions:
+    enabled: true
+    mode: hidden
+    # disabledReason: "Contact your admin for access"
+    actions:
+      # TML actions
+      - tml
+      - editTSL
+      - exportTSL
+      - importTSL
+      - updateTSL
+      # Download actions
+      - download
+      - downloadAsCSV
+      - downloadAsPdf
+      - downloadAsPng
+      - downloadAsXLSX
