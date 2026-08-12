@@ -2706,91 +2706,115 @@ export default function Layout({ children }: LayoutProps) {
             }}
           >
             {/* Top Bar */}
-            <TopBar
-              title={appConfig.applicationName || "TSE Demo Builder"}
-              logoUrl={stylingConfig.application.topBar.logoUrl || "/ts.svg"}
-              showLogo={appConfig.showLogo !== false}
-              users={userConfig.users.map((user) => ({
-                id: user.id,
-                name: user.name,
-              }))}
-              currentUser={
-                userConfig.users.find(
-                  (u) => u.id === userConfig.currentUserId
-                ) ||
-                userConfig.users[0] || { id: "1", name: "User" }
-              }
-              onUserChange={handleUserChange}
-              backgroundColor={stylingConfig.application.topBar.backgroundColor}
-              foregroundColor={stylingConfig.application.topBar.foregroundColor}
-              thoughtspotUrl={appConfig.thoughtspotUrl}
-              onVizPickerClick={appConfig.showVizPicker ? handleVizPickerClick : undefined}
-              onCreateLiveboardClick={appConfig.spotterViz?.enabled ? handleCreateLiveboardClick : undefined}
-            />
+            {(() => {
+              const navPosition = stylingConfig.layout?.navPosition ?? "side";
+              const topBarHeight = stylingConfig.layout?.topBarHeight ?? "default";
+              const sideNavBehavior = stylingConfig.layout?.sideNavBehavior ?? "hover-expand";
 
-            {/* Main Content Area */}
-            <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-              {/* Side Navigation */}
-              <Suspense fallback={<div style={{ width: "60px", flexShrink: 0 }} />}>
-                <SideNav
-                  onSettingsClick={() => setIsSettingsOpen(true)}
-                  standardMenus={accessibleStandardMenus}
-                  customMenus={accessibleCustomMenus}
-                  menuOrder={menuOrder}
-                  onMenuOrderChange={setMenuOrder}
-                  userConfig={userConfig}
-                  backgroundColor={
-                    stylingConfig.application.sidebar.backgroundColor
-                  }
-                  foregroundColor={
-                    stylingConfig.application.sidebar.foregroundColor
-                  }
-                  hoverColor={stylingConfig.application.sidebar.hoverColor}
-                  selectedColor={stylingConfig.application.sidebar.selectedColor}
-                  selectedTextColor={
-                    stylingConfig.application.sidebar.selectedTextColor
-                  }
-                />
-              </Suspense>
+              // Build nav items for top-nav mode
+              const routeMap: Record<string, string> = {
+                home: "/", favorites: "/favorites", "my-reports": "/my-reports",
+                spotter: "/spotter", search: "/search", "full-app": "/full-app",
+                "all-content": "/all-content",
+              };
+              const orderedNavItems = (() => {
+                const allMenuMap = new Map<string, { name: string; icon: string; route: string }>();
+                accessibleStandardMenus.forEach((m) => {
+                  allMenuMap.set(m.id, { name: m.name, icon: m.icon, route: routeMap[m.id] ?? "/" });
+                });
+                accessibleCustomMenus.forEach((m) => {
+                  allMenuMap.set(m.id, { name: m.name, icon: m.icon, route: `/custom/${m.id}` });
+                });
+                const ordered = (menuOrder ?? [])
+                  .map((id) => allMenuMap.get(id))
+                  .filter((x): x is { name: string; icon: string; route: string } => !!x)
+                  .map((item, idx) => ({ id: String(idx), ...item }));
+                if (ordered.length === 0) {
+                  return [...accessibleStandardMenus, ...accessibleCustomMenus].map((m, idx) => ({
+                    id: m.id ?? String(idx),
+                    name: m.name,
+                    icon: m.icon,
+                    route: "id" in m && routeMap[m.id] ? routeMap[m.id] : `/custom/${m.id}`,
+                  }));
+                }
+                return ordered;
+              })();
 
-              {/* Content Area */}
-              <div
-                style={{
-                  flex: 1,
-                  backgroundColor:
-                    stylingConfig.application.backgrounds?.contentBackground ||
-                    "#ffffff",
-                  color:
-                    stylingConfig.application.typography?.primaryColor ||
-                    "#1f2937",
-                  overflow: "auto",
-                  overflowX: "hidden",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
-                <div
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    minHeight: 0,
-                  }}
-                >
-                  {children}
-                </div>
-                {(appConfig.showFooter ?? true) && (
-                  <Footer
-                    backgroundColor={
-                      stylingConfig.application.footer.backgroundColor
-                    }
-                    foregroundColor={
-                      stylingConfig.application.footer.foregroundColor
-                    }
-                  />
-                )}
-              </div>
-            </div>
+              return (
+                <>
+                  <Suspense fallback={
+                    <div style={{ height: "var(--topbar-height, 56px)", backgroundColor: stylingConfig.application.topBar.backgroundColor, borderBottom: "1px solid #e2e8f0" }} />
+                  }>
+                    <TopBar
+                      title={appConfig.applicationName || "TSE Demo Builder"}
+                      logoUrl={stylingConfig.application.topBar.logoUrl || "/ts.svg"}
+                      showLogo={appConfig.showLogo !== false}
+                      users={userConfig.users.map((user) => ({ id: user.id, name: user.name }))}
+                      currentUser={
+                        userConfig.users.find((u) => u.id === userConfig.currentUserId) ||
+                        userConfig.users[0] || { id: "1", name: "User" }
+                      }
+                      onUserChange={handleUserChange}
+                      backgroundColor={stylingConfig.application.topBar.backgroundColor}
+                      foregroundColor={stylingConfig.application.topBar.foregroundColor}
+                      thoughtspotUrl={appConfig.thoughtspotUrl}
+                      onVizPickerClick={appConfig.showVizPicker ? handleVizPickerClick : undefined}
+                      onCreateLiveboardClick={appConfig.spotterViz?.enabled ? handleCreateLiveboardClick : undefined}
+                      createLiveboardButtonLabel={appConfig.spotterViz?.createLiveboardButtonLabel || "New Liveboard"}
+                      height={topBarHeight}
+                      navItems={navPosition === "top" ? orderedNavItems : undefined}
+                      onSettingsClick={navPosition === "top" ? () => setIsSettingsOpen(true) : undefined}
+                    />
+                  </Suspense>
+
+                  {/* Main Content Area */}
+                  <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+                    {/* Side Navigation — hidden in top-nav mode */}
+                    {navPosition === "side" && (
+                      <Suspense fallback={<div style={{ width: "60px", flexShrink: 0 }} />}>
+                        <SideNav
+                          onSettingsClick={() => setIsSettingsOpen(true)}
+                          standardMenus={accessibleStandardMenus}
+                          customMenus={accessibleCustomMenus}
+                          menuOrder={menuOrder}
+                          onMenuOrderChange={setMenuOrder}
+                          userConfig={userConfig}
+                          backgroundColor={stylingConfig.application.sidebar.backgroundColor}
+                          foregroundColor={stylingConfig.application.sidebar.foregroundColor}
+                          hoverColor={stylingConfig.application.sidebar.hoverColor}
+                          selectedColor={stylingConfig.application.sidebar.selectedColor}
+                          selectedTextColor={stylingConfig.application.sidebar.selectedTextColor}
+                          behavior={sideNavBehavior}
+                        />
+                      </Suspense>
+                    )}
+
+                    {/* Content Area */}
+                    <div
+                      style={{
+                        flex: 1,
+                        backgroundColor:
+                          stylingConfig.application.backgrounds?.contentBackground || "#ffffff",
+                        color: stylingConfig.application.typography?.primaryColor || "#1f2937",
+                        overflow: "hidden",
+                        display: "flex",
+                        flexDirection: "column",
+                      }}
+                    >
+                      <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "auto", overflowX: "hidden" }}>
+                        {children}
+                      </div>
+                      {(appConfig.showFooter ?? true) && (
+                        <Footer
+                          backgroundColor={stylingConfig.application.footer.backgroundColor}
+                          foregroundColor={stylingConfig.application.footer.foregroundColor}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
 
             {/* Settings Modal */}
             <SettingsModal

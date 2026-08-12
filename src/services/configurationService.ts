@@ -173,7 +173,7 @@ export const DEFAULT_CONFIG: ConfigurationData = {
       authType: "None",
     },
     chatbot: {
-      enabled: true,
+      enabled: false,
       defaultModelId: undefined,
       selectedModelIds: [],
       welcomeMessage:
@@ -293,6 +293,17 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     doubleClickHandling: {
       enabled: false,
       showDefaultModal: true,
+    },
+    layout: {
+      navPosition: "side" as const,
+      sideNavBehavior: "hover-expand" as const,
+      topBarHeight: "default" as const,
+      borderRadius: "soft" as const,
+      density: "default" as const,
+      shadowStyle: "subtle" as const,
+      cardStyle: "bordered" as const,
+      animationSpeed: "default" as const,
+      fontFamily: "system" as const,
     },
   },
   userConfig: {

@@ -183,6 +183,7 @@ export interface SpotterVizConfig {
   inputChatPlaceholder?: string;
   hideStarterPrompts?: boolean;
   customStarterPrompts?: StarterPrompt[];
+  createLiveboardButtonLabel?: string;
 }
 
 export interface AppConfig {
@@ -338,6 +339,30 @@ export interface EmbedFlags {
   appEmbed?: Record<string, unknown>;
 }
 
+// Layout configuration types
+export type NavPosition = 'side' | 'top';
+export type SideNavBehavior = 'hover-expand' | 'always-expanded' | 'icon-only';
+export type TopBarHeight = 'compact' | 'default' | 'tall';
+export type BorderRadius = 'sharp' | 'soft' | 'round';
+export type Density = 'compact' | 'default' | 'comfortable';
+export type ShadowStyle = 'flat' | 'subtle' | 'elevated';
+export type CardStyle = 'bordered' | 'shadowed' | 'borderless';
+export type AnimationSpeed = 'none' | 'fast' | 'default';
+export type FontFamily = 'system' | 'inter' | 'roboto' | 'dm-sans' | 'custom';
+
+export interface LayoutConfig {
+  navPosition: NavPosition;
+  sideNavBehavior: SideNavBehavior;
+  topBarHeight: TopBarHeight;
+  borderRadius: BorderRadius;
+  density: Density;
+  shadowStyle: ShadowStyle;
+  cardStyle: CardStyle;
+  animationSpeed: AnimationSpeed;
+  fontFamily: FontFamily;
+  customFontFamily?: string;
+}
+
 // Styling configuration types
 export interface ApplicationStyles {
   topBar: {
@@ -416,6 +441,7 @@ export interface StylingConfig {
     hideTitle?: boolean;
     hideDescription?: boolean;
   };
+  layout?: LayoutConfig;
 }
 
 // Double-click event handling configuration

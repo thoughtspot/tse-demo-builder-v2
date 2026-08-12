@@ -2,11 +2,20 @@
 
 import Image from "next/image";
 import { useState, useEffect } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import MaterialIcon from "./MaterialIcon";
+
+export interface TopBarNavItem {
+  id: string;
+  name: string;
+  icon: string;
+  route: string;
+}
 
 interface TopBarProps {
   title: string;
   logoUrl?: string;
-  showLogo?: boolean; // If false, hide the logo and only show the application name
+  showLogo?: boolean;
   users?: Array<{ id: string; name: string; avatar?: string }>;
   currentUser?: { id: string; name: string; avatar?: string };
   onUserChange?: (userId: string) => void;
@@ -15,7 +24,17 @@ interface TopBarProps {
   thoughtspotUrl?: string;
   onVizPickerClick?: () => void;
   onCreateLiveboardClick?: () => void;
+  createLiveboardButtonLabel?: string;
+  onSettingsClick?: () => void;
+  height?: "compact" | "default" | "tall";
+  navItems?: TopBarNavItem[];
 }
+
+const HEIGHT_PADDING: Record<string, string> = {
+  compact: "8px 24px",
+  default: "12px 24px",
+  tall:    "18px 24px",
+};
 
 export default function TopBar({
   title,
@@ -33,7 +52,14 @@ export default function TopBar({
   thoughtspotUrl,
   onVizPickerClick,
   onCreateLiveboardClick,
+  createLiveboardButtonLabel = "New Liveboard",
+  onSettingsClick,
+  height = "default",
+  navItems,
 }: TopBarProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [thoughtSpotVersion, setThoughtSpotVersion] = useState<string | null>(
     null
   );
@@ -156,18 +182,32 @@ export default function TopBar({
     console.log("[TopBar] processedLogoUrl updated to:", processedLogoUrl);
   }, [processedLogoUrl]);
 
+  const handleNavClick = (route: string) => {
+    const demo =
+      searchParams.get("demo") ||
+      (typeof window !== "undefined" ? sessionStorage.getItem("currentDemo") : null);
+    if (demo) {
+      if (typeof window !== "undefined") sessionStorage.setItem("currentDemo", demo);
+      const params = new URLSearchParams({ demo, loaded: "1" });
+      router.push(`${route}?${params.toString()}`);
+      return;
+    }
+    router.push(route);
+  };
+
+  const hasTopNav = navItems && navItems.length > 0;
+
   return (
-    <div
-      style={{
-        backgroundColor: backgroundColor,
-        borderBottom: "1px solid #e2e8f0",
-        padding: "12px 24px",
-        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-      }}
-    >
+    <div style={{ backgroundColor, borderBottom: "1px solid #e2e8f0", boxShadow: "var(--shadow-topbar, 0 1px 3px rgba(0,0,0,0.1))" }}>
+      {/* Brand bar */}
+      <div
+        style={{
+          padding: HEIGHT_PADDING[height] ?? HEIGHT_PADDING.default,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
       {/* Logo and Title */}
       <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
         {showLogo && (
@@ -265,32 +305,33 @@ export default function TopBar({
           <button
             onClick={onCreateLiveboardClick}
             style={{
-              background: "none",
-              border: "2px solid #10b981",
+              border: "2px solid var(--primary-button-border, #3182ce)",
               cursor: "pointer",
               padding: "8px 16px",
-              borderRadius: "8px",
-              backgroundColor: "#ecfdf5",
+              borderRadius: "var(--radius-md, 8px)",
+              backgroundColor: "var(--primary-button-bg, #3182ce)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontSize: "14px",
               fontWeight: "600",
-              color: "#10b981",
-              transition: "all 0.2s",
+              color: "var(--primary-button-text, #ffffff)",
+              transition: "all var(--transition-fast, 150ms) ease",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#d1fae5";
-              e.currentTarget.style.borderColor = "#059669";
+              e.currentTarget.style.backgroundColor = "var(--primary-button-hover-bg, #2c5aa0)";
+              e.currentTarget.style.borderColor = "var(--primary-button-hover-bg, #2c5aa0)";
+              e.currentTarget.style.color = "var(--primary-button-hover-text, #ffffff)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "#ecfdf5";
-              e.currentTarget.style.borderColor = "#10b981";
+              e.currentTarget.style.backgroundColor = "var(--primary-button-bg, #3182ce)";
+              e.currentTarget.style.borderColor = "var(--primary-button-border, #3182ce)";
+              e.currentTarget.style.color = "var(--primary-button-text, #ffffff)";
             }}
-            title="Create New Liveboard"
+            title={`Create New ${createLiveboardButtonLabel}`}
           >
             <span style={{ marginRight: "6px", fontSize: "16px" }}>+</span>
-            New Liveboard
+            {createLiveboardButtonLabel}
           </button>
         )}
 
@@ -299,27 +340,28 @@ export default function TopBar({
           <button
             onClick={onVizPickerClick}
             style={{
-              background: "none",
-              border: "2px solid #3b82f6",
+              border: "2px solid var(--secondary-button-border, #d1d5db)",
               cursor: "pointer",
               padding: "8px 16px",
-              borderRadius: "8px",
-              backgroundColor: "#eff6ff",
+              borderRadius: "var(--radius-md, 8px)",
+              backgroundColor: "var(--secondary-button-bg, #ffffff)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontSize: "14px",
               fontWeight: "600",
-              color: "#3b82f6",
-              transition: "all 0.2s",
+              color: "var(--secondary-button-text, #374151)",
+              transition: "all var(--transition-fast, 150ms) ease",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#dbeafe";
-              e.currentTarget.style.borderColor = "#2563eb";
+              e.currentTarget.style.backgroundColor = "var(--secondary-button-hover-bg, #f9fafb)";
+              e.currentTarget.style.borderColor = "var(--secondary-button-border, #d1d5db)";
+              e.currentTarget.style.color = "var(--secondary-button-hover-text, #374151)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "#eff6ff";
-              e.currentTarget.style.borderColor = "#3b82f6";
+              e.currentTarget.style.backgroundColor = "var(--secondary-button-bg, #ffffff)";
+              e.currentTarget.style.borderColor = "var(--secondary-button-border, #d1d5db)";
+              e.currentTarget.style.color = "var(--secondary-button-text, #374151)";
             }}
             title="Visualization Picker"
           >
@@ -479,5 +521,78 @@ export default function TopBar({
         </div>
       </div>
     </div>
+    {/* Horizontal nav bar — only rendered in top-nav mode */}
+    {hasTopNav && (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "stretch",
+          borderTop: "1px solid rgba(0,0,0,0.08)",
+          overflowX: "auto",
+          paddingLeft: "8px",
+        }}
+      >
+        {navItems!.map((item) => {
+          const isActive = pathname === item.route;
+          return (
+            <button
+              key={item.id}
+              onClick={() => handleNavClick(item.route)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "10px 16px",
+                border: "none",
+                borderBottom: isActive ? `2px solid ${foregroundColor}` : "2px solid transparent",
+                background: "transparent",
+                color: isActive ? foregroundColor : `${foregroundColor}99`,
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: isActive ? "600" : "400",
+                whiteSpace: "nowrap",
+                transition: "color var(--transition-fast, 150ms) ease, border-color var(--transition-fast, 150ms) ease",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) e.currentTarget.style.color = foregroundColor;
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) e.currentTarget.style.color = `${foregroundColor}99`;
+              }}
+            >
+              <MaterialIcon icon={item.icon} size={18} color="currentColor" />
+              <span>{item.name}</span>
+            </button>
+          );
+        })}
+        {/* Settings link at end */}
+        {onSettingsClick && (
+          <button
+            onClick={onSettingsClick}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "10px 16px",
+              marginLeft: "auto",
+              border: "none",
+              borderBottom: "2px solid transparent",
+              background: "transparent",
+              color: `${foregroundColor}99`,
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "400",
+              whiteSpace: "nowrap",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = foregroundColor; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = `${foregroundColor}99`; }}
+          >
+            <MaterialIcon icon="settings" size={18} color="currentColor" />
+            <span>Settings</span>
+          </button>
+        )}
+      </div>
+    )}
+  </div>
   );
 }

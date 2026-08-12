@@ -1,10 +1,11 @@
-import { ApplicationStyles } from './thoughtspot';
+import { ApplicationStyles, LayoutConfig } from './thoughtspot';
 
 export interface Theme {
   id: string;
   name: string;
   description: string;
   styles: Partial<ApplicationStyles>;
+  layout?: Partial<LayoutConfig>;
 }
 
 export const PREDEFINED_THEMES: Theme[] = [
@@ -12,6 +13,11 @@ export const PREDEFINED_THEMES: Theme[] = [
     id: 'default',
     name: 'Default',
     description: 'Clean, professional light theme',
+    layout: {
+      borderRadius: 'soft',
+      shadowStyle: 'subtle',
+      cardStyle: 'bordered',
+    },
     styles: {
       topBar: {
         backgroundColor: '#ffffff',
@@ -63,6 +69,11 @@ export const PREDEFINED_THEMES: Theme[] = [
     id: 'dark',
     name: 'Dark',
     description: 'Modern dark theme with high contrast',
+    layout: {
+      borderRadius: 'soft',
+      shadowStyle: 'elevated',
+      cardStyle: 'shadowed',
+    },
     styles: {
       topBar: {
         backgroundColor: '#1f2937',
@@ -114,6 +125,11 @@ export const PREDEFINED_THEMES: Theme[] = [
     id: 'blue',
     name: 'Blue',
     description: 'Professional blue theme',
+    layout: {
+      borderRadius: 'soft',
+      shadowStyle: 'subtle',
+      cardStyle: 'bordered',
+    },
     styles: {
       topBar: {
         backgroundColor: '#1e40af',
@@ -165,6 +181,11 @@ export const PREDEFINED_THEMES: Theme[] = [
     id: 'orange',
     name: 'Orange',
     description: 'Warm and energetic orange theme',
+    layout: {
+      borderRadius: 'round',
+      shadowStyle: 'subtle',
+      cardStyle: 'bordered',
+    },
     styles: {
       topBar: {
         backgroundColor: '#ea580c',
@@ -216,6 +237,11 @@ export const PREDEFINED_THEMES: Theme[] = [
     id: 'green',
     name: 'Green',
     description: 'Fresh and natural green theme',
+    layout: {
+      borderRadius: 'soft',
+      shadowStyle: 'subtle',
+      cardStyle: 'borderless',
+    },
     styles: {
       topBar: {
         backgroundColor: '#059669',
@@ -267,6 +293,11 @@ export const PREDEFINED_THEMES: Theme[] = [
     id: 'purple',
     name: 'Purple',
     description: 'Creative and modern purple theme',
+    layout: {
+      borderRadius: 'round',
+      shadowStyle: 'elevated',
+      cardStyle: 'shadowed',
+    },
     styles: {
       topBar: {
         backgroundColor: '#7c3aed',
@@ -331,4 +362,9 @@ export const applyTheme = (themeId: string, currentStyles: ApplicationStyles): A
     ...theme.styles,
     selectedTheme: themeId,
   };
+};
+
+export const getThemeLayoutDefaults = (themeId: string): Partial<LayoutConfig> => {
+  const theme = getThemeById(themeId);
+  return theme?.layout ?? {};
 };

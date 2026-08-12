@@ -1646,6 +1646,19 @@ function StandardMenusContent({
                         <p style={hintStyle}>Placeholder text shown in the question input field.</p>
                       </div>
 
+                      {/* Create Liveboard Button Label */}
+                      <div style={sectionStyle}>
+                        <label style={labelStyle}>Create Button Label</label>
+                        <input
+                          type="text"
+                          value={appConfig.spotterViz?.createLiveboardButtonLabel || ""}
+                          onChange={(e) => updateSpotterViz({ createLiveboardButtonLabel: e.target.value })}
+                          placeholder="New Liveboard"
+                          style={fieldStyle}
+                        />
+                        <p style={hintStyle}>Label for the create button in the top bar (e.g. "New Dashboard").</p>
+                      </div>
+
                       {/* Hide Starter Prompts */}
                       <div style={sectionStyle}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
@@ -4272,7 +4285,7 @@ function StylingContent({
 
   // Ensure we always have a valid sub-tab selected
   useEffect(() => {
-    const validSubTabs = ["application", "embedded"];
+    const validSubTabs = ["application", "embedded", "layout"];
     if (!validSubTabs.includes(activeSubTab)) {
       setActiveSubTab("application");
     }
@@ -4347,6 +4360,7 @@ function StylingContent({
   const subTabs = [
     { id: "application", name: "Application Styles", icon: "🎨" },
     { id: "embedded", name: "Embedded Content", icon: "🔧" },
+    { id: "layout", name: "Layout & Style", icon: "⬜" },
   ];
 
   const updateApplicationStyles = (field: string, value: string) => {
@@ -6170,6 +6184,298 @@ function StylingContent({
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Layout & Style sub-tab */}
+      {activeSubTab === "layout" && (
+        <div>
+          <h4 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "8px" }}>
+            Layout & Style
+          </h4>
+          <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "24px" }}>
+            Control the shape, spacing, motion, and navigation structure of the app.
+          </p>
+
+          {/* Section helper */}
+          {(
+            [
+              {
+                label: "Navigation Position",
+                description: "Where the main nav lives — sidebar or horizontal top bar.",
+                field: "navPosition" as const,
+                options: [
+                  { value: "side", label: "Side", hint: "Collapsible left sidebar" },
+                  { value: "top",  label: "Top",  hint: "Horizontal bar below the header" },
+                ],
+              },
+              {
+                label: "Sidebar Behavior",
+                description: "Controls how the sidebar opens and closes (side nav only).",
+                field: "sideNavBehavior" as const,
+                options: [
+                  { value: "hover-expand",    label: "Hover to expand", hint: "Collapses to icon strip; expands on hover" },
+                  { value: "always-expanded", label: "Always expanded",  hint: "Stays fully open" },
+                  { value: "icon-only",        label: "Icon only",        hint: "Icons only, never expands" },
+                ],
+              },
+              {
+                label: "Top Bar Height",
+                description: "Sets the vertical size of the header bar.",
+                field: "topBarHeight" as const,
+                options: [
+                  { value: "compact", label: "Compact", hint: "40px — tight, dense" },
+                  { value: "default", label: "Default", hint: "56px — standard" },
+                  { value: "tall",    label: "Tall",    hint: "72px — prominent branding" },
+                ],
+              },
+              {
+                label: "Border Radius",
+                description: "How rounded corners are throughout the app.",
+                field: "borderRadius" as const,
+                options: [
+                  { value: "sharp", label: "Sharp", hint: "Flat, no rounding" },
+                  { value: "soft",  label: "Soft",  hint: "Gentle curves (default)" },
+                  { value: "round", label: "Round", hint: "Pronounced rounding" },
+                ],
+              },
+              {
+                label: "Spacing Density",
+                description: "Padding scale — how tight or airy the layout feels.",
+                field: "density" as const,
+                options: [
+                  { value: "compact",     label: "Compact",     hint: "Tight — more content visible" },
+                  { value: "default",     label: "Default",     hint: "Balanced" },
+                  { value: "comfortable", label: "Comfortable", hint: "Airy — more whitespace" },
+                ],
+              },
+              {
+                label: "Shadow Style",
+                description: "Depth and elevation of panels, cards, and the top bar.",
+                field: "shadowStyle" as const,
+                options: [
+                  { value: "flat",     label: "Flat",     hint: "No shadows — ultra-clean" },
+                  { value: "subtle",   label: "Subtle",   hint: "Light shadows (default)" },
+                  { value: "elevated", label: "Elevated", hint: "Strong shadows — layered feel" },
+                ],
+              },
+              {
+                label: "Card Style",
+                description: "How content cards and panels are visually separated.",
+                field: "cardStyle" as const,
+                options: [
+                  { value: "bordered",   label: "Bordered",   hint: "Outlined with a border" },
+                  { value: "shadowed",   label: "Shadowed",   hint: "Drop shadow, no border" },
+                  { value: "borderless", label: "Borderless", hint: "Flat, no separation" },
+                ],
+              },
+              {
+                label: "Animation Speed",
+                description: "How fast transitions and hover effects play.",
+                field: "animationSpeed" as const,
+                options: [
+                  { value: "none",    label: "None",    hint: "Instant — no motion" },
+                  { value: "fast",    label: "Fast",    hint: "Snappy transitions" },
+                  { value: "default", label: "Default", hint: "Standard pacing" },
+                ],
+              },
+            ] as Array<{
+              label: string;
+              description: string;
+              field: keyof import("../types/thoughtspot").LayoutConfig;
+              options: Array<{ value: string; label: string; hint: string }>;
+            }>
+          ).map((section) => {
+            const currentValue = (stylingConfig.layout as Record<string, string> | undefined)?.[section.field] ?? "";
+            return (
+              <div
+                key={section.field}
+                style={{
+                  marginBottom: "28px",
+                  padding: "20px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "8px",
+                  backgroundColor: "#f9fafb",
+                }}
+              >
+                <div style={{ marginBottom: "12px" }}>
+                  <p style={{ fontSize: "15px", fontWeight: "600", color: "#111827", margin: 0 }}>
+                    {section.label}
+                  </p>
+                  <p style={{ fontSize: "13px", color: "#6b7280", margin: "4px 0 0 0" }}>
+                    {section.description}
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                  {section.options.map((opt) => {
+                    const selected = currentValue === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => {
+                          updateStylingConfig({
+                            ...stylingConfig,
+                            layout: {
+                              navPosition: "side",
+                              sideNavBehavior: "hover-expand",
+                              topBarHeight: "default",
+                              borderRadius: "soft",
+                              density: "default",
+                              shadowStyle: "subtle",
+                              cardStyle: "bordered",
+                              animationSpeed: "default",
+                              fontFamily: "system",
+                              ...stylingConfig.layout,
+                              [section.field]: opt.value,
+                            },
+                          });
+                        }}
+                        style={{
+                          padding: "8px 16px",
+                          border: selected ? "2px solid #3182ce" : "2px solid #e5e7eb",
+                          borderRadius: "6px",
+                          background: selected ? "#ebf8ff" : "white",
+                          color: selected ? "#1e40af" : "#374151",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                          fontWeight: selected ? "600" : "400",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "flex-start",
+                          gap: "2px",
+                          minWidth: "120px",
+                          textAlign: "left",
+                        }}
+                      >
+                        <span style={{ fontSize: "14px" }}>{opt.label}</span>
+                        <span style={{ fontSize: "11px", color: selected ? "#3182ce" : "#9ca3af", fontWeight: "400" }}>
+                          {opt.hint}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Font Family — separate because it has a custom text input */}
+          <div
+            style={{
+              marginBottom: "28px",
+              padding: "20px",
+              border: "1px solid #e5e7eb",
+              borderRadius: "8px",
+              backgroundColor: "#f9fafb",
+            }}
+          >
+            <div style={{ marginBottom: "12px" }}>
+              <p style={{ fontSize: "15px", fontWeight: "600", color: "#111827", margin: 0 }}>
+                Font Family
+              </p>
+              <p style={{ fontSize: "13px", color: "#6b7280", margin: "4px 0 0 0" }}>
+                Typography used across the entire app. Web fonts load from Google Fonts automatically.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "12px" }}>
+              {(
+                [
+                  { value: "system",  label: "System",  hint: "OS default sans-serif" },
+                  { value: "inter",   label: "Inter",   hint: "Clean, readable" },
+                  { value: "roboto",  label: "Roboto",  hint: "Google's standard" },
+                  { value: "dm-sans", label: "DM Sans", hint: "Modern, geometric" },
+                  { value: "custom",  label: "Custom",  hint: "Enter your own" },
+                ] as Array<{ value: string; label: string; hint: string }>
+              ).map((opt) => {
+                const selected = (stylingConfig.layout?.fontFamily ?? "system") === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      updateStylingConfig({
+                        ...stylingConfig,
+                        layout: {
+                          navPosition: "side",
+                          sideNavBehavior: "hover-expand",
+                          topBarHeight: "default",
+                          borderRadius: "soft",
+                          density: "default",
+                          shadowStyle: "subtle",
+                          cardStyle: "bordered",
+                          animationSpeed: "default",
+                          ...stylingConfig.layout,
+                          fontFamily: opt.value as import("../types/thoughtspot").FontFamily,
+                        },
+                      });
+                    }}
+                    style={{
+                      padding: "8px 16px",
+                      border: selected ? "2px solid #3182ce" : "2px solid #e5e7eb",
+                      borderRadius: "6px",
+                      background: selected ? "#ebf8ff" : "white",
+                      color: selected ? "#1e40af" : "#374151",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      fontWeight: selected ? "600" : "400",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      gap: "2px",
+                      minWidth: "110px",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span>{opt.label}</span>
+                    <span style={{ fontSize: "11px", color: selected ? "#3182ce" : "#9ca3af", fontWeight: "400" }}>
+                      {opt.hint}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {stylingConfig.layout?.fontFamily === "custom" && (
+              <div>
+                <label style={{ fontSize: "13px", fontWeight: "500", color: "#374151" }}>
+                  Custom font name (CSS font-family value)
+                </label>
+                <input
+                  type="text"
+                  value={stylingConfig.layout?.customFontFamily ?? ""}
+                  onChange={(e) => {
+                    updateStylingConfig({
+                      ...stylingConfig,
+                      layout: {
+                        navPosition: "side",
+                        sideNavBehavior: "hover-expand",
+                        topBarHeight: "default",
+                        borderRadius: "soft",
+                        density: "default",
+                        shadowStyle: "subtle",
+                        cardStyle: "bordered",
+                        animationSpeed: "default",
+                        fontFamily: "system",
+                        ...stylingConfig.layout,
+                        customFontFamily: e.target.value,
+                      },
+                    });
+                  }}
+                  placeholder="e.g. 'Nunito', 'Poppins', 'Open Sans'"
+                  style={{
+                    width: "100%",
+                    marginTop: "6px",
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    fontSize: "13px",
+                    outline: "none",
+                  }}
+                />
+                <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "4px" }}>
+                  Make sure the font is available via @import or a &lt;link&gt; tag if it is not a system font.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

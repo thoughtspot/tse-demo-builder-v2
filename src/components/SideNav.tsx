@@ -73,6 +73,7 @@ interface SideNavProps {
   hoverColor?: string;
   selectedColor?: string;
   selectedTextColor?: string;
+  behavior?: "hover-expand" | "always-expanded" | "icon-only";
 }
 
 export default function SideNav({
@@ -87,11 +88,17 @@ export default function SideNav({
   hoverColor,
   selectedColor,
   selectedTextColor,
+  behavior = "hover-expand",
 }: SideNavProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [isHovered, setIsHovered] = useState(false);
+
+  const behaviorExpanded = behavior === "always-expanded";
+  const behaviorIconOnly = behavior === "icon-only";
+  const [isHoverActive, setIsHoverActive] = useState(false);
+
+  const isHovered = behaviorExpanded || (!behaviorIconOnly && isHoverActive);
   const [isDragging, setIsDragging] = useState(false);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
@@ -353,11 +360,11 @@ export default function SideNav({
         overflow: "hidden",
       }}
       onMouseEnter={() => {
-        setIsHovered(true);
+        setIsHoverActive(true);
         setShowDragHandles(true);
       }}
       onMouseLeave={() => {
-        setIsHovered(false);
+        setIsHoverActive(false);
         setShowDragHandles(false);
       }}
     >
