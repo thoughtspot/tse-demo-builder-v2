@@ -5,6 +5,100 @@ import PinToLiveboardDialog from "./PinToLiveboardDialog";
 import { useAppContext } from "./Layout";
 export type SearchPanelType = "search" | "ai";
 
+interface PaymentModalProps {
+  maxQueries: number;
+  planName: string;
+  price: number;
+  currency: string;
+  onPay: () => void;
+}
+
+function SidePanelPaymentModal({ maxQueries, planName, price, currency, onPay }: PaymentModalProps) {
+  const [processing, setProcessing] = useState(false);
+
+  const handlePay = () => {
+    setProcessing(true);
+    setTimeout(() => {
+      setProcessing(false);
+      onPay();
+    }, 1500);
+  };
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        backgroundColor: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 50,
+        backdropFilter: "blur(2px)",
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: "#ffffff",
+          borderRadius: "12px",
+          padding: "24px",
+          width: "280px",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
+          textAlign: "center",
+        }}
+      >
+        <div style={{ fontSize: "32px", marginBottom: "10px" }}>🔒</div>
+        <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#111827", margin: "0 0 8px 0" }}>
+          Query Limit Reached
+        </h3>
+        <p style={{ fontSize: "12px", color: "#6b7280", margin: "0 0 16px 0" }}>
+          You&apos;ve used all your queries on the <strong>{planName}</strong> plan.
+        </p>
+        <div
+          style={{
+            backgroundColor: "#f0f9ff",
+            border: "1px solid #bae6fd",
+            borderRadius: "8px",
+            padding: "12px",
+            marginBottom: "16px",
+          }}
+        >
+          <div style={{ fontSize: "13px", fontWeight: "600", color: "#0369a1" }}>
+            Query Pack — {maxQueries} queries
+          </div>
+          <div style={{ fontSize: "18px", fontWeight: "700", color: "#0369a1", marginTop: "4px" }}>
+            {currency}{price}
+          </div>
+        </div>
+        <button
+          onClick={handlePay}
+          disabled={processing}
+          style={{
+            width: "100%",
+            padding: "12px",
+            backgroundColor: processing ? "#93c5fd" : "#2563eb",
+            color: "#ffffff",
+            border: "none",
+            borderRadius: "8px",
+            fontSize: "14px",
+            fontWeight: "600",
+            cursor: processing ? "default" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "6px",
+          }}
+        >
+          {processing ? "Processing..." : `💳 Pay ${currency}${price} Now`}
+        </button>
+        <p style={{ fontSize: "10px", color: "#9ca3af", marginTop: "8px", marginBottom: 0 }}>
+          Demo only — no real charge
+        </p>
+      </div>
+    </div>
+  );
+}
+
 interface SearchSidePanelProps {
   type: SearchPanelType;
   activeLiveboardId: string;
@@ -34,6 +128,13 @@ export default function SearchSidePanel({
   const [isPinning, setIsPinning] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
   const [embedError, setEmbedError] = useState<string | null>(null);
+
+  // Pricing state (AI mode only)
+  const pricingConfig = context.appConfig.spotterPricing;
+  const pricingEnabled = type === "ai" && (pricingConfig?.enabled ?? false);
+  const maxQueries = pricingConfig?.maxQueries ?? 10;
+  const [remainingQueries, setRemainingQueries] = useState(maxQueries);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   const handlePin = useCallback(
     async (name: string) => {
@@ -159,6 +260,19 @@ export default function SearchSidePanel({
               latestSpotterVizIdRef.current = p.data.id;
             }
           });
+
+          if (pricingEnabled) {
+            instance.on(EmbedEvent.SpotterQueryTriggered, () => {
+              setRemainingQueries((prev) => {
+                const next = prev - 1;
+                if (next <= 0) {
+                  setShowPaymentModal(true);
+                  return 0;
+                }
+                return next;
+              });
+            });
+          }
         }
 
         instance.on(EmbedEvent.CustomAction, (payload: unknown) => {
@@ -311,7 +425,74 @@ export default function SearchSidePanel({
       )}
 
       {/* Embed container */}
-      <div ref={embedRef} style={{ flex: 1, overflow: "hidden", minHeight: 0 }} />
+      <div style={{ flex: 1, overflow: "hidden", minHeight: 0, position: "relative" }}>
+        <div ref={embedRef} style={{ width: "100%", height: "100%" }} />
+        {pricingEnabled && showPaymentModal && (
+          <SidePanelPaymentModal
+            maxQueries={maxQueries}
+            planName={pricingConfig?.planName || "Starter"}
+            price={pricingConfig?.pricePerPack ?? 29}
+            currency={pricingConfig?.currency || "$"}
+            onPay={() => {
+              setRemainingQueries(maxQueries);
+              setShowPaymentModal(false);
+            }}
+          />
+        )}
+      </div>
+
+      {/* Query counter bar for AI mode */}
+      {pricingEnabled && (
+        <div
+          style={{
+            padding: "6px 12px",
+            borderTop: "1px solid #e5e7eb",
+            backgroundColor: "#f9fafb",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            flexShrink: 0,
+          }}
+        >
+          <span style={{ fontSize: "11px", color: "#374151", whiteSpace: "nowrap", fontWeight: "500" }}>
+            Queries
+          </span>
+          <div
+            style={{
+              flex: 1,
+              height: "5px",
+              backgroundColor: "#e5e7eb",
+              borderRadius: "3px",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                height: "100%",
+                width: `${maxQueries > 0 ? (remainingQueries / maxQueries) * 100 : 0}%`,
+                backgroundColor:
+                  remainingQueries / maxQueries <= 0.2
+                    ? "#ef4444"
+                    : remainingQueries / maxQueries <= 0.5
+                    ? "#f59e0b"
+                    : "#10b981",
+                borderRadius: "3px",
+                transition: "width 0.3s ease",
+              }}
+            />
+          </div>
+          <span
+            style={{
+              fontSize: "11px",
+              fontWeight: "600",
+              color: remainingQueries / maxQueries <= 0.2 ? "#dc2626" : "#374151",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {remainingQueries}/{maxQueries}
+          </span>
+        </div>
+      )}
 
       <PinToLiveboardDialog
         isOpen={isPinDialogOpen}

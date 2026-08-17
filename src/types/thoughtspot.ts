@@ -205,6 +205,14 @@ export interface LoginPageConfig {
   subtitle?: string;
 }
 
+export interface SpotterPricingConfig {
+  enabled: boolean;
+  maxQueries: number;
+  planName?: string;
+  pricePerPack?: number;
+  currency?: string;
+}
+
 export interface AppConfig {
   thoughtspotUrl: string;
   applicationName: string;
@@ -227,6 +235,7 @@ export interface AppConfig {
     spotgptApiKey?: string;
   };
   spotterViz?: SpotterVizConfig;
+  spotterPricing?: SpotterPricingConfig;
 }
 
 export interface FullAppConfig {

@@ -38,6 +38,7 @@ import {
   StarterPrompt,
   SDKActionsConfig,
   RuntimeFilter,
+  SpotterPricingConfig,
 } from "../types/thoughtspot";
 import HiddenActionsEditor from "./HiddenActionsEditor";
 import SDKActionsEditor from "./SDKActionsEditor";
@@ -2744,6 +2745,122 @@ function StandardMenusContent({
                             </p>
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {menu.id === "spotter" && (
+                      <div style={{ marginBottom: "16px" }}>
+                        <hr style={{ border: "none", borderTop: "1px solid #e5e7eb", margin: "0 0 16px 0" }} />
+                        <div style={{ marginBottom: "12px" }}>
+                          <h5 style={{ fontSize: "14px", fontWeight: "600", color: "#374151", margin: "0 0 4px 0" }}>
+                            Query Pricing Emulation
+                          </h5>
+                          <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>
+                            Simulate per-query billing by limiting queries and showing a payment prompt when the limit is reached.
+                          </p>
+                        </div>
+                        {/* Enable toggle */}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "12px",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: "8px",
+                            backgroundColor: "#f9fafb",
+                            marginBottom: "12px",
+                          }}
+                        >
+                          <label style={{ fontSize: "14px", fontWeight: "500", color: "#374151" }}>
+                            Enable Pricing Emulation
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={appConfig.spotterPricing?.enabled ?? false}
+                            onChange={(e) => {
+                              const updated: SpotterPricingConfig = {
+                                enabled: e.target.checked,
+                                maxQueries: appConfig.spotterPricing?.maxQueries ?? 10,
+                                planName: appConfig.spotterPricing?.planName ?? "Starter",
+                                pricePerPack: appConfig.spotterPricing?.pricePerPack ?? 29,
+                                currency: appConfig.spotterPricing?.currency ?? "$",
+                              };
+                              updateAppConfig({ ...appConfig, spotterPricing: updated });
+                            }}
+                            style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                          />
+                        </div>
+                        {(appConfig.spotterPricing?.enabled) && (
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                            <div>
+                              <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "4px" }}>
+                                Max Queries per Pack
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={appConfig.spotterPricing?.maxQueries ?? 10}
+                                onChange={(e) => {
+                                  const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                  updateAppConfig({
+                                    ...appConfig,
+                                    spotterPricing: { ...appConfig.spotterPricing!, maxQueries: val },
+                                  });
+                                }}
+                                style={{ width: "100%", padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "4px" }}>
+                                Price per Pack
+                              </label>
+                              <div style={{ display: "flex", gap: "4px" }}>
+                                <input
+                                  type="text"
+                                  value={appConfig.spotterPricing?.currency ?? "$"}
+                                  onChange={(e) => {
+                                    updateAppConfig({
+                                      ...appConfig,
+                                      spotterPricing: { ...appConfig.spotterPricing!, currency: e.target.value },
+                                    });
+                                  }}
+                                  style={{ width: "36px", padding: "8px 6px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", textAlign: "center" }}
+                                />
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={appConfig.spotterPricing?.pricePerPack ?? 29}
+                                  onChange={(e) => {
+                                    const val = Math.max(0, parseFloat(e.target.value) || 0);
+                                    updateAppConfig({
+                                      ...appConfig,
+                                      spotterPricing: { ...appConfig.spotterPricing!, pricePerPack: val },
+                                    });
+                                  }}
+                                  style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" }}
+                                />
+                              </div>
+                            </div>
+                            <div style={{ gridColumn: "1 / -1" }}>
+                              <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "4px" }}>
+                                Plan Name (shown in payment modal)
+                              </label>
+                              <input
+                                type="text"
+                                value={appConfig.spotterPricing?.planName ?? "Starter"}
+                                onChange={(e) => {
+                                  updateAppConfig({
+                                    ...appConfig,
+                                    spotterPricing: { ...appConfig.spotterPricing!, planName: e.target.value },
+                                  });
+                                }}
+                                placeholder="e.g. Starter, Pro, Enterprise"
+                                style={{ width: "100%", padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" }}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
