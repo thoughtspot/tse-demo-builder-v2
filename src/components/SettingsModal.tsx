@@ -9541,6 +9541,87 @@ function ConfigurationContent({
                     the ThoughtSpot developer documentation in a new tab
                   </p>
                 </div>
+
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      color: "#4a5568",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={appConfig.loginPage?.enabled ?? false}
+                      onChange={(e) =>
+                        updateAppConfig({
+                          ...appConfig,
+                          loginPage: {
+                            ...appConfig.loginPage,
+                            enabled: e.target.checked,
+                          },
+                        })
+                      }
+                      style={{ cursor: "pointer" }}
+                    />
+                    <span>Show Login Page</span>
+                  </label>
+                  <p
+                    style={{
+                      margin: "4px 0 0 0",
+                      fontSize: "12px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    When enabled, visitors see a login form before accessing the
+                    app. Any credentials will work — this is for demo purposes
+                    only.
+                  </p>
+                  {appConfig.loginPage?.enabled && (
+                    <div style={{ marginTop: "12px" }}>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: "13px",
+                          fontWeight: "500",
+                          color: "#4a5568",
+                          marginBottom: "6px",
+                        }}
+                      >
+                        Login Page Subtitle (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={appConfig.loginPage?.subtitle ?? ""}
+                        onChange={(e) =>
+                          updateAppConfig({
+                            ...appConfig,
+                            loginPage: {
+                              ...appConfig.loginPage,
+                              enabled: true,
+                              subtitle: e.target.value,
+                            },
+                          })
+                        }
+                        placeholder="Sign in to continue"
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          fontSize: "14px",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "6px",
+                          outline: "none",
+                          boxSizing: "border-box",
+                          color: "#1f2937",
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

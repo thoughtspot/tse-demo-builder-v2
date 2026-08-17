@@ -170,6 +170,10 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     showLogo: true,
     showVizPicker: false,
     showHelpButton: false,
+    loginPage: {
+      enabled: false,
+      subtitle: "",
+    },
     authConfig: {
       authType: "None",
     },

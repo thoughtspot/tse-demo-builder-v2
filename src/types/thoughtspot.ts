@@ -200,6 +200,11 @@ export interface SpotterVizConfig {
   newAISearch?: LiveboardSearchButtonOption;
 }
 
+export interface LoginPageConfig {
+  enabled: boolean;
+  subtitle?: string;
+}
+
 export interface AppConfig {
   thoughtspotUrl: string;
   applicationName: string;
@@ -211,6 +216,7 @@ export interface AppConfig {
   showLogo?: boolean;
   showVizPicker?: boolean;
   showHelpButton?: boolean;
+  loginPage?: LoginPageConfig;
   authConfig?: AuthConfig;
   chatbot?: {
     enabled: boolean;

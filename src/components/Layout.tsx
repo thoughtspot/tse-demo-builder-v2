@@ -66,6 +66,7 @@ import LoadingDialog from "./LoadingDialog";
 import ConfigurationLoader from "./ConfigurationLoader";
 import StylingProvider from "./StylingProvider";
 import { getImageFromIndexedDB } from "./ImageUpload";
+import LoginPage from "./pages/LoginPage";
 
 // Configuration interfaces for compatibility
 interface ConfigurationData {
@@ -392,6 +393,11 @@ export default function Layout({ children }: LayoutProps) {
       console.warn = originalWarn;
     };
   }, []);
+
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem("demo-logged-in") === "1";
+  });
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<
@@ -2750,6 +2756,26 @@ export default function Layout({ children }: LayoutProps) {
     triggerLiveboardRefresh,
   };
 
+  const handleLogin = () => {
+    sessionStorage.setItem("demo-logged-in", "1");
+    setIsLoggedIn(true);
+  };
+
+  if (appConfig.loginPage?.enabled && !isLoggedIn && !isInitialLoadInProgress) {
+    return (
+      <AppContext.Provider value={contextValue}>
+        <link rel="icon" href="/ts.svg" id="favicon" />
+        <StylingProvider stylingConfig={stylingConfig}>
+          <LoginPage
+            appConfig={appConfig}
+            stylingConfig={stylingConfig}
+            onLogin={handleLogin}
+          />
+        </StylingProvider>
+      </AppContext.Provider>
+    );
+  }
+
   return (
     <AppContext.Provider value={contextValue}>
       {/* Dynamic favicon */}
@@ -2871,6 +2897,10 @@ export default function Layout({ children }: LayoutProps) {
                       onSettingsClick={navPosition === "top" ? () => setIsSettingsOpen(true) : undefined}
                       hideBorders={hideBorders}
                       showHelpButton={appConfig.showHelpButton ?? false}
+                      onLogout={appConfig.loginPage?.enabled ? () => {
+                        sessionStorage.removeItem("demo-logged-in");
+                        setIsLoggedIn(false);
+                      } : undefined}
                     />
                   </Suspense>
 

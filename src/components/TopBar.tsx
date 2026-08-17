@@ -34,6 +34,7 @@ interface TopBarProps {
   navButtonGap?: 'none' | 'tight' | 'normal' | 'relaxed';
   hideBorders?: boolean;
   showHelpButton?: boolean;
+  onLogout?: () => void;
 }
 
 function isLightColor(color: string): boolean {
@@ -88,6 +89,7 @@ export default function TopBar({
   navButtonGap = "none",
   hideBorders = false,
   showHelpButton = false,
+  onLogout,
 }: TopBarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -655,6 +657,54 @@ export default function TopBar({
                 <span>{user.name}</span>
               </button>
             ))}
+
+            {/* Logout button — only shown when a login page is configured */}
+            {onLogout && (
+              <>
+                <hr
+                  style={{
+                    margin: "8px 0",
+                    border: "none",
+                    borderTop: "1px solid #e2e8f0",
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    const menu = document.getElementById("user-menu");
+                    if (menu) menu.style.display = "none";
+                    onLogout();
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    color: "#4a5568",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "24px",
+                      height: "24px",
+                      borderRadius: "50%",
+                      backgroundColor: "#e2e8f0",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "14px",
+                    }}
+                  >
+                    ↩
+                  </div>
+                  <span>Sign Out</span>
+                </button>
+              </>
+            )}
 
             {/* Exit to demo picker */}
             <hr
