@@ -43,6 +43,20 @@ appConfig:
   # Spotter Visualization
   spotterViz:
     enabled: true
+    # New Liveboard / Search / AI Search button options.
+    # Each can be enabled independently and given a custom label.
+    # "newSearch" and "newAISearch" only appear when the user is viewing a liveboard.
+    newLiveboard:
+      enabled: true
+      label: "New Liveboard"
+    newSearch:
+      enabled: false
+      label: "New Search"
+      # searchDataSource: "worksheet-guid"  # optional: pre-select a data source
+    newAISearch:
+      enabled: false
+      label: "New AI Search"
+      # spotterModelId: "worksheet-guid"    # optional: pre-load a Spotter model
 
 # ----------------------------------------------------------
 # Navigation

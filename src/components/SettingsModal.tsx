@@ -37,6 +37,7 @@ import {
   SpotterVizConfig,
   StarterPrompt,
   SDKActionsConfig,
+  RuntimeFilter,
 } from "../types/thoughtspot";
 import HiddenActionsEditor from "./HiddenActionsEditor";
 import SDKActionsEditor from "./SDKActionsEditor";
@@ -781,9 +782,9 @@ function StandardMenusContent({
                 No Preview Available
               </div>
               <div style={{ fontSize: "14px", color: "#9ca3af" }}>
-                SpotterViz configuration does not have a preview.
+                New Content configuration does not have a preview.
                 <br />
-                The New Liveboard button will appear in the top bar when enabled.
+                The New Content button will appear in the top bar when enabled.
               </div>
             </div>
           </div>
@@ -836,7 +837,7 @@ function StandardMenusContent({
     },
     {
       id: "spotter-viz",
-      name: "SpotterViz",
+      name: "New Content",
       icon: "✨",
     },
   ];
@@ -1556,7 +1557,7 @@ function StandardMenusContent({
                   return (
                     <div>
                       <h4 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "8px" }}>
-                        SpotterViz Configuration
+                        New Content Configuration
                       </h4>
                       <div
                         style={{
@@ -1572,15 +1573,14 @@ function StandardMenusContent({
                         ⚠️ Requires ThoughtSpot version <strong>26.7+</strong>.
                       </div>
                       <p style={{ marginBottom: "20px", color: "#6b7280", fontSize: "14px" }}>
-                        Configure the SpotterViz experience for new liveboards created via the
-                        New Liveboard button.
+                        Configure the New Content button and its search and AI search options.
                       </p>
 
                       {/* Enable / Disable */}
                       <div style={sectionStyle}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
                           <label style={{ fontSize: "16px", fontWeight: "500", color: "#374151" }}>
-                            Enable New Liveboard (SpotterViz)
+                            Enable New Content Button
                           </label>
                           <input
                             type="checkbox"
@@ -1590,7 +1590,7 @@ function StandardMenusContent({
                           />
                         </div>
                         <p style={hintStyle}>
-                          Show or hide the New Liveboard button in the top bar.
+                          Show or hide the New Content button in the top bar.
                         </p>
                       </div>
 
@@ -1657,6 +1657,171 @@ function StandardMenusContent({
                           style={fieldStyle}
                         />
                         <p style={hintStyle}>Label for the create button in the top bar (e.g. "New Dashboard").</p>
+                      </div>
+
+                      {/* ── Search Panel Options ── */}
+                      <div style={{ ...sectionStyle, borderTop: "1px solid #e5e7eb", paddingTop: "20px", marginTop: "4px" }}>
+                        <label style={{ ...labelStyle, fontSize: "15px", fontWeight: "600", marginBottom: "4px" }}>
+                          New Liveboard Button Options
+                        </label>
+                        <p style={hintStyle}>
+                          Each option can be enabled independently and given a custom label. "New Search" and
+                          "New AI Search" only appear when the user is viewing a liveboard.
+                        </p>
+                      </div>
+
+                      {/* New Liveboard option */}
+                      <div style={sectionStyle}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                          <label style={{ fontSize: "14px", fontWeight: "500", color: "#374151" }}>
+                            Enable "New Liveboard" option
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={appConfig.spotterViz?.newLiveboard?.enabled !== false}
+                            onChange={(e) => updateSpotterViz({
+                              newLiveboard: { ...appConfig.spotterViz?.newLiveboard, enabled: e.target.checked }
+                            })}
+                            style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={appConfig.spotterViz?.newLiveboard?.label || ""}
+                          onChange={(e) => updateSpotterViz({
+                            newLiveboard: { ...appConfig.spotterViz?.newLiveboard, label: e.target.value }
+                          })}
+                          placeholder="New Liveboard"
+                          style={fieldStyle}
+                        />
+                        <p style={hintStyle}>Label shown for the "New Liveboard" option.</p>
+                      </div>
+
+                      {/* New Search option */}
+                      <div style={sectionStyle}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                          <label style={{ fontSize: "14px", fontWeight: "600", color: "#374151" }}>
+                            Enable "New Search" option
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={appConfig.spotterViz?.newSearch?.enabled ?? false}
+                            onChange={(e) => updateSpotterViz({
+                              newSearch: { ...appConfig.spotterViz?.newSearch, enabled: e.target.checked }
+                            })}
+                            style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                          />
+                        </div>
+                        <p style={hintStyle}>Opens a SearchEmbed side panel for pinning to the current liveboard.</p>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "6px" }}>
+                          {/* Label */}
+                          <div>
+                            <label style={{ display: "block", fontSize: "13px", fontWeight: "500", color: "#6b7280", marginBottom: "4px" }}>Button Label</label>
+                            <input
+                              type="text"
+                              value={appConfig.spotterViz?.newSearch?.label || ""}
+                              onChange={(e) => updateSpotterViz({
+                                newSearch: { ...appConfig.spotterViz?.newSearch, label: e.target.value }
+                              })}
+                              placeholder="New Search"
+                              style={fieldStyle}
+                            />
+                          </div>
+
+                          {/* Data source model picker */}
+                          <div>
+                            <label style={{ display: "block", fontSize: "13px", fontWeight: "500", color: "#6b7280", marginBottom: "4px" }}>
+                              Data Source (Model)
+                            </label>
+                            <SearchableDropdown
+                              value={appConfig.spotterViz?.newSearch?.searchDataSource || ""}
+                              onChange={(value) => updateSpotterViz({
+                                newSearch: { ...appConfig.spotterViz?.newSearch, searchDataSource: value }
+                              })}
+                              options={combinedOptions}
+                              placeholder="Select a model (optional)"
+                              searchPlaceholder="Search models..."
+                              label=""
+                              isLoading={isLoadingModels || isLoadingWorksheets}
+                              error={modelsError || worksheetsError}
+                            />
+                            <p style={hintStyle}>Pre-selects this worksheet as the data source in the search panel.</p>
+                          </div>
+
+                          {/* Search token string */}
+                          <div>
+                            <label style={{ display: "block", fontSize: "13px", fontWeight: "500", color: "#6b7280", marginBottom: "4px" }}>
+                              Starting Search Query (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={appConfig.spotterViz?.newSearch?.searchTokenString || ""}
+                              onChange={(e) => updateSpotterViz({
+                                newSearch: { ...appConfig.spotterViz?.newSearch, searchTokenString: e.target.value }
+                              })}
+                              placeholder="e.g. revenue by region"
+                              style={fieldStyle}
+                            />
+                            <p style={hintStyle}>Pre-fills the search bar when the panel opens.</p>
+                          </div>
+
+                        </div>
+                      </div>
+
+                      {/* New AI Search option */}
+                      <div style={sectionStyle}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                          <label style={{ fontSize: "14px", fontWeight: "600", color: "#374151" }}>
+                            Enable "New AI Search" option
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={appConfig.spotterViz?.newAISearch?.enabled ?? false}
+                            onChange={(e) => updateSpotterViz({
+                              newAISearch: { ...appConfig.spotterViz?.newAISearch, enabled: e.target.checked }
+                            })}
+                            style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                          />
+                        </div>
+                        <p style={hintStyle}>Opens a Spotter (AI) side panel for pinning to the current liveboard.</p>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "6px" }}>
+                          {/* Label */}
+                          <div>
+                            <label style={{ display: "block", fontSize: "13px", fontWeight: "500", color: "#6b7280", marginBottom: "4px" }}>Button Label</label>
+                            <input
+                              type="text"
+                              value={appConfig.spotterViz?.newAISearch?.label || ""}
+                              onChange={(e) => updateSpotterViz({
+                                newAISearch: { ...appConfig.spotterViz?.newAISearch, label: e.target.value }
+                              })}
+                              placeholder="New AI Search"
+                              style={fieldStyle}
+                            />
+                          </div>
+
+                          {/* Spotter model picker */}
+                          <div>
+                            <label style={{ display: "block", fontSize: "13px", fontWeight: "500", color: "#6b7280", marginBottom: "4px" }}>
+                              Spotter Model
+                            </label>
+                            <SearchableDropdown
+                              value={appConfig.spotterViz?.newAISearch?.spotterModelId || ""}
+                              onChange={(value) => updateSpotterViz({
+                                newAISearch: { ...appConfig.spotterViz?.newAISearch, spotterModelId: value }
+                              })}
+                              options={combinedOptions}
+                              placeholder="Select a model"
+                              searchPlaceholder="Search models..."
+                              label=""
+                              isLoading={isLoadingModels || isLoadingWorksheets}
+                              error={modelsError || worksheetsError}
+                            />
+                            <p style={hintStyle}>Required — the worksheet loaded into the Spotter embed.</p>
+                          </div>
+
+                        </div>
                       </div>
 
                       {/* Hide Starter Prompts */}
@@ -6240,6 +6405,17 @@ function StylingContent({
                 options: [
                   { value: "tabs",         label: "Tabs",         hint: "Underline on active item" },
                   { value: "push-buttons", label: "Push Buttons", hint: "Raised buttons; active looks pressed in" },
+                ],
+              },
+              {
+                label: "Nav Button Gap",
+                description: "Space between push-button nav items (push buttons only).",
+                field: "navButtonGap" as const,
+                options: [
+                  { value: "none",    label: "None",    hint: "0px — buttons touch" },
+                  { value: "tight",   label: "Tight",   hint: "2px — barely separated" },
+                  { value: "normal",  label: "Normal",  hint: "6px — comfortable" },
+                  { value: "relaxed", label: "Relaxed", hint: "12px — airy" },
                 ],
               },
               {

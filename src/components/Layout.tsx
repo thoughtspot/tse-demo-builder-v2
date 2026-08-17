@@ -20,6 +20,7 @@ import ChatBubble from "./ChatBubble";
 import VizPickerModal from "./VizPickerModal";
 import CreateLiveboardModal from "./CreateLiveboardModal";
 import EmbedModal from "./EmbedModal";
+import SearchSidePanel, { SearchPanelType } from "./SearchSidePanel";
 import {
   CustomMenu,
   StylingConfig,
@@ -38,6 +39,7 @@ import {
   fetchLiveboards,
   fetchLiveboardWithVisualizations,
   createLiveboard,
+  checkLiveboardEditPermission,
   type ThoughtSpotUser,
 } from "../services/thoughtspotApi";
 import {
@@ -109,6 +111,10 @@ interface AppContextType {
   lastClusterChangeTime: number;
   configVersion: number;
   isInitialLoadInProgress: boolean;
+  activeLiveboardId: string | null;
+  setActiveLiveboardId: (id: string | null) => void;
+  liveboardRefreshKey: number;
+  triggerLiveboardRefresh: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -401,6 +407,17 @@ export default function Layout({ children }: LayoutProps) {
   >([]);
   const [isCreateLiveboardOpen, setIsCreateLiveboardOpen] = useState(false);
   const [newLiveboardContent, setNewLiveboardContent] = useState<ThoughtSpotContent | null>(null);
+  const [activeLiveboardId, setActiveLiveboardId] = useState<string | null>(null);
+  const [liveboardRefreshKey, setLiveboardRefreshKey] = useState(0);
+  const triggerLiveboardRefresh = useCallback(() => setLiveboardRefreshKey((k) => k + 1), []);
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+  const [searchPanelType, setSearchPanelType] = useState<SearchPanelType>("search");
+  const [searchPanelError, setSearchPanelError] = useState<string | null>(null);
+  const [leftPanelWidthPct, setLeftPanelWidthPct] = useState(50);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartWidthRef = useRef(50);
   const [isLoadingConfiguration, setIsLoadingConfiguration] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState(
@@ -1839,6 +1856,54 @@ export default function Layout({ children }: LayoutProps) {
     setIsCreateLiveboardOpen(true);
   }, []);
 
+  const handleNewSearchClick = useCallback(async (type: SearchPanelType) => {
+    if (!activeLiveboardId) return;
+    setSearchPanelError(null);
+    const canEdit = await checkLiveboardEditPermission(activeLiveboardId);
+    if (!canEdit) {
+      setSearchPanelError("You don't have edit permission on this liveboard and cannot pin to it.");
+      return;
+    }
+    setSearchPanelType(type);
+    setLeftPanelWidthPct(50);
+    setSearchPanelOpen(true);
+  }, [activeLiveboardId]);
+
+  const handleCloseSearchPanel = useCallback(() => {
+    setSearchPanelOpen(false);
+    setSearchPanelError(null);
+  }, []);
+
+  // Drag-to-resize handlers for the split pane
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    dragStartXRef.current = e.clientX;
+    dragStartWidthRef.current = leftPanelWidthPct;
+
+    const onMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingRef.current || !splitContainerRef.current) return;
+      const containerWidth = splitContainerRef.current.getBoundingClientRect().width;
+      const delta = moveEvent.clientX - dragStartXRef.current;
+      const deltaPct = (delta / containerWidth) * 100;
+      const newPct = Math.min(80, Math.max(20, dragStartWidthRef.current + deltaPct));
+      setLeftPanelWidthPct(newPct);
+    };
+
+    const onUp = () => {
+      isDraggingRef.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [leftPanelWidthPct]);
+
   const handleLiveboardCreated = useCallback(
     (id: string, name: string, description?: string) => {
       setIsCreateLiveboardOpen(false);
@@ -2679,6 +2744,10 @@ export default function Layout({ children }: LayoutProps) {
     lastClusterChangeTime,
     configVersion,
     isInitialLoadInProgress,
+    activeLiveboardId,
+    setActiveLiveboardId,
+    liveboardRefreshKey,
+    triggerLiveboardRefresh,
   };
 
   return (
@@ -2760,12 +2829,45 @@ export default function Layout({ children }: LayoutProps) {
                       foregroundColor={stylingConfig.application.topBar.foregroundColor}
                       thoughtspotUrl={appConfig.thoughtspotUrl}
                       onVizPickerClick={appConfig.showVizPicker ? handleVizPickerClick : undefined}
-                      onCreateLiveboardClick={appConfig.spotterViz?.enabled ? handleCreateLiveboardClick : undefined}
-                      createLiveboardButtonLabel={appConfig.spotterViz?.createLiveboardButtonLabel || "New Liveboard"}
+                      liveboardActions={(() => {
+                        const cfg = appConfig.spotterViz;
+                        if (!cfg?.enabled) return [];
+                        const actions: Array<{ id: string; label: string; onClick: () => void }> = [];
+
+                        // New Liveboard: enabled if newLiveboard.enabled !== false (backward compat)
+                        const lbEnabled = cfg.newLiveboard?.enabled !== false;
+                        if (lbEnabled) {
+                          actions.push({
+                            id: "new-liveboard",
+                            label: cfg.newLiveboard?.label || cfg.createLiveboardButtonLabel || "New Liveboard",
+                            onClick: handleCreateLiveboardClick,
+                          });
+                        }
+
+                        // Search and AI Search only show when a liveboard is active
+                        if (activeLiveboardId) {
+                          if (cfg.newSearch?.enabled) {
+                            actions.push({
+                              id: "new-search",
+                              label: cfg.newSearch.label || "New Search",
+                              onClick: () => handleNewSearchClick("search"),
+                            });
+                          }
+                          if (cfg.newAISearch?.enabled) {
+                            actions.push({
+                              id: "new-ai-search",
+                              label: cfg.newAISearch.label || "New AI Search",
+                              onClick: () => handleNewSearchClick("ai"),
+                            });
+                          }
+                        }
+                        return actions;
+                      })()}
                       height={topBarHeight}
                       navItems={navPosition === "top" ? orderedNavItems : undefined}
                       navAlignment={stylingConfig.layout?.topNavAlignment ?? "left"}
                       navStyle={stylingConfig.layout?.topNavStyle ?? "tabs"}
+                      navButtonGap={stylingConfig.layout?.navButtonGap ?? "none"}
                       onSettingsClick={navPosition === "top" ? () => setIsSettingsOpen(true) : undefined}
                       hideBorders={hideBorders}
                       showHelpButton={appConfig.showHelpButton ?? false}
@@ -2795,27 +2897,117 @@ export default function Layout({ children }: LayoutProps) {
                       </Suspense>
                     )}
 
-                    {/* Content Area */}
+                    {/* Content Area — split when search panel is open */}
                     <div
+                      ref={splitContainerRef}
                       style={{
                         flex: 1,
-                        backgroundColor:
-                          stylingConfig.application.backgrounds?.contentBackground || "#ffffff",
-                        color: stylingConfig.application.typography?.primaryColor || "#1f2937",
                         overflow: "hidden",
                         display: "flex",
-                        flexDirection: "column",
+                        flexDirection: "row",
+                        minWidth: 0,
                       }}
                     >
-                      <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "auto", overflowX: "hidden" }}>
-                        {children}
+                      {/* Permission error banner (shown above content area) */}
+                      {searchPanelError && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "var(--topbar-height, 56px)",
+                            left: 0,
+                            right: 0,
+                            zIndex: 500,
+                            backgroundColor: "#fef2f2",
+                            borderBottom: "1px solid #fecaca",
+                            color: "#b91c1c",
+                            fontSize: "13px",
+                            padding: "10px 20px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "8px",
+                          }}
+                        >
+                          <span>{searchPanelError}</span>
+                          <button
+                            onClick={() => setSearchPanelError(null)}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "#b91c1c", fontSize: "16px", padding: "0 4px" }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Main page content */}
+                      <div
+                        style={{
+                          flex: searchPanelOpen ? `0 0 ${leftPanelWidthPct}%` : "1 1 0",
+                          minWidth: 0,
+                          backgroundColor:
+                            stylingConfig.application.backgrounds?.contentBackground || "#ffffff",
+                          color: stylingConfig.application.typography?.primaryColor || "#1f2937",
+                          overflow: "hidden",
+                          display: "flex",
+                          flexDirection: "column",
+                          transition: searchPanelOpen ? "none" : "flex var(--transition-base, 250ms) ease",
+                        }}
+                      >
+                        <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "auto", overflowX: "hidden" }}>
+                          {children}
+                        </div>
+                        {(appConfig.showFooter ?? true) && (
+                          <Footer
+                            backgroundColor={stylingConfig.application.footer.backgroundColor}
+                            foregroundColor={stylingConfig.application.footer.foregroundColor}
+                            hideBorders={hideBorders}
+                          />
+                        )}
                       </div>
-                      {(appConfig.showFooter ?? true) && (
-                        <Footer
-                          backgroundColor={stylingConfig.application.footer.backgroundColor}
-                          foregroundColor={stylingConfig.application.footer.foregroundColor}
-                          hideBorders={hideBorders}
+
+                      {/* Drag handle */}
+                      {searchPanelOpen && (
+                        <div
+                          onMouseDown={handleDragStart}
+                          style={{
+                            width: "6px",
+                            flexShrink: 0,
+                            cursor: "col-resize",
+                            backgroundColor: `var(--border-color, #e2e8f0)`,
+                            transition: "background var(--transition-fast, 150ms) ease",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = "var(--primary-button-bg, #3182ce)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = "var(--border-color, #e2e8f0)";
+                          }}
+                          title="Drag to resize"
                         />
+                      )}
+
+                      {/* Search / AI Search side panel */}
+                      {searchPanelOpen && activeLiveboardId && (
+                        <div
+                          style={{
+                            flex: `0 0 ${100 - leftPanelWidthPct}%`,
+                            minWidth: 0,
+                            overflow: "hidden",
+                            display: "flex",
+                            flexDirection: "column",
+                          }}
+                        >
+                          <SearchSidePanel
+                            type={searchPanelType}
+                            activeLiveboardId={activeLiveboardId}
+                            searchDataSource={appConfig.spotterViz?.newSearch?.searchDataSource}
+                            spotterModelId={appConfig.spotterViz?.newAISearch?.spotterModelId}
+                            searchTokenString={searchPanelType === "search" ? appConfig.spotterViz?.newSearch?.searchTokenString : undefined}
+                            onClose={handleCloseSearchPanel}
+                          />
+                        </div>
                       )}
                     </div>
                   </div>

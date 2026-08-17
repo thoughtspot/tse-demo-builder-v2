@@ -26,6 +26,8 @@ interface ThoughtSpotEmbedProps {
   onLoad?: () => void;
   onError?: (error: string) => void;
   startInEditMode?: boolean;
+  /** When true, does not update the shared activeLiveboardId in AppContext. Use for modals/overlays. */
+  disableActiveLiveboardTracking?: boolean;
 }
 
 export default function ThoughtSpotEmbed({
@@ -35,6 +37,7 @@ export default function ThoughtSpotEmbed({
   onLoad,
   onError,
   startInEditMode,
+  disableActiveLiveboardTracking = false,
 }: ThoughtSpotEmbedProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +53,34 @@ export default function ThoughtSpotEmbed({
     trigger?: (event: any, data?: unknown) => unknown;
   } | null>(null);
   const context = useAppContext();
+
+  // Reload the liveboard when triggerLiveboardRefresh() is called (e.g. after a side-panel pin).
+  useEffect(() => {
+    if (content?.type !== "liveboard") return;
+    if (context.liveboardRefreshKey === 0) return;
+    const reload = async () => {
+      if (!embedInstanceRef.current) return;
+      const { HostEvent } = await import("@thoughtspot/visual-embed-sdk");
+      embedInstanceRef.current.trigger?.(HostEvent.Reload);
+    };
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [context.liveboardRefreshKey]);
+
+  // Track the active liveboard ID in AppContext so the side panel knows what to pin to.
+  useEffect(() => {
+    if (disableActiveLiveboardTracking) return;
+    if (content?.type === "liveboard" && content.id) {
+      context.setActiveLiveboardId(content.id);
+    }
+    return () => {
+      if (!disableActiveLiveboardTracking && content?.type === "liveboard") {
+        context.setActiveLiveboardId(null);
+      }
+    };
+    // Only re-run when the liveboard ID or tracking flag changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content?.type, content?.id, disableActiveLiveboardTracking]);
 
   const handleDoubleClickEvent = useCallback(
     (event: unknown) => {

@@ -175,6 +175,17 @@ export interface StarterPrompt {
   fullPrompt: string;
 }
 
+export interface LiveboardButtonOption {
+  enabled?: boolean;
+  label?: string;
+}
+
+export interface LiveboardSearchButtonOption extends LiveboardButtonOption {
+  searchDataSource?: string;
+  spotterModelId?: string;
+  searchTokenString?: string;
+}
+
 export interface SpotterVizConfig {
   enabled: boolean;
   brandName?: string;
@@ -184,6 +195,9 @@ export interface SpotterVizConfig {
   hideStarterPrompts?: boolean;
   customStarterPrompts?: StarterPrompt[];
   createLiveboardButtonLabel?: string;
+  newLiveboard?: LiveboardButtonOption;
+  newSearch?: LiveboardSearchButtonOption;
+  newAISearch?: LiveboardSearchButtonOption;
 }
 
 export interface AppConfig {
@@ -346,6 +360,7 @@ export type SideNavBehavior = 'hover-expand' | 'always-expanded' | 'icon-only';
 export type TopBarHeight = 'compact' | 'default' | 'tall';
 export type TopNavAlignment = 'left' | 'center';
 export type TopNavStyle = 'tabs' | 'push-buttons';
+export type NavButtonGap = 'none' | 'tight' | 'normal' | 'relaxed';
 export type BorderRadius = 'sharp' | 'soft' | 'round';
 export type Density = 'compact' | 'default' | 'comfortable';
 export type ShadowStyle = 'flat' | 'subtle' | 'elevated';
@@ -359,6 +374,7 @@ export interface LayoutConfig {
   topBarHeight: TopBarHeight;
   topNavAlignment?: TopNavAlignment;
   topNavStyle?: TopNavStyle;
+  navButtonGap?: NavButtonGap;
   borderRadius: BorderRadius;
   density: Density;
   shadowStyle: ShadowStyle;

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import MaterialIcon from "./MaterialIcon";
 
@@ -25,13 +25,35 @@ interface TopBarProps {
   onVizPickerClick?: () => void;
   onCreateLiveboardClick?: () => void;
   createLiveboardButtonLabel?: string;
+  liveboardActions?: Array<{ id: string; label: string; onClick: () => void }>;
   onSettingsClick?: () => void;
   height?: "compact" | "default" | "tall";
   navItems?: TopBarNavItem[];
   navAlignment?: 'left' | 'center';
   navStyle?: 'tabs' | 'push-buttons';
+  navButtonGap?: 'none' | 'tight' | 'normal' | 'relaxed';
   hideBorders?: boolean;
   showHelpButton?: boolean;
+}
+
+function isLightColor(color: string): boolean {
+  const c = color.trim().toLowerCase();
+  if (c === "white" || c === "#fff" || c === "#ffffff") return true;
+  if (c === "black" || c === "#000" || c === "#000000") return false;
+  const hex = c.replace("#", "");
+  if (hex.length === 3) {
+    const r = parseInt(hex[0] + hex[0], 16);
+    const g = parseInt(hex[1] + hex[1], 16);
+    const b = parseInt(hex[2] + hex[2], 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 128;
+  }
+  if (hex.length === 6) {
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 128;
+  }
+  return true;
 }
 
 const HEIGHT_PADDING: Record<string, string> = {
@@ -57,11 +79,13 @@ export default function TopBar({
   onVizPickerClick,
   onCreateLiveboardClick,
   createLiveboardButtonLabel = "New Liveboard",
+  liveboardActions,
   onSettingsClick,
   height = "default",
   navItems,
   navAlignment = "left",
   navStyle = "tabs",
+  navButtonGap = "none",
   hideBorders = false,
   showHelpButton = false,
 }: TopBarProps) {
@@ -73,6 +97,28 @@ export default function TopBar({
   );
   const [processedLogoUrl, setProcessedLogoUrl] = useState<string>("/ts.svg");
   const [isLogoProcessing, setIsLogoProcessing] = useState<boolean>(false);
+  const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
+  const newMenuRef = useRef<HTMLDivElement>(null);
+
+  // Compute the effective action list: prefer liveboardActions prop, otherwise
+  // build from the legacy onCreateLiveboardClick + createLiveboardButtonLabel.
+  const effectiveActions = liveboardActions ?? (
+    onCreateLiveboardClick
+      ? [{ id: "new-liveboard", label: createLiveboardButtonLabel, onClick: onCreateLiveboardClick }]
+      : []
+  );
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!isNewMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (newMenuRef.current && !newMenuRef.current.contains(e.target as Node)) {
+        setIsNewMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isNewMenuOpen]);
 
   useEffect(() => {
     if (!thoughtspotUrl) {
@@ -203,6 +249,9 @@ export default function TopBar({
     router.push(route);
   };
 
+  const isTopbarLight = isLightColor(backgroundColor);
+  const NAV_BUTTON_GAP: Record<string, string> = { none: "0", tight: "2px", normal: "6px", relaxed: "12px" };
+  const resolvedButtonGap = navStyle === "push-buttons" ? (NAV_BUTTON_GAP[navButtonGap] ?? "0") : "0";
   const hasTopNav = navItems && navItems.length > 0;
 
   return (
@@ -308,10 +357,10 @@ export default function TopBar({
 
       {/* User Menu */}
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        {/* Create Liveboard Button */}
-        {onCreateLiveboardClick && (
+        {/* New Liveboard / Search / AI Search button (single or dropdown) */}
+        {effectiveActions.length === 1 && (
           <button
-            onClick={onCreateLiveboardClick}
+            onClick={effectiveActions[0].onClick}
             style={{
               border: "2px solid var(--primary-button-border, #3182ce)",
               cursor: "pointer",
@@ -336,11 +385,123 @@ export default function TopBar({
               e.currentTarget.style.borderColor = "var(--primary-button-border, #3182ce)";
               e.currentTarget.style.color = "var(--primary-button-text, #ffffff)";
             }}
-            title={`Create New ${createLiveboardButtonLabel}`}
+            title={effectiveActions[0].label}
           >
             <span style={{ marginRight: "6px", fontSize: "16px" }}>+</span>
-            {createLiveboardButtonLabel}
+            {effectiveActions[0].label}
           </button>
+        )}
+
+        {effectiveActions.length > 1 && (
+          <div ref={newMenuRef} style={{ position: "relative" }}>
+            <button
+              onClick={() => setIsNewMenuOpen((o) => !o)}
+              style={{
+                border: "2px solid var(--primary-button-border, #3182ce)",
+                cursor: "pointer",
+                padding: "8px 14px",
+                borderRadius: "var(--radius-md, 8px)",
+                backgroundColor: isNewMenuOpen
+                  ? "var(--primary-button-hover-bg, #2c5aa0)"
+                  : "var(--primary-button-bg, #3182ce)",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                fontSize: "14px",
+                fontWeight: "600",
+                color: "var(--primary-button-text, #ffffff)",
+                transition: "all var(--transition-fast, 150ms) ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "var(--primary-button-hover-bg, #2c5aa0)";
+                e.currentTarget.style.borderColor = "var(--primary-button-hover-bg, #2c5aa0)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = isNewMenuOpen
+                  ? "var(--primary-button-hover-bg, #2c5aa0)"
+                  : "var(--primary-button-bg, #3182ce)";
+                e.currentTarget.style.borderColor = isNewMenuOpen
+                  ? "var(--primary-button-hover-bg, #2c5aa0)"
+                  : "var(--primary-button-border, #3182ce)";
+              }}
+              aria-haspopup="true"
+              aria-expanded={isNewMenuOpen}
+            >
+              <span style={{ fontSize: "16px" }}>+</span>
+              <span>New</span>
+              <span
+                style={{
+                  fontSize: "10px",
+                  transition: "transform var(--transition-fast, 150ms) ease",
+                  transform: isNewMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
+                  display: "inline-block",
+                  lineHeight: 1,
+                }}
+              >
+                ▼
+              </span>
+            </button>
+
+            {isNewMenuOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: "calc(100% + 6px)",
+                  // Always use a neutral light surface so items are legible regardless of
+                  // whether the topbar theme is dark or light.
+                  backgroundColor: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "var(--radius-md, 8px)",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
+                  minWidth: "180px",
+                  zIndex: 1000,
+                  overflow: "hidden",
+                  padding: "4px",
+                }}
+                role="menu"
+              >
+                {effectiveActions.map((action) => (
+                  <button
+                    key={action.id}
+                    onClick={() => {
+                      setIsNewMenuOpen(false);
+                      action.onClick();
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "9px 14px",
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      // Hardcode dark text so it always contrasts against the white popup.
+                      color: "#1f2937",
+                      borderRadius: "var(--radius-sm, 4px)",
+                      transition: "background var(--transition-fast, 150ms) ease, color var(--transition-fast, 150ms) ease",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "var(--primary-button-bg, #3182ce)";
+                      e.currentTarget.style.color = "var(--primary-button-text, #ffffff)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                      e.currentTarget.style.color = "#1f2937";
+                    }}
+                    role="menuitem"
+                  >
+                    <span style={{ opacity: 0.5, fontSize: "12px" }}>+</span>
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Viz Picker Button */}
@@ -572,7 +733,7 @@ export default function TopBar({
           borderTop: hideBorders ? "none" : "1px solid rgba(0,0,0,0.08)",
           overflowX: "auto",
           padding: navStyle === "push-buttons" ? "6px 8px" : "0",
-          gap: navStyle === "push-buttons" ? "4px" : "0",
+          gap: resolvedButtonGap,
         }}
       >
         {/* Left spacer — pushes nav items to center when alignment is center */}
@@ -583,7 +744,7 @@ export default function TopBar({
           style={{
             display: "flex",
             alignItems: "center",
-            gap: navStyle === "push-buttons" ? "4px" : "0",
+            gap: resolvedButtonGap,
             paddingLeft: navAlignment === "center" ? 0 : "8px",
           }}
         >
@@ -601,16 +762,16 @@ export default function TopBar({
                     gap: "6px",
                     padding: "7px 14px",
                     border: isActive
-                      ? `1px solid rgba(0,0,0,0.25)`
+                      ? `1px solid ${foregroundColor}`
                       : `1px solid rgba(0,0,0,0.15)`,
                     borderRadius: "6px",
                     background: isActive
-                      ? `rgba(0,0,0,0.12)`
+                      ? foregroundColor
                       : `linear-gradient(to bottom, rgba(255,255,255,0.12), rgba(0,0,0,0.04))`,
                     boxShadow: isActive
-                      ? `inset 0 2px 4px rgba(0,0,0,0.18)`
+                      ? `inset 0 1px 3px rgba(0,0,0,0.2)`
                       : `0 1px 2px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.1)`,
-                    color: isActive ? foregroundColor : `${foregroundColor}bb`,
+                    color: isActive ? backgroundColor : `${foregroundColor}bb`,
                     cursor: "pointer",
                     fontSize: "14px",
                     fontWeight: isActive ? "600" : "400",
@@ -619,12 +780,16 @@ export default function TopBar({
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
+                      e.currentTarget.style.background = isTopbarLight
+                        ? `rgba(0,0,0,0.10)`
+                        : `rgba(255,255,255,0.18)`;
                       e.currentTarget.style.color = foregroundColor;
                       e.currentTarget.style.boxShadow = `0 2px 4px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.1)`;
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!isActive) {
+                      e.currentTarget.style.background = `linear-gradient(to bottom, rgba(255,255,255,0.12), rgba(0,0,0,0.04))`;
                       e.currentTarget.style.color = `${foregroundColor}bb`;
                       e.currentTarget.style.boxShadow = `0 1px 2px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.1)`;
                     }

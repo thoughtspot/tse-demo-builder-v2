@@ -1806,6 +1806,9 @@ async function makeThoughtSpotPostCall<T>(
         );
         return null;
       }
+      if (response.status === 404) {
+        return null;
+      }
       throw new Error(
         `API call failed: ${response.status} ${response.statusText}`,
       );
@@ -1912,5 +1915,48 @@ export async function fetchVisualizationsForLiveboard(
       error,
     );
     return [];
+  }
+}
+
+/**
+ * Check if the current user has edit (MODIFY) permission on a liveboard.
+ * Fails open (returns true) if the permission check itself cannot be completed,
+ * so the pin operation can still be attempted and the user sees an error then.
+ */
+export async function checkLiveboardEditPermission(
+  liveboardId: string,
+): Promise<boolean> {
+  try {
+    const response = await makeThoughtSpotPostCall<
+      Array<{
+        metadata_id?: string;
+        permissions?: Record<string, string>;
+        share_mode?: string;
+      }>
+    >("/security/metadata/fetch", {
+      metadata_list: [
+        {
+          metadata_id: liveboardId,
+          metadata_type: "LIVEBOARD",
+        },
+      ],
+    });
+
+    if (!response || !Array.isArray(response) || response.length === 0) {
+      return true;
+    }
+
+    const item = response[0];
+    if (item.share_mode) {
+      return item.share_mode === "MODIFY" || item.share_mode === "FULL";
+    }
+    if (item.permissions) {
+      return Object.values(item.permissions).some(
+        (p) => p === "MODIFY" || p === "FULL",
+      );
+    }
+    return true;
+  } catch {
+    return true;
   }
 }
