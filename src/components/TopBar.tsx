@@ -28,6 +28,8 @@ interface TopBarProps {
   onSettingsClick?: () => void;
   height?: "compact" | "default" | "tall";
   navItems?: TopBarNavItem[];
+  navAlignment?: 'left' | 'center';
+  navStyle?: 'tabs' | 'push-buttons';
   hideBorders?: boolean;
   showHelpButton?: boolean;
 }
@@ -58,6 +60,8 @@ export default function TopBar({
   onSettingsClick,
   height = "default",
   navItems,
+  navAlignment = "left",
+  navStyle = "tabs",
   hideBorders = false,
   showHelpButton = false,
 }: TopBarProps) {
@@ -567,68 +571,138 @@ export default function TopBar({
           alignItems: "stretch",
           borderTop: hideBorders ? "none" : "1px solid rgba(0,0,0,0.08)",
           overflowX: "auto",
-          paddingLeft: "8px",
+          padding: navStyle === "push-buttons" ? "6px 8px" : "0",
+          gap: navStyle === "push-buttons" ? "4px" : "0",
         }}
       >
-        {navItems!.map((item) => {
-          const isActive = pathname === item.route;
-          return (
+        {/* Left spacer — pushes nav items to center when alignment is center */}
+        <div style={{ flex: navAlignment === "center" ? 1 : 0 }} />
+
+        {/* Nav items */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: navStyle === "push-buttons" ? "4px" : "0",
+            paddingLeft: navAlignment === "center" ? 0 : "8px",
+          }}
+        >
+          {navItems!.map((item) => {
+            const isActive = pathname === item.route;
+
+            if (navStyle === "push-buttons") {
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item.route)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "7px 14px",
+                    border: isActive
+                      ? `1px solid rgba(0,0,0,0.25)`
+                      : `1px solid rgba(0,0,0,0.15)`,
+                    borderRadius: "6px",
+                    background: isActive
+                      ? `rgba(0,0,0,0.12)`
+                      : `linear-gradient(to bottom, rgba(255,255,255,0.12), rgba(0,0,0,0.04))`,
+                    boxShadow: isActive
+                      ? `inset 0 2px 4px rgba(0,0,0,0.18)`
+                      : `0 1px 2px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.1)`,
+                    color: isActive ? foregroundColor : `${foregroundColor}bb`,
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: isActive ? "600" : "400",
+                    whiteSpace: "nowrap",
+                    transition: "all var(--transition-fast, 150ms) ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.color = foregroundColor;
+                      e.currentTarget.style.boxShadow = `0 2px 4px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.1)`;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.color = `${foregroundColor}bb`;
+                      e.currentTarget.style.boxShadow = `0 1px 2px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.1)`;
+                    }
+                  }}
+                >
+                  <MaterialIcon icon={item.icon} size={18} color="currentColor" />
+                  <span>{item.name}</span>
+                </button>
+              );
+            }
+
+            // Default: tabs style
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleNavClick(item.route)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "10px 16px",
+                  border: "none",
+                  borderBottom: isActive ? `2px solid ${foregroundColor}` : "2px solid transparent",
+                  background: "transparent",
+                  color: isActive ? foregroundColor : `${foregroundColor}99`,
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: isActive ? "600" : "400",
+                  whiteSpace: "nowrap",
+                  transition: "color var(--transition-fast, 150ms) ease, border-color var(--transition-fast, 150ms) ease",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) e.currentTarget.style.color = foregroundColor;
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) e.currentTarget.style.color = `${foregroundColor}99`;
+                }}
+              >
+                <MaterialIcon icon={item.icon} size={18} color="currentColor" />
+                <span>{item.name}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right side: spacer + settings */}
+        <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+          {onSettingsClick && (
             <button
-              key={item.id}
-              onClick={() => handleNavClick(item.route)}
+              onClick={onSettingsClick}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: "6px",
-                padding: "10px 16px",
-                border: "none",
-                borderBottom: isActive ? `2px solid ${foregroundColor}` : "2px solid transparent",
-                background: "transparent",
-                color: isActive ? foregroundColor : `${foregroundColor}99`,
+                padding: navStyle === "push-buttons" ? "7px 14px" : "10px 16px",
+                border: navStyle === "push-buttons" ? "1px solid rgba(0,0,0,0.15)" : "none",
+                borderBottom: navStyle === "push-buttons" ? undefined : "2px solid transparent",
+                borderRadius: navStyle === "push-buttons" ? "6px" : undefined,
+                background: navStyle === "push-buttons"
+                  ? `linear-gradient(to bottom, rgba(255,255,255,0.12), rgba(0,0,0,0.04))`
+                  : "transparent",
+                boxShadow: navStyle === "push-buttons"
+                  ? `0 1px 2px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.1)`
+                  : undefined,
+                color: `${foregroundColor}99`,
                 cursor: "pointer",
                 fontSize: "14px",
-                fontWeight: isActive ? "600" : "400",
+                fontWeight: "400",
                 whiteSpace: "nowrap",
-                transition: "color var(--transition-fast, 150ms) ease, border-color var(--transition-fast, 150ms) ease",
               }}
-              onMouseEnter={(e) => {
-                if (!isActive) e.currentTarget.style.color = foregroundColor;
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) e.currentTarget.style.color = `${foregroundColor}99`;
-              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = foregroundColor; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = `${foregroundColor}99`; }}
             >
-              <MaterialIcon icon={item.icon} size={18} color="currentColor" />
-              <span>{item.name}</span>
+              <MaterialIcon icon="settings" size={18} color="currentColor" />
+              <span>Settings</span>
             </button>
-          );
-        })}
-        {/* Settings link at end */}
-        {onSettingsClick && (
-          <button
-            onClick={onSettingsClick}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "10px 16px",
-              marginLeft: "auto",
-              border: "none",
-              borderBottom: "2px solid transparent",
-              background: "transparent",
-              color: `${foregroundColor}99`,
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: "400",
-              whiteSpace: "nowrap",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = foregroundColor; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = `${foregroundColor}99`; }}
-          >
-            <MaterialIcon icon="settings" size={18} color="currentColor" />
-            <span>Settings</span>
-          </button>
-        )}
+          )}
+        </div>
       </div>
     )}
   </div>

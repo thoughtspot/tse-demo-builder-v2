@@ -344,6 +344,8 @@ export interface EmbedFlags {
 export type NavPosition = 'side' | 'top';
 export type SideNavBehavior = 'hover-expand' | 'always-expanded' | 'icon-only';
 export type TopBarHeight = 'compact' | 'default' | 'tall';
+export type TopNavAlignment = 'left' | 'center';
+export type TopNavStyle = 'tabs' | 'push-buttons';
 export type BorderRadius = 'sharp' | 'soft' | 'round';
 export type Density = 'compact' | 'default' | 'comfortable';
 export type ShadowStyle = 'flat' | 'subtle' | 'elevated';
@@ -355,6 +357,8 @@ export interface LayoutConfig {
   navPosition: NavPosition;
   sideNavBehavior: SideNavBehavior;
   topBarHeight: TopBarHeight;
+  topNavAlignment?: TopNavAlignment;
+  topNavStyle?: TopNavStyle;
   borderRadius: BorderRadius;
   density: Density;
   shadowStyle: ShadowStyle;

@@ -299,6 +299,8 @@ export const DEFAULT_CONFIG: ConfigurationData = {
       navPosition: "side" as const,
       sideNavBehavior: "hover-expand" as const,
       topBarHeight: "default" as const,
+      topNavAlignment: "left" as const,
+      topNavStyle: "tabs" as const,
       borderRadius: "soft" as const,
       density: "default" as const,
       shadowStyle: "subtle" as const,

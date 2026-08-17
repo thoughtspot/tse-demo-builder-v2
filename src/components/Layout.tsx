@@ -2764,6 +2764,8 @@ export default function Layout({ children }: LayoutProps) {
                       createLiveboardButtonLabel={appConfig.spotterViz?.createLiveboardButtonLabel || "New Liveboard"}
                       height={topBarHeight}
                       navItems={navPosition === "top" ? orderedNavItems : undefined}
+                      navAlignment={stylingConfig.layout?.topNavAlignment ?? "left"}
+                      navStyle={stylingConfig.layout?.topNavStyle ?? "tabs"}
                       onSettingsClick={navPosition === "top" ? () => setIsSettingsOpen(true) : undefined}
                       hideBorders={hideBorders}
                       showHelpButton={appConfig.showHelpButton ?? false}

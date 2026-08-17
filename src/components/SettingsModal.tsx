@@ -6225,6 +6225,24 @@ function StylingContent({
                 ],
               },
               {
+                label: "Top Nav Alignment",
+                description: "Where nav items are positioned in the top bar (top nav only).",
+                field: "topNavAlignment" as const,
+                options: [
+                  { value: "left",   label: "Left",     hint: "Items start from the left edge" },
+                  { value: "center", label: "Centered", hint: "Items are centered in the bar" },
+                ],
+              },
+              {
+                label: "Top Nav Style",
+                description: "Visual style of the navigation buttons in the top bar (top nav only).",
+                field: "topNavStyle" as const,
+                options: [
+                  { value: "tabs",         label: "Tabs",         hint: "Underline on active item" },
+                  { value: "push-buttons", label: "Push Buttons", hint: "Raised buttons; active looks pressed in" },
+                ],
+              },
+              {
                 label: "Top Bar Height",
                 description: "Sets the vertical size of the header bar.",
                 field: "topBarHeight" as const,
@@ -6324,6 +6342,8 @@ function StylingContent({
                               navPosition: "side",
                               sideNavBehavior: "hover-expand",
                               topBarHeight: "default",
+                              topNavAlignment: "left",
+                              topNavStyle: "tabs",
                               borderRadius: "soft",
                               density: "default",
                               shadowStyle: "subtle",
