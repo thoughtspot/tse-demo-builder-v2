@@ -29,6 +29,7 @@ interface TopBarProps {
   height?: "compact" | "default" | "tall";
   navItems?: TopBarNavItem[];
   hideBorders?: boolean;
+  showHelpButton?: boolean;
 }
 
 const HEIGHT_PADDING: Record<string, string> = {
@@ -58,6 +59,7 @@ export default function TopBar({
   height = "default",
   navItems,
   hideBorders = false,
+  showHelpButton = false,
 }: TopBarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -370,6 +372,40 @@ export default function TopBar({
             <span style={{ marginRight: "6px" }}>📊</span>
             Viz Picker
           </button>
+        )}
+
+        {showHelpButton && (
+          <a
+            href="https://developers.thoughtspot.com/docs/"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Developer Documentation"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "36px",
+              height: "36px",
+              borderRadius: "50%",
+              border: "2px solid",
+              borderColor: "var(--secondary-button-border, #d1d5db)",
+              backgroundColor: "transparent",
+              cursor: "pointer",
+              color: "inherit",
+              textDecoration: "none",
+              fontSize: "16px",
+              fontWeight: "bold",
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(0,0,0,0.08)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent";
+            }}
+          >
+            ?
+          </a>
         )}
 
         <div style={{ position: "relative" }}>

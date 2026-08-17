@@ -2766,6 +2766,7 @@ export default function Layout({ children }: LayoutProps) {
                       navItems={navPosition === "top" ? orderedNavItems : undefined}
                       onSettingsClick={navPosition === "top" ? () => setIsSettingsOpen(true) : undefined}
                       hideBorders={hideBorders}
+                      showHelpButton={appConfig.showHelpButton ?? false}
                     />
                   </Suspense>
 

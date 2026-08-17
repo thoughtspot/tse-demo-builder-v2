@@ -9308,6 +9308,43 @@ function ConfigurationContent({
                     allowing visualizations to be copied between liveboards
                   </p>
                 </div>
+
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      color: "#4a5568",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={appConfig.showHelpButton ?? false}
+                      onChange={(e) =>
+                        updateAppConfig({
+                          ...appConfig,
+                          showHelpButton: e.target.checked,
+                        })
+                      }
+                      style={{ cursor: "pointer" }}
+                    />
+                    <span>Show Help Button</span>
+                  </label>
+                  <p
+                    style={{
+                      margin: "4px 0 0 0",
+                      fontSize: "12px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    When enabled, a (?) button appears in the top bar that opens
+                    the ThoughtSpot developer documentation in a new tab
+                  </p>
+                </div>
               </div>
             </div>
 

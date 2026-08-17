@@ -57,6 +57,7 @@ function buildExportObject(
       showFooter: config.appConfig.showFooter,
       showLogo: config.appConfig.showLogo,
       showVizPicker: config.appConfig.showVizPicker,
+      showHelpButton: config.appConfig.showHelpButton,
       authConfig: config.appConfig.authConfig as unknown as Record<
         string,
         unknown

@@ -169,6 +169,7 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     showFooter: true,
     showLogo: true,
     showVizPicker: false,
+    showHelpButton: false,
     authConfig: {
       authType: "None",
     },

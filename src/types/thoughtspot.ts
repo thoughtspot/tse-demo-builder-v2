@@ -196,6 +196,7 @@ export interface AppConfig {
   showFooter: boolean;
   showLogo?: boolean;
   showVizPicker?: boolean;
+  showHelpButton?: boolean;
   authConfig?: AuthConfig;
   chatbot?: {
     enabled: boolean;
