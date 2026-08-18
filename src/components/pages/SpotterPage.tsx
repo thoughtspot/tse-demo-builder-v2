@@ -8,6 +8,7 @@ import {
 } from "../../types/thoughtspot";
 import { TabularData, VizPointClickData } from "tse-data-classes";
 import DoubleClickModal from "../DoubleClickModal";
+import MeetingSchedulerView from "../MeetingSchedulerView";
 
 interface SpotterPageProps {
   spotterModelId?: string;
@@ -19,14 +20,16 @@ interface PaymentModalProps {
   planName: string;
   price: number;
   currency: string;
+  accountManager: string;
   onPay: () => void;
 }
 
-function PaymentModal({ maxQueries, planName, price, currency, onPay }: PaymentModalProps) {
+function PaymentModal({ maxQueries, planName, price, currency, accountManager, onPay }: PaymentModalProps) {
   const [cardNumber, setCardNumber] = useState("4242 4242 4242 4242");
   const [expiry, setExpiry] = useState("12/28");
   const [cvv, setCvv] = useState("123");
   const [processing, setProcessing] = useState(false);
+  const [view, setView] = useState<"pay" | "schedule">("pay");
 
   const handlePay = () => {
     setProcessing(true);
@@ -54,20 +57,22 @@ function PaymentModal({ maxQueries, planName, price, currency, onPay }: PaymentM
           backgroundColor: "#ffffff",
           borderRadius: "16px",
           padding: "32px",
-          width: "400px",
+          width: "420px",
           maxWidth: "90vw",
+          maxHeight: "90vh",
+          overflowY: "auto",
           boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
         }}
       >
         {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: "24px" }}>
+        <div style={{ textAlign: "center", marginBottom: "20px" }}>
           <div style={{ fontSize: "40px", marginBottom: "12px" }}>🔒</div>
           <h2 style={{ fontSize: "20px", fontWeight: "700", color: "#111827", margin: "0 0 8px 0" }}>
             Query Limit Reached
           </h2>
           <p style={{ fontSize: "14px", color: "#6b7280", margin: 0 }}>
             You&apos;ve used all your queries on the <strong>{planName}</strong> plan.
-            Purchase more to continue.
+            Purchase more or schedule a call to continue.
           </p>
         </div>
 
@@ -78,7 +83,7 @@ function PaymentModal({ maxQueries, planName, price, currency, onPay }: PaymentM
             border: "1px solid #bae6fd",
             borderRadius: "10px",
             padding: "16px",
-            marginBottom: "24px",
+            marginBottom: "20px",
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
@@ -94,111 +99,153 @@ function PaymentModal({ maxQueries, planName, price, currency, onPay }: PaymentM
           </p>
         </div>
 
-        {/* Card input */}
-        <div style={{ marginBottom: "16px" }}>
-          <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "6px" }}>
-            Card Number
-          </label>
-          <input
-            type="text"
-            value={cardNumber}
-            onChange={(e) => setCardNumber(e.target.value)}
+        {/* Option toggle */}
+        <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
+          <button
+            onClick={() => setView("pay")}
             style={{
-              width: "100%",
-              padding: "10px 12px",
-              border: "1px solid #d1d5db",
+              flex: 1,
+              padding: "10px",
+              backgroundColor: view === "pay" ? "#2563eb" : "#f3f4f6",
+              color: view === "pay" ? "#ffffff" : "#374151",
+              border: "none",
               borderRadius: "8px",
-              fontSize: "14px",
-              color: "#111827",
-              boxSizing: "border-box",
-              fontFamily: "monospace",
+              fontSize: "13px",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "background-color 0.15s",
             }}
+          >
+            💳 Pay Now
+          </button>
+          <button
+            onClick={() => setView("schedule")}
+            style={{
+              flex: 1,
+              padding: "10px",
+              backgroundColor: view === "schedule" ? "#2563eb" : "#f3f4f6",
+              color: view === "schedule" ? "#ffffff" : "#374151",
+              border: "none",
+              borderRadius: "8px",
+              fontSize: "13px",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "background-color 0.15s",
+            }}
+          >
+            📅 Schedule Meeting
+          </button>
+        </div>
+
+        {/* Pay view */}
+        {view === "pay" && (
+          <>
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "6px" }}>
+                Card Number
+              </label>
+              <input
+                type="text"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  color: "#111827",
+                  boxSizing: "border-box",
+                  fontFamily: "monospace",
+                }}
+              />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "24px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "6px" }}>
+                  Expiry
+                </label>
+                <input
+                  type="text"
+                  value={expiry}
+                  onChange={(e) => setExpiry(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                    color: "#111827",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "6px" }}>
+                  CVV
+                </label>
+                <input
+                  type="text"
+                  value={cvv}
+                  onChange={(e) => setCvv(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                    color: "#111827",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+            </div>
+            <button
+              onClick={handlePay}
+              disabled={processing}
+              style={{
+                width: "100%",
+                padding: "14px",
+                backgroundColor: processing ? "#93c5fd" : "#2563eb",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "10px",
+                fontSize: "16px",
+                fontWeight: "600",
+                cursor: processing ? "default" : "pointer",
+                transition: "background-color 0.2s",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+              }}
+              onMouseEnter={(e) => {
+                if (!processing) e.currentTarget.style.backgroundColor = "#1d4ed8";
+              }}
+              onMouseLeave={(e) => {
+                if (!processing) e.currentTarget.style.backgroundColor = "#2563eb";
+              }}
+            >
+              {processing ? (
+                <><span style={{ fontSize: "16px" }}>⏳</span>Processing...</>
+              ) : (
+                <><span style={{ fontSize: "16px" }}>💳</span>Pay {currency}{price} Now</>
+              )}
+            </button>
+            <p style={{ fontSize: "11px", color: "#9ca3af", textAlign: "center", marginTop: "12px", marginBottom: 0 }}>
+              🔒 Secured by Stripe · This is a demo — no real charge will be made
+            </p>
+          </>
+        )}
+
+        {/* Schedule view */}
+        {view === "schedule" && (
+          <MeetingSchedulerView
+            accountManager={accountManager}
+            durationMinutes={30}
+            onSchedule={onPay}
           />
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "24px" }}>
-          <div>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "6px" }}>
-              Expiry
-            </label>
-            <input
-              type="text"
-              value={expiry}
-              onChange={(e) => setExpiry(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                border: "1px solid #d1d5db",
-                borderRadius: "8px",
-                fontSize: "14px",
-                color: "#111827",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-          <div>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "6px" }}>
-              CVV
-            </label>
-            <input
-              type="text"
-              value={cvv}
-              onChange={(e) => setCvv(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                border: "1px solid #d1d5db",
-                borderRadius: "8px",
-                fontSize: "14px",
-                color: "#111827",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Pay button */}
-        <button
-          onClick={handlePay}
-          disabled={processing}
-          style={{
-            width: "100%",
-            padding: "14px",
-            backgroundColor: processing ? "#93c5fd" : "#2563eb",
-            color: "#ffffff",
-            border: "none",
-            borderRadius: "10px",
-            fontSize: "16px",
-            fontWeight: "600",
-            cursor: processing ? "default" : "pointer",
-            transition: "background-color 0.2s",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "8px",
-          }}
-          onMouseEnter={(e) => {
-            if (!processing) e.currentTarget.style.backgroundColor = "#1d4ed8";
-          }}
-          onMouseLeave={(e) => {
-            if (!processing) e.currentTarget.style.backgroundColor = "#2563eb";
-          }}
-        >
-          {processing ? (
-            <>
-              <span style={{ fontSize: "16px" }}>⏳</span>
-              Processing...
-            </>
-          ) : (
-            <>
-              <span style={{ fontSize: "16px" }}>💳</span>
-              Pay {currency}{price} Now
-            </>
-          )}
-        </button>
-
-        <p style={{ fontSize: "11px", color: "#9ca3af", textAlign: "center", marginTop: "12px", marginBottom: 0 }}>
-          🔒 Secured by Stripe · This is a demo — no real charge will be made
-        </p>
+        )}
       </div>
     </div>
   );
@@ -207,9 +254,10 @@ function PaymentModal({ maxQueries, planName, price, currency, onPay }: PaymentM
 interface QueryCounterBarProps {
   remaining: number;
   max: number;
+  label: string;
 }
 
-function QueryCounterBar({ remaining, max }: QueryCounterBarProps) {
+function QueryCounterBar({ remaining, max, label }: QueryCounterBarProps) {
   const pct = max > 0 ? remaining / max : 0;
   const isLow = pct <= 0.2;
   const barColor = isLow ? "#ef4444" : pct <= 0.5 ? "#f59e0b" : "#10b981";
@@ -227,7 +275,7 @@ function QueryCounterBar({ remaining, max }: QueryCounterBarProps) {
       }}
     >
       <span style={{ fontSize: "12px", color: "#374151", whiteSpace: "nowrap", fontWeight: "500" }}>
-        Spotter Queries
+        {label}
       </span>
       <div
         style={{
@@ -286,15 +334,19 @@ export default function SpotterPage({
   // Pricing state
   const pricingConfig = context.appConfig.spotterPricing;
   const pricingEnabled = pricingConfig?.enabled ?? false;
-  const maxQueries = pricingConfig?.maxQueries ?? 10;
-  const [remainingQueries, setRemainingQueries] = useState(maxQueries);
+  const initialQueries = pricingConfig?.initialQueries ?? 500;
+  const queriesPerPack = pricingConfig?.queriesPerPack ?? 500;
+  const pricingLabel = pricingConfig?.label ?? "Spotter Queries";
+  const [remainingQueries, setRemainingQueries] = useState(initialQueries);
+  const [currentMax, setCurrentMax] = useState(initialQueries);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-  // Reset counter when maxQueries config changes
+  // Reset counter when config changes
   useEffect(() => {
-    setRemainingQueries(maxQueries);
+    setRemainingQueries(initialQueries);
+    setCurrentMax(initialQueries);
     setShowPaymentModal(false);
-  }, [maxQueries, pricingEnabled]);
+  }, [initialQueries, queriesPerPack, pricingEnabled]);
 
   const handleDoubleClickEvent = useCallback(
     (event: unknown) => {
@@ -697,18 +749,20 @@ export default function SpotterPage({
               />
               {pricingEnabled && showPaymentModal && (
                 <PaymentModal
-                  maxQueries={maxQueries}
+                  maxQueries={queriesPerPack}
                   planName={pricingConfig?.planName || "Starter"}
-                  price={pricingConfig?.pricePerPack ?? 29}
+                  price={pricingConfig?.pricePerPack ?? 500}
                   currency={pricingConfig?.currency || "$"}
+                  accountManager={pricingConfig?.accountManager || "Brian"}
                   onPay={() => {
-                    setRemainingQueries(maxQueries);
+                    setRemainingQueries(queriesPerPack);
+                    setCurrentMax(queriesPerPack);
                     setShowPaymentModal(false);
                   }}
                 />
               )}
               {pricingEnabled && (
-                <QueryCounterBar remaining={remainingQueries} max={maxQueries} />
+                <QueryCounterBar remaining={remainingQueries} max={currentMax} label={pricingLabel} />
               )}
             </div>
           )}

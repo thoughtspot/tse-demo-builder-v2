@@ -2781,9 +2781,11 @@ function StandardMenusContent({
                             onChange={(e) => {
                               const updated: SpotterPricingConfig = {
                                 enabled: e.target.checked,
-                                maxQueries: appConfig.spotterPricing?.maxQueries ?? 10,
+                                initialQueries: appConfig.spotterPricing?.initialQueries ?? 500,
+                                queriesPerPack: appConfig.spotterPricing?.queriesPerPack ?? 500,
+                                label: appConfig.spotterPricing?.label ?? "Spotter Queries",
                                 planName: appConfig.spotterPricing?.planName ?? "Starter",
-                                pricePerPack: appConfig.spotterPricing?.pricePerPack ?? 29,
+                                pricePerPack: appConfig.spotterPricing?.pricePerPack ?? 500,
                                 currency: appConfig.spotterPricing?.currency ?? "$",
                               };
                               updateAppConfig({ ...appConfig, spotterPricing: updated });
@@ -2795,17 +2797,35 @@ function StandardMenusContent({
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                             <div>
                               <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "4px" }}>
-                                Max Queries per Pack
+                                Initial Queries
                               </label>
                               <input
                                 type="number"
                                 min={1}
-                                value={appConfig.spotterPricing?.maxQueries ?? 10}
+                                value={appConfig.spotterPricing?.initialQueries ?? 500}
                                 onChange={(e) => {
                                   const val = Math.max(1, parseInt(e.target.value, 10) || 1);
                                   updateAppConfig({
                                     ...appConfig,
-                                    spotterPricing: { ...appConfig.spotterPricing!, maxQueries: val },
+                                    spotterPricing: { ...appConfig.spotterPricing!, initialQueries: val },
+                                  });
+                                }}
+                                style={{ width: "100%", padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "4px" }}>
+                                Queries per Pack
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={appConfig.spotterPricing?.queriesPerPack ?? 500}
+                                onChange={(e) => {
+                                  const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                  updateAppConfig({
+                                    ...appConfig,
+                                    spotterPricing: { ...appConfig.spotterPricing!, queriesPerPack: val },
                                   });
                                 }}
                                 style={{ width: "100%", padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" }}
@@ -2830,7 +2850,7 @@ function StandardMenusContent({
                                 <input
                                   type="number"
                                   min={0}
-                                  value={appConfig.spotterPricing?.pricePerPack ?? 29}
+                                  value={appConfig.spotterPricing?.pricePerPack ?? 500}
                                   onChange={(e) => {
                                     const val = Math.max(0, parseFloat(e.target.value) || 0);
                                     updateAppConfig({
@@ -2841,6 +2861,40 @@ function StandardMenusContent({
                                   style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" }}
                                 />
                               </div>
+                            </div>
+                            <div>
+                              <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "4px" }}>
+                                Label
+                              </label>
+                              <input
+                                type="text"
+                                value={appConfig.spotterPricing?.label ?? "Spotter Queries"}
+                                onChange={(e) => {
+                                  updateAppConfig({
+                                    ...appConfig,
+                                    spotterPricing: { ...appConfig.spotterPricing!, label: e.target.value },
+                                  });
+                                }}
+                                placeholder="e.g. Spotter Queries"
+                                style={{ width: "100%", padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "4px" }}>
+                                Account Manager
+                              </label>
+                              <input
+                                type="text"
+                                value={appConfig.spotterPricing?.accountManager ?? "Brian"}
+                                onChange={(e) => {
+                                  updateAppConfig({
+                                    ...appConfig,
+                                    spotterPricing: { ...appConfig.spotterPricing!, accountManager: e.target.value },
+                                  });
+                                }}
+                                placeholder="e.g. Brian"
+                                style={{ width: "100%", padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" }}
+                              />
                             </div>
                             <div style={{ gridColumn: "1 / -1" }}>
                               <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "4px" }}>

@@ -207,10 +207,13 @@ export interface LoginPageConfig {
 
 export interface SpotterPricingConfig {
   enabled: boolean;
-  maxQueries: number;
+  initialQueries: number;
+  queriesPerPack: number;
+  label?: string;
   planName?: string;
   pricePerPack?: number;
   currency?: string;
+  accountManager?: string;
 }
 
 export interface AppConfig {

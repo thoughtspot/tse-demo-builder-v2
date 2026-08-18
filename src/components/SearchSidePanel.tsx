@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import PinToLiveboardDialog from "./PinToLiveboardDialog";
 import { useAppContext } from "./Layout";
+import MeetingSchedulerView from "./MeetingSchedulerView";
 export type SearchPanelType = "search" | "ai";
 
 interface PaymentModalProps {
@@ -10,11 +11,13 @@ interface PaymentModalProps {
   planName: string;
   price: number;
   currency: string;
+  accountManager: string;
   onPay: () => void;
 }
 
-function SidePanelPaymentModal({ maxQueries, planName, price, currency, onPay }: PaymentModalProps) {
+function SidePanelPaymentModal({ maxQueries, planName, price, currency, accountManager, onPay }: PaymentModalProps) {
   const [processing, setProcessing] = useState(false);
+  const [view, setView] = useState<"pay" | "schedule">("pay");
 
   const handlePay = () => {
     setProcessing(true);
@@ -41,59 +44,117 @@ function SidePanelPaymentModal({ maxQueries, planName, price, currency, onPay }:
         style={{
           backgroundColor: "#ffffff",
           borderRadius: "12px",
-          padding: "24px",
-          width: "280px",
+          padding: "20px",
+          width: "300px",
+          maxHeight: "90vh",
+          overflowY: "auto",
           boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
           textAlign: "center",
         }}
       >
-        <div style={{ fontSize: "32px", marginBottom: "10px" }}>🔒</div>
-        <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#111827", margin: "0 0 8px 0" }}>
+        <div style={{ fontSize: "28px", marginBottom: "8px" }}>🔒</div>
+        <h3 style={{ fontSize: "15px", fontWeight: "700", color: "#111827", margin: "0 0 6px 0" }}>
           Query Limit Reached
         </h3>
-        <p style={{ fontSize: "12px", color: "#6b7280", margin: "0 0 16px 0" }}>
+        <p style={{ fontSize: "11px", color: "#6b7280", margin: "0 0 14px 0" }}>
           You&apos;ve used all your queries on the <strong>{planName}</strong> plan.
         </p>
+
+        {/* Plan summary */}
         <div
           style={{
             backgroundColor: "#f0f9ff",
             border: "1px solid #bae6fd",
             borderRadius: "8px",
-            padding: "12px",
-            marginBottom: "16px",
+            padding: "10px",
+            marginBottom: "14px",
           }}
         >
-          <div style={{ fontSize: "13px", fontWeight: "600", color: "#0369a1" }}>
+          <div style={{ fontSize: "12px", fontWeight: "600", color: "#0369a1" }}>
             Query Pack — {maxQueries} queries
           </div>
-          <div style={{ fontSize: "18px", fontWeight: "700", color: "#0369a1", marginTop: "4px" }}>
+          <div style={{ fontSize: "16px", fontWeight: "700", color: "#0369a1", marginTop: "2px" }}>
             {currency}{price}
           </div>
         </div>
-        <button
-          onClick={handlePay}
-          disabled={processing}
-          style={{
-            width: "100%",
-            padding: "12px",
-            backgroundColor: processing ? "#93c5fd" : "#2563eb",
-            color: "#ffffff",
-            border: "none",
-            borderRadius: "8px",
-            fontSize: "14px",
-            fontWeight: "600",
-            cursor: processing ? "default" : "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "6px",
-          }}
-        >
-          {processing ? "Processing..." : `💳 Pay ${currency}${price} Now`}
-        </button>
-        <p style={{ fontSize: "10px", color: "#9ca3af", marginTop: "8px", marginBottom: 0 }}>
-          Demo only — no real charge
-        </p>
+
+        {/* Option toggle */}
+        <div style={{ display: "flex", gap: "6px", marginBottom: "14px" }}>
+          <button
+            onClick={() => setView("pay")}
+            style={{
+              flex: 1,
+              padding: "8px 4px",
+              backgroundColor: view === "pay" ? "#2563eb" : "#f3f4f6",
+              color: view === "pay" ? "#ffffff" : "#374151",
+              border: "none",
+              borderRadius: "6px",
+              fontSize: "11px",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "background-color 0.15s",
+            }}
+          >
+            💳 Pay Now
+          </button>
+          <button
+            onClick={() => setView("schedule")}
+            style={{
+              flex: 1,
+              padding: "8px 4px",
+              backgroundColor: view === "schedule" ? "#2563eb" : "#f3f4f6",
+              color: view === "schedule" ? "#ffffff" : "#374151",
+              border: "none",
+              borderRadius: "6px",
+              fontSize: "11px",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "background-color 0.15s",
+            }}
+          >
+            📅 Schedule
+          </button>
+        </div>
+
+        {/* Pay view */}
+        {view === "pay" && (
+          <>
+            <button
+              onClick={handlePay}
+              disabled={processing}
+              style={{
+                width: "100%",
+                padding: "12px",
+                backgroundColor: processing ? "#93c5fd" : "#2563eb",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: "600",
+                cursor: processing ? "default" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+              }}
+            >
+              {processing ? "Processing..." : `💳 Pay ${currency}${price} Now`}
+            </button>
+            <p style={{ fontSize: "10px", color: "#9ca3af", marginTop: "8px", marginBottom: 0 }}>
+              Demo only — no real charge
+            </p>
+          </>
+        )}
+
+        {/* Schedule view */}
+        {view === "schedule" && (
+          <MeetingSchedulerView
+            accountManager={accountManager}
+            durationMinutes={30}
+            onSchedule={onPay}
+            compact
+          />
+        )}
       </div>
     </div>
   );
@@ -132,9 +193,18 @@ export default function SearchSidePanel({
   // Pricing state (AI mode only)
   const pricingConfig = context.appConfig.spotterPricing;
   const pricingEnabled = type === "ai" && (pricingConfig?.enabled ?? false);
-  const maxQueries = pricingConfig?.maxQueries ?? 10;
-  const [remainingQueries, setRemainingQueries] = useState(maxQueries);
+  const initialQueries = pricingConfig?.initialQueries ?? 500;
+  const queriesPerPack = pricingConfig?.queriesPerPack ?? 500;
+  const pricingLabel = pricingConfig?.label ?? "Spotter Queries";
+  const [remainingQueries, setRemainingQueries] = useState(initialQueries);
+  const [currentMax, setCurrentMax] = useState(initialQueries);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+
+  useEffect(() => {
+    setRemainingQueries(initialQueries);
+    setCurrentMax(initialQueries);
+    setShowPaymentModal(false);
+  }, [initialQueries, queriesPerPack, pricingEnabled]);
 
   const handlePin = useCallback(
     async (name: string) => {
@@ -429,12 +499,14 @@ export default function SearchSidePanel({
         <div ref={embedRef} style={{ width: "100%", height: "100%" }} />
         {pricingEnabled && showPaymentModal && (
           <SidePanelPaymentModal
-            maxQueries={maxQueries}
+            maxQueries={queriesPerPack}
             planName={pricingConfig?.planName || "Starter"}
-            price={pricingConfig?.pricePerPack ?? 29}
+            price={pricingConfig?.pricePerPack ?? 500}
             currency={pricingConfig?.currency || "$"}
+            accountManager={pricingConfig?.accountManager || "Brian"}
             onPay={() => {
-              setRemainingQueries(maxQueries);
+              setRemainingQueries(queriesPerPack);
+              setCurrentMax(queriesPerPack);
               setShowPaymentModal(false);
             }}
           />
@@ -455,7 +527,7 @@ export default function SearchSidePanel({
           }}
         >
           <span style={{ fontSize: "11px", color: "#374151", whiteSpace: "nowrap", fontWeight: "500" }}>
-            Queries
+            {pricingLabel}
           </span>
           <div
             style={{
@@ -469,11 +541,11 @@ export default function SearchSidePanel({
             <div
               style={{
                 height: "100%",
-                width: `${maxQueries > 0 ? (remainingQueries / maxQueries) * 100 : 0}%`,
+                width: `${currentMax > 0 ? (remainingQueries / currentMax) * 100 : 0}%`,
                 backgroundColor:
-                  remainingQueries / maxQueries <= 0.2
+                  remainingQueries / currentMax <= 0.2
                     ? "#ef4444"
-                    : remainingQueries / maxQueries <= 0.5
+                    : remainingQueries / currentMax <= 0.5
                     ? "#f59e0b"
                     : "#10b981",
                 borderRadius: "3px",
@@ -485,11 +557,11 @@ export default function SearchSidePanel({
             style={{
               fontSize: "11px",
               fontWeight: "600",
-              color: remainingQueries / maxQueries <= 0.2 ? "#dc2626" : "#374151",
+              color: remainingQueries / currentMax <= 0.2 ? "#dc2626" : "#374151",
               whiteSpace: "nowrap",
             }}
           >
-            {remainingQueries}/{maxQueries}
+            {remainingQueries}/{currentMax}
           </span>
         </div>
       )}
