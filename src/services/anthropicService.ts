@@ -41,23 +41,23 @@ export class AnthropicClient {
   private apiKey: string;
 
   constructor(apiKey?: string) {
-    this.apiKey = apiKey || process.env.ANTHROPIC_API_KEY || "";
+    this.apiKey = apiKey || process.env.TSE_DEMO_ANTHROPIC_KEY || "";
 
     // Debug logging
+    const keyPreview = (k: string) =>
+      k.length > 12 ? `${k.substring(0, 8)}...${k.substring(k.length - 6)}` : k;
     console.log("Anthropic API Key Debug:", {
-      providedApiKey: apiKey ? `${apiKey.substring(0, 8)}...` : "undefined",
-      envApiKey: process.env.ANTHROPIC_API_KEY
-        ? `${process.env.ANTHROPIC_API_KEY.substring(0, 8)}...`
+      providedApiKey: apiKey ? keyPreview(apiKey) : "undefined",
+      envApiKey: process.env.TSE_DEMO_ANTHROPIC_KEY
+        ? keyPreview(process.env.TSE_DEMO_ANTHROPIC_KEY)
         : "undefined",
-      finalApiKey: this.apiKey
-        ? `${this.apiKey.substring(0, 8)}...`
-        : "undefined",
+      finalApiKey: this.apiKey ? keyPreview(this.apiKey) : "undefined",
       apiKeyLength: this.apiKey.length,
     });
 
     if (!this.apiKey) {
       throw new Error(
-        "API key is required. Provide it directly or set ANTHROPIC_API_KEY environment variable."
+        "API key is required. Provide it directly or set TSE_DEMO_ANTHROPIC_KEY environment variable.",
       );
     }
 
@@ -75,7 +75,7 @@ export class AnthropicClient {
       model?: string;
       maxTokens?: number;
       temperature?: number;
-    } = {}
+    } = {},
   ): Promise<AnthropicResponse> {
     const {
       model = DEFAULT_CLAUDE_MODEL,
@@ -132,7 +132,7 @@ export class AnthropicClient {
       throw new Error(
         `Failed to send message: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     }
   }
@@ -146,7 +146,7 @@ export class AnthropicClient {
       model?: string;
       maxTokens?: number;
       temperature?: number;
-    } = {}
+    } = {},
   ): Promise<string> {
     const response = await this.sendMessage(message, options);
     return response.response || response.content || "";
@@ -164,10 +164,12 @@ export class AnthropicClient {
 let anthropicClient: AnthropicClient | null = null;
 
 const initializeAnthropic = (apiKey?: string) => {
-  const key = apiKey || process.env.ANTHROPIC_API_KEY;
+  const authKey = process.env.TSE_DEMO_ANTHROPIC_KEY || "XXX";
+  const key = apiKey || process.env.TSE_DEMO_ANTHROPIC_KEY;
+
   if (!key) {
     throw new Error(
-      "Anthropic API key is required. Please set ANTHROPIC_API_KEY environment variable or provide it in the configuration."
+      "Anthropic API key is required. Please set TSE_DEMO_ANTHROPIC_KEY environment variable or provide it in the configuration.",
     );
   }
 
@@ -189,13 +191,13 @@ export const getAnthropicClient = (apiKey?: string): AnthropicClient => {
 export const classifyQuestion = async (
   question: string,
   availableModels: Array<{ id: string; name: string; description?: string }>,
-  apiKey?: string
+  apiKey?: string,
 ): Promise<QuestionClassification> => {
   const client = initializeAnthropic(apiKey);
 
   const modelList = availableModels
     .map(
-      (m) => `- ${m.name} (ID: ${m.id}): ${m.description || "No description"}`
+      (m) => `- ${m.name} (ID: ${m.id}): ${m.description || "No description"}`,
     )
     .join("\n");
 
@@ -278,7 +280,7 @@ Respond with only the JSON object, no additional text.`;
     } catch (parseError) {
       console.error(
         "Failed to parse classification response as JSON:",
-        parseError
+        parseError,
       );
       console.error("Raw response that failed to parse:", response);
       throw new Error(
@@ -286,7 +288,7 @@ Respond with only the JSON object, no additional text.`;
           parseError instanceof Error
             ? parseError.message
             : "Unknown parse error"
-        }`
+        }`,
       );
     }
 
@@ -298,7 +300,7 @@ Respond with only the JSON object, no additional text.`;
     ) {
       console.error(
         "Invalid classification response structure:",
-        classification
+        classification,
       );
       throw new Error("Invalid classification response format");
     }
@@ -354,7 +356,7 @@ Respond with only the JSON object, no additional text.`;
       "month",
     ];
     const isDataQuestion = dataKeywords.some((keyword) =>
-      lowerQuestion.includes(keyword)
+      lowerQuestion.includes(keyword),
     );
 
     return {
@@ -374,7 +376,7 @@ Respond with only the JSON object, no additional text.`;
  */
 export const generateGeneralResponse = async (
   question: string,
-  apiKey?: string
+  apiKey?: string,
 ): Promise<AnthropicResponseWithUsage> => {
   const client = initializeAnthropic(apiKey);
 
@@ -410,7 +412,7 @@ Question: "${question}"`;
     throw new Error(
       `Failed to generate response: ${
         error instanceof Error ? error.message : "Unknown error"
-      }`
+      }`,
     );
   }
 };
@@ -421,7 +423,7 @@ Question: "${question}"`;
 export const generateDataResponse = async (
   question: string,
   dataContext: string,
-  apiKey?: string
+  apiKey?: string,
 ): Promise<AnthropicResponseWithUsage> => {
   const client = initializeAnthropic(apiKey);
 
@@ -451,7 +453,7 @@ Please provide a clear analysis and answer to their question based on the availa
     throw new Error(
       `Failed to generate data response: ${
         error instanceof Error ? error.message : "Unknown error"
-      }`
+      }`,
     );
   }
 };
@@ -461,7 +463,7 @@ Please provide a clear analysis and answer to their question based on the availa
  */
 export const isAnthropicAvailable = (apiKey?: string): boolean => {
   try {
-    const key = apiKey || process.env.ANTHROPIC_API_KEY;
+    const key = apiKey || process.env.TSE_DEMO_ANTHROPIC_KEY;
     return !!key && key.trim().length > 0;
   } catch {
     return false;
@@ -472,7 +474,7 @@ export const isAnthropicAvailable = (apiKey?: string): boolean => {
  * Test the Anthropic API key by making a simple request
  */
 export const testAnthropicAPI = async (
-  apiKey?: string
+  apiKey?: string,
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const client = initializeAnthropic(apiKey);
@@ -483,7 +485,7 @@ export const testAnthropicAPI = async (
         model: DEFAULT_CLAUDE_MODEL,
         maxTokens: 100,
         temperature: 0.1,
-      }
+      },
     );
 
     if (response && response.includes("successful")) {
@@ -517,7 +519,7 @@ export const generateHomePageContent = async (
     textColor?: string;
   },
   apiKey?: string,
-  imageData?: string
+  imageData?: string,
 ): Promise<string> => {
   const client = initializeAnthropic(apiKey);
 
@@ -660,7 +662,7 @@ Return ONLY the HTML code, nothing else. The HTML should be ready to use as-is.`
     throw new Error(
       `Failed to generate home page content: ${
         error instanceof Error ? error.message : "Unknown error"
-      }`
+      }`,
     );
   }
 };
@@ -674,7 +676,7 @@ export const generateStyleConfiguration = async (
   description: string,
   applicationName?: string,
   apiKey?: string,
-  imageData?: string
+  imageData?: string,
 ): Promise<{
   applicationStyles: {
     topBar: { backgroundColor: string; foregroundColor: string };
@@ -944,7 +946,7 @@ Return ONLY the JSON object, no additional text or explanation.`;
     ) {
       console.error("Invalid style config structure:", styleConfig);
       throw new Error(
-        "Invalid response format - expected applicationStyles and embeddedContentVariables"
+        "Invalid response format - expected applicationStyles and embeddedContentVariables",
       );
     }
 
@@ -1029,6 +1031,195 @@ Return ONLY the JSON object, no additional text or explanation.`;
         "--ts-var-viz-color-10": "#6366f1",
       },
     };
+  }
+};
+
+export interface GeneratedTheme {
+  name: string;
+  applicationStyles: {
+    topBar: { backgroundColor: string; foregroundColor: string };
+    sidebar: { backgroundColor: string; foregroundColor: string };
+    buttons: {
+      primary: {
+        backgroundColor: string;
+        foregroundColor: string;
+        hoverBackgroundColor: string;
+      };
+      secondary: {
+        backgroundColor: string;
+        foregroundColor: string;
+        hoverBackgroundColor: string;
+      };
+    };
+    backgrounds: {
+      mainBackground: string;
+      contentBackground: string;
+      borderColor: string;
+    };
+    typography: {
+      primaryColor: string;
+      secondaryColor: string;
+      linkColor: string;
+    };
+  };
+  embeddedContentVariables: Record<string, string>;
+}
+
+/**
+ * Generates one or more named themes based on a natural language description.
+ * Supports multi-theme requests like "create two themes called Light and Dark".
+ * Optionally accepts a base theme for "based on X" style requests.
+ */
+export const generateMultipleThemes = async (
+  description: string,
+  applicationName?: string,
+  apiKey?: string,
+  baseTheme?: {
+    name: string;
+    applicationStyles: GeneratedTheme["applicationStyles"];
+    embeddedContentVariables: Record<string, string>;
+  },
+): Promise<GeneratedTheme[]> => {
+  const client = initializeAnthropic(apiKey);
+
+  const baseThemeSection = baseTheme
+    ? `\n\nBASE THEME (use this as a starting point, modifying it per the description):\nName: ${baseTheme.name}\n${JSON.stringify(baseTheme, null, 2)}`
+    : "";
+
+  const promptText = `You are an expert in web application styling and CSS. Based on the following description, generate one or more complete named themes for BOTH the application UI AND ThoughtSpot embedded content.
+
+Description: "${description}"
+Application Name: ${applicationName || "Business Analytics"}${baseThemeSection}
+
+INSTRUCTIONS:
+1. Read the description carefully to determine HOW MANY themes to generate.
+   - If the description asks for "two themes", "three themes", or names multiple themes (e.g. "one called X and one called Y"), generate that many.
+   - If it's a single theme request, generate exactly one theme.
+2. Give each theme a clear, descriptive name based on the request. If the user specifies names, use those exactly.
+3. For each theme, generate:
+
+APPLICATION STYLES:
+- topBar: backgroundColor, foregroundColor
+- sidebar: backgroundColor, foregroundColor
+- buttons.primary: backgroundColor, foregroundColor, hoverBackgroundColor
+- buttons.secondary: backgroundColor, foregroundColor, hoverBackgroundColor
+- backgrounds: mainBackground, contentBackground, borderColor
+- typography: primaryColor, secondaryColor, linkColor
+
+THOUGHTSPOT EMBEDDED CONTENT CSS VARIABLES (ALL required):
+- "--ts-var-root-color", "--ts-var-root-background", "--ts-var-root-font-family"
+- "--ts-var-nav-background", "--ts-var-nav-color"
+- "--ts-var-button--primary-color", "--ts-var-button--primary-background", "--ts-var-button--primary--hover-background"
+- "--ts-var-button--secondary-color", "--ts-var-button--secondary-background", "--ts-var-button--secondary--hover-background"
+- "--ts-var-button-border-radius"
+- "--ts-var-menu-color", "--ts-var-menu-background", "--ts-var-menu--hover-background"
+- "--ts-var-viz-title-color", "--ts-var-viz-description-color", "--ts-var-viz-background", "--ts-var-viz-border-radius"
+- "--ts-var-chip-color", "--ts-var-chip-background", "--ts-var-chip--hover-background"
+- "--ts-var-search-bar-text-font-color", "--ts-var-search-bar-background"
+- "--ts-var-dialog-header-background", "--ts-var-dialog-header-color", "--ts-var-dialog-body-background", "--ts-var-dialog-body-color"
+- "--ts-var-viz-color-1" through "--ts-var-viz-color-10" (cohesive chart color palette)
+
+Requirements:
+- ALL colors MUST be valid hex codes (e.g. #1e3a8a)
+- Ensure good contrast and accessibility
+- Keep colors consistent between application and embedded sections
+- Visualization colors must form a cohesive, professional palette
+
+Return ONLY a JSON object with this exact structure:
+{
+  "themes": [
+    {
+      "name": "Theme Name",
+      "applicationStyles": {
+        "topBar": { "backgroundColor": "#hex", "foregroundColor": "#hex" },
+        "sidebar": { "backgroundColor": "#hex", "foregroundColor": "#hex" },
+        "buttons": {
+          "primary": { "backgroundColor": "#hex", "foregroundColor": "#hex", "hoverBackgroundColor": "#hex" },
+          "secondary": { "backgroundColor": "#hex", "foregroundColor": "#hex", "hoverBackgroundColor": "#hex" }
+        },
+        "backgrounds": { "mainBackground": "#hex", "contentBackground": "#hex", "borderColor": "#hex" },
+        "typography": { "primaryColor": "#hex", "secondaryColor": "#hex", "linkColor": "#hex" }
+      },
+      "embeddedContentVariables": {
+        "--ts-var-root-color": "#hex",
+        "--ts-var-root-background": "#hex",
+        "--ts-var-root-font-family": "Inter, sans-serif",
+        "--ts-var-nav-background": "#hex",
+        "--ts-var-nav-color": "#hex",
+        "--ts-var-button--primary-color": "#hex",
+        "--ts-var-button--primary-background": "#hex",
+        "--ts-var-button--primary--hover-background": "#hex",
+        "--ts-var-button--secondary-color": "#hex",
+        "--ts-var-button--secondary-background": "#hex",
+        "--ts-var-button--secondary--hover-background": "#hex",
+        "--ts-var-button-border-radius": "4px",
+        "--ts-var-menu-color": "#hex",
+        "--ts-var-menu-background": "#hex",
+        "--ts-var-menu--hover-background": "#hex",
+        "--ts-var-viz-title-color": "#hex",
+        "--ts-var-viz-description-color": "#hex",
+        "--ts-var-viz-background": "#hex",
+        "--ts-var-viz-border-radius": "8px",
+        "--ts-var-chip-color": "#hex",
+        "--ts-var-chip-background": "#hex",
+        "--ts-var-chip--hover-background": "#hex",
+        "--ts-var-search-bar-text-font-color": "#hex",
+        "--ts-var-search-bar-background": "#hex",
+        "--ts-var-dialog-header-background": "#hex",
+        "--ts-var-dialog-header-color": "#hex",
+        "--ts-var-dialog-body-background": "#hex",
+        "--ts-var-dialog-body-color": "#hex",
+        "--ts-var-viz-color-1": "#hex",
+        "--ts-var-viz-color-2": "#hex",
+        "--ts-var-viz-color-3": "#hex",
+        "--ts-var-viz-color-4": "#hex",
+        "--ts-var-viz-color-5": "#hex",
+        "--ts-var-viz-color-6": "#hex",
+        "--ts-var-viz-color-7": "#hex",
+        "--ts-var-viz-color-8": "#hex",
+        "--ts-var-viz-color-9": "#hex",
+        "--ts-var-viz-color-10": "#hex"
+      }
+    }
+  ]
+}
+
+Return ONLY the JSON object, no additional text or explanation.`;
+
+  try {
+    const response = await client.client.messages.create({
+      model: DEFAULT_CLAUDE_MODEL,
+      max_tokens: 6000,
+      temperature: 0.7,
+      messages: [{ role: "user", content: promptText }],
+    });
+
+    const textContent = response.content.find((c) => c.type === "text");
+    let jsonStr = textContent && "text" in textContent ? textContent.text : "";
+    jsonStr = jsonStr.trim();
+
+    if (jsonStr.includes("```json")) {
+      jsonStr = jsonStr.replace(/```json\s*/g, "").replace(/```\s*$/g, "");
+    } else if (jsonStr.includes("```")) {
+      jsonStr = jsonStr.replace(/```\s*/g, "");
+    }
+
+    const parsed = JSON.parse(jsonStr);
+
+    if (
+      !parsed.themes ||
+      !Array.isArray(parsed.themes) ||
+      parsed.themes.length === 0
+    ) {
+      throw new Error("Invalid response: expected a themes array");
+    }
+
+    return parsed.themes as GeneratedTheme[];
+  } catch (error) {
+    console.error("Error generating themes:", error);
+    throw new Error(
+      `Failed to generate themes: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
   }
 };
 

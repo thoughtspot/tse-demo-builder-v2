@@ -24,6 +24,7 @@ import RuntimeFiltersEditor from "./RuntimeFiltersEditor";
 import {
   User,
   UserConfig,
+  UserTheme,
   SavedConfiguration,
   CustomMenu,
   StylingConfig,
@@ -4593,11 +4594,21 @@ function StylingContent({
     value: string | boolean
   ) => void;
 }) {
-  const [activeSubTab, setActiveSubTab] = useState("application");
+  const [activeSubTab, setActiveSubTab] = useState("theme");
   const [showStyleWizard, setShowStyleWizard] = useState(false);
   const [styleDescription, setStyleDescription] = useState("");
   const [isGeneratingStyle, setIsGeneratingStyle] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [wizardBaseThemeId, setWizardBaseThemeId] = useState<string>("");
+  const [generatedThemeCount, setGeneratedThemeCount] = useState(0);
+
+  // Theme management state
+  const [selectedThemeIdForEdit, setSelectedThemeIdForEdit] = useState<string | undefined>(undefined);
+  const [isRenamingTheme, setIsRenamingTheme] = useState(false);
+  const [renamingThemeValue, setRenamingThemeValue] = useState("");
+  const [showNewThemeDialog, setShowNewThemeDialog] = useState(false);
+  const [newThemeName, setNewThemeName] = useState("");
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
   // Style save/load state
   const [showExportStyleDialog, setShowExportStyleDialog] = useState(false);
@@ -4621,9 +4632,9 @@ function StylingContent({
 
   // Ensure we always have a valid sub-tab selected
   useEffect(() => {
-    const validSubTabs = ["application", "embedded", "layout"];
+    const validSubTabs = ["layout", "theme"];
     if (!validSubTabs.includes(activeSubTab)) {
-      setActiveSubTab("application");
+      setActiveSubTab("theme");
     }
   }, [activeSubTab]);
 
@@ -4694,152 +4705,87 @@ function StylingContent({
   };
 
   const subTabs = [
-    { id: "application", name: "Application Styles", icon: "🎨" },
-    { id: "embedded", name: "Embedded Content", icon: "🔧" },
     { id: "layout", name: "Layout & Style", icon: "⬜" },
+    { id: "theme", name: "Theme", icon: "🎨" },
   ];
 
-  const updateApplicationStyles = (field: string, value: string) => {
+  // Resolve which theme is currently shown in the editor dropdown
+  const selectedTheme = (
+    stylingConfig.themes?.find(t => t.id === (selectedThemeIdForEdit ?? stylingConfig.activeThemeId))
+    ?? stylingConfig.themes?.[0]
+  );
+
+  // Alias for reading — color pickers read from here
+  const themeApp = selectedTheme?.application ?? stylingConfig.application;
+
+  // Update a theme in the themes list and, if it's active, sync live styles too
+  const applyThemeUpdate = (updatedTheme: UserTheme) => {
+    const isActive = updatedTheme.id === stylingConfig.activeThemeId;
+    const updatedThemes = (stylingConfig.themes ?? []).map(t =>
+      t.id === updatedTheme.id ? updatedTheme : t
+    );
     updateStylingConfig({
       ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        [field]: value,
-      },
+      themes: updatedThemes,
+      ...(isActive ? {
+        application: updatedTheme.application,
+        embeddedContent: {
+          ...stylingConfig.embeddedContent,
+          customCSS: {
+            ...stylingConfig.embeddedContent.customCSS,
+            variables: updatedTheme.embeddedContentVariables,
+          },
+        },
+      } : {}),
     });
   };
 
   const updateTopBarStyles = (field: string, value: string) => {
-    updateStylingConfig({
-      ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        topBar: {
-          ...stylingConfig.application.topBar,
-          [field]: value,
-        },
-      },
-    });
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, application: { ...selectedTheme.application, topBar: { ...selectedTheme.application.topBar, [field]: value } } });
   };
 
   const updateSidebarStyles = (field: string, value: string) => {
-    updateStylingConfig({
-      ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        sidebar: {
-          ...stylingConfig.application.sidebar,
-          [field]: value,
-        },
-      },
-    });
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, application: { ...selectedTheme.application, sidebar: { ...selectedTheme.application.sidebar, [field]: value } } });
   };
 
   const updateFooterStyles = (field: string, value: string) => {
-    updateStylingConfig({
-      ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        footer: {
-          ...stylingConfig.application.footer,
-          [field]: value,
-        },
-      },
-    });
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, application: { ...selectedTheme.application, footer: { ...selectedTheme.application.footer, [field]: value } } });
   };
 
   const updateDialogStyles = (field: string, value: string) => {
-    updateStylingConfig({
-      ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        dialogs: {
-          ...stylingConfig.application.dialogs,
-          [field]: value,
-        },
-      },
-    });
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, application: { ...selectedTheme.application, dialogs: { ...selectedTheme.application.dialogs, [field]: value } } });
   };
 
-  const updateButtonStyles = (
-    buttonType: "primary" | "secondary",
-    field: string,
-    value: string
-  ) => {
-    updateStylingConfig({
-      ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        buttons: {
-          ...stylingConfig.application.buttons,
-          [buttonType]: {
-            ...stylingConfig.application.buttons?.[buttonType],
-            [field]: value,
-          },
-        },
-      },
-    });
+  const updateButtonStyles = (buttonType: "primary" | "secondary", field: string, value: string) => {
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, application: { ...selectedTheme.application, buttons: { ...selectedTheme.application.buttons, [buttonType]: { ...selectedTheme.application.buttons?.[buttonType], [field]: value } } } });
   };
 
   const updateBackgroundStyles = (field: string, value: string) => {
-    updateStylingConfig({
-      ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        backgrounds: {
-          ...stylingConfig.application.backgrounds,
-          [field]: value,
-        },
-      },
-    });
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, application: { ...selectedTheme.application, backgrounds: { ...selectedTheme.application.backgrounds, [field]: value } } });
   };
 
   const updateTypographyStyles = (field: string, value: string) => {
-    updateStylingConfig({
-      ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        typography: {
-          ...stylingConfig.application.typography,
-          [field]: value,
-        },
-      },
-    });
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, application: { ...selectedTheme.application, typography: { ...selectedTheme.application.typography, [field]: value } } });
+  };
+
+  // CSS variables are per-theme; other embedded content (strings, cssUrl, etc.) is app-wide
+  const updateThemeCSSVariables = (variables: Record<string, string>) => {
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, embeddedContentVariables: variables });
   };
 
   const updateEmbeddedContent = (field: string, value: unknown) => {
-    console.log("updateEmbeddedContent called with:", field, value);
-    console.log(
-      "Current stylingConfig.embeddedContent:",
-      stylingConfig.embeddedContent
-    );
-
-    const newConfig = {
+    updateStylingConfig({
       ...stylingConfig,
-      embeddedContent: {
-        ...stylingConfig.embeddedContent,
-        [field]: value,
-      },
-    };
-
-    console.log("New embeddedContent:", newConfig.embeddedContent);
-    console.log(
-      "updateEmbeddedContent: calling updateStylingConfig with iconSpriteUrl:",
-      newConfig.embeddedContent.iconSpriteUrl
-    );
-    console.log(
-      "updateEmbeddedContent: stringIDs after update:",
-      newConfig.embeddedContent.stringIDs
-    );
-    updateStylingConfig(newConfig);
-
-    // For iconSpriteUrl changes, the navigation menu should update immediately
-    // The user will need to click "Apply Changes" to persist the selection
-    if (field === "iconSpriteUrl") {
-      console.log(
-        "Icon selection updated - navigation menu should update immediately"
-      );
-    }
+      embeddedContent: { ...stylingConfig.embeddedContent, [field]: value },
+    });
   };
 
   const handleGenerateStyle = async () => {
@@ -4851,75 +4797,123 @@ function StylingContent({
     try {
       setIsGeneratingStyle(true);
       setGenerationError(null);
+      setGeneratedThemeCount(0);
 
-      console.log(
-        "Calling style generation API with description:",
-        styleDescription
-      );
+      const baseTheme = wizardBaseThemeId
+        ? stylingConfig.themes?.find((t) => t.id === wizardBaseThemeId)
+        : undefined;
 
-      const response = await fetch("/api/anthropic/generate-style", {
+      const baseThemePayload = baseTheme
+        ? {
+            name: baseTheme.name,
+            applicationStyles: {
+              topBar: baseTheme.application.topBar,
+              sidebar: baseTheme.application.sidebar,
+              buttons: baseTheme.application.buttons,
+              backgrounds: baseTheme.application.backgrounds,
+              typography: baseTheme.application.typography,
+            },
+            embeddedContentVariables: baseTheme.embeddedContentVariables,
+          }
+        : undefined;
+
+      const response = await fetch("/api/anthropic/generate-themes", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ description: styleDescription }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: styleDescription,
+          baseTheme: baseThemePayload,
+        }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate style");
+        throw new Error(errorData.error || "Failed to generate theme");
       }
 
-      const styleConfig = await response.json();
+      const { themes: generatedThemes } = await response.json();
 
-      console.log("Received style configuration:", styleConfig);
+      const newUserThemes: UserTheme[] = generatedThemes.map(
+        (gt: { name: string; applicationStyles: { topBar: { backgroundColor: string; foregroundColor: string }; sidebar: { backgroundColor: string; foregroundColor: string }; footer?: { backgroundColor: string; foregroundColor: string }; dialogs?: { backgroundColor: string; foregroundColor: string }; buttons: { primary: { backgroundColor: string; foregroundColor: string; borderColor?: string; hoverBackgroundColor: string; hoverForegroundColor?: string }; secondary: { backgroundColor: string; foregroundColor: string; borderColor?: string; hoverBackgroundColor: string; hoverForegroundColor?: string } }; backgrounds: { mainBackground: string; contentBackground: string; borderColor: string }; typography: { primaryColor: string; secondaryColor: string; linkColor: string; linkHoverColor?: string } }; embeddedContentVariables: Record<string, string> }) => {
+          const app = gt.applicationStyles;
+          return {
+            id: `theme-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: gt.name,
+            application: {
+              ...stylingConfig.application,
+              topBar: app.topBar,
+              sidebar: app.sidebar,
+              footer: app.footer ?? {
+                backgroundColor: app.backgrounds?.contentBackground ?? stylingConfig.application.footer.backgroundColor,
+                foregroundColor: app.typography?.secondaryColor ?? stylingConfig.application.footer.foregroundColor,
+              },
+              dialogs: app.dialogs ?? {
+                backgroundColor: app.backgrounds?.contentBackground ?? stylingConfig.application.dialogs.backgroundColor,
+                foregroundColor: app.typography?.primaryColor ?? stylingConfig.application.dialogs.foregroundColor,
+              },
+              buttons: {
+                primary: {
+                  backgroundColor: app.buttons.primary.backgroundColor,
+                  foregroundColor: app.buttons.primary.foregroundColor,
+                  borderColor: app.buttons.primary.borderColor ?? app.buttons.primary.backgroundColor,
+                  hoverBackgroundColor: app.buttons.primary.hoverBackgroundColor,
+                  hoverForegroundColor: app.buttons.primary.hoverForegroundColor ?? app.buttons.primary.foregroundColor,
+                },
+                secondary: {
+                  backgroundColor: app.buttons.secondary.backgroundColor,
+                  foregroundColor: app.buttons.secondary.foregroundColor,
+                  borderColor: app.buttons.secondary.borderColor ?? app.buttons.secondary.backgroundColor,
+                  hoverBackgroundColor: app.buttons.secondary.hoverBackgroundColor,
+                  hoverForegroundColor: app.buttons.secondary.hoverForegroundColor ?? app.buttons.secondary.foregroundColor,
+                },
+              },
+              backgrounds: {
+                mainBackground: app.backgrounds.mainBackground,
+                contentBackground: app.backgrounds.contentBackground,
+                cardBackground: (app.backgrounds as { mainBackground: string; contentBackground: string; cardBackground?: string; borderColor: string }).cardBackground ?? app.backgrounds.contentBackground,
+                borderColor: app.backgrounds.borderColor,
+              },
+              typography: {
+                primaryColor: app.typography.primaryColor,
+                secondaryColor: app.typography.secondaryColor,
+                linkColor: app.typography.linkColor,
+                linkHoverColor: app.typography.linkHoverColor ?? app.typography.linkColor,
+              },
+            },
+            embeddedContentVariables: gt.embeddedContentVariables,
+            createdAt: new Date().toISOString(),
+          } satisfies UserTheme;
+        }
+      );
 
-      // Update the styling configuration with the generated styles
-      const newStylingConfig: StylingConfig = {
+      const firstNewTheme = newUserThemes[0];
+      const existingThemes = stylingConfig.themes ?? [];
+
+      const updatedStylingConfig: StylingConfig = {
         ...stylingConfig,
-        application: {
-          ...stylingConfig.application,
-          topBar: styleConfig.applicationStyles.topBar,
-          sidebar: styleConfig.applicationStyles.sidebar,
-          footer: {
-            ...stylingConfig.application.footer,
-            backgroundColor:
-              styleConfig.applicationStyles.backgrounds?.contentBackground ||
-              stylingConfig.application.footer.backgroundColor,
-            foregroundColor:
-              styleConfig.applicationStyles.typography?.secondaryColor ||
-              stylingConfig.application.footer.foregroundColor,
-          },
-          dialogs: {
-            ...stylingConfig.application.dialogs,
-            backgroundColor:
-              styleConfig.applicationStyles.backgrounds?.contentBackground ||
-              stylingConfig.application.dialogs.backgroundColor,
-          },
-          buttons: styleConfig.applicationStyles.buttons,
-          backgrounds: styleConfig.applicationStyles.backgrounds,
-          typography: styleConfig.applicationStyles.typography,
-        },
+        themes: [...existingThemes, ...newUserThemes],
+        activeThemeId: firstNewTheme.id,
+        application: { ...firstNewTheme.application },
         embeddedContent: {
           ...stylingConfig.embeddedContent,
           customCSS: {
             ...stylingConfig.embeddedContent.customCSS,
-            variables: styleConfig.embeddedContentVariables,
+            variables: { ...firstNewTheme.embeddedContentVariables },
           },
         },
       };
 
-      updateStylingConfig(newStylingConfig);
-
-      // Close the wizard on success
+      updateStylingConfig(updatedStylingConfig);
+      setGeneratedThemeCount(newUserThemes.length);
       setShowStyleWizard(false);
       setStyleDescription("");
+      setWizardBaseThemeId("");
     } catch (error) {
-      console.error("Error generating style:", error);
+      console.error("Error generating theme:", error);
       setGenerationError(
         error instanceof Error
           ? error.message
-          : "Failed to generate style. Please try again."
+          : "Failed to generate theme. Please try again."
       );
     } finally {
       setIsGeneratingStyle(false);
@@ -4975,7 +4969,7 @@ function StylingContent({
       >
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
           <button
-            onClick={() => setShowStyleWizard(true)}
+            onClick={() => { setShowStyleWizard(true); setGenerationError(null); setGeneratedThemeCount(0); }}
             style={{
               padding: "10px 20px",
               backgroundColor: "#8b5cf6",
@@ -5482,675 +5476,257 @@ function StylingContent({
 
       {/* Content */}
       <div style={{ flex: 1, overflow: "auto" }}>
-        {activeSubTab === "application" && (
+
+        {/* ── Theme Tab ── */}
+        {activeSubTab === "theme" && (
           <div>
-            <h4
-              style={{
-                fontSize: "18px",
-                fontWeight: "600",
-                marginBottom: "20px",
-              }}
-            >
-              Application Styling
-            </h4>
-
-            {/* Theme Selector */}
-            <ThemeSelector
-              selectedTheme={
-                stylingConfig.application.selectedTheme || "default"
-              }
-              onThemeChange={(themeId) => {
-                const newStyles = applyTheme(
-                  themeId,
-                  stylingConfig.application
-                );
-                updateStylingConfig({
-                  ...stylingConfig,
-                  application: newStyles,
-                });
-              }}
-            />
-
-            {/* Top Bar Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Top Bar
-              </h5>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={stylingConfig.application.topBar.backgroundColor}
-                  onChange={(value) =>
-                    updateTopBarStyles("backgroundColor", value)
-                  }
-                  label="Background Color"
+            {/* Theme Selector Bar */}
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "14px 16px", backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", marginBottom: "24px", flexWrap: "wrap" }}>
+              <label style={{ fontWeight: "600", fontSize: "14px", color: "#374151", flexShrink: 0 }}>Theme:</label>
+              {isRenamingTheme ? (
+                <input
+                  autoFocus
+                  value={renamingThemeValue}
+                  onChange={(e) => setRenamingThemeValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const name = renamingThemeValue.trim();
+                      if (name && selectedTheme) applyThemeUpdate({ ...selectedTheme, name });
+                      setIsRenamingTheme(false);
+                    } else if (e.key === "Escape") setIsRenamingTheme(false);
+                  }}
+                  onBlur={() => {
+                    const name = renamingThemeValue.trim();
+                    if (name && selectedTheme) applyThemeUpdate({ ...selectedTheme, name });
+                    setIsRenamingTheme(false);
+                  }}
+                  style={{ padding: "6px 10px", border: "2px solid #3182ce", borderRadius: "6px", fontSize: "14px", fontWeight: "600", minWidth: "160px" }}
                 />
-                <ColorPicker
-                  value={stylingConfig.application.topBar.foregroundColor}
-                  onChange={(value) =>
-                    updateTopBarStyles("foregroundColor", value)
-                  }
-                  label="Foreground Color"
-                />
+              ) : (
+                <select
+                  value={selectedTheme?.id ?? ""}
+                  onChange={(e) => setSelectedThemeIdForEdit(e.target.value)}
+                  style={{ padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", minWidth: "160px", backgroundColor: "white" }}
+                >
+                  {(!stylingConfig.themes || stylingConfig.themes.length === 0) && <option value="">No themes yet</option>}
+                  {[...(stylingConfig.themes ?? [])].sort((a, b) => a.name.localeCompare(b.name)).map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}{t.id === stylingConfig.activeThemeId ? " ✓" : ""}</option>
+                  ))}
+                </select>
+              )}
+              {selectedTheme && selectedTheme.id !== stylingConfig.activeThemeId && (
+                <button
+                  onClick={() => {
+                    updateStylingConfig({ ...stylingConfig, activeThemeId: selectedTheme.id, application: { ...selectedTheme.application }, embeddedContent: { ...stylingConfig.embeddedContent, customCSS: { ...stylingConfig.embeddedContent.customCSS, variables: { ...selectedTheme.embeddedContentVariables } } } });
+                  }}
+                  style={{ padding: "6px 12px", backgroundColor: "#3182ce", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "500", display: "flex", alignItems: "center", gap: "4px" }}
+                >
+                  <MaterialIcon icon="check_circle" style={{ fontSize: "14px" }} />
+                  Apply
+                </button>
+              )}
+              <div style={{ display: "flex", gap: "6px", marginLeft: "auto" }}>
+                <button onClick={() => { if (selectedTheme) { setRenamingThemeValue(selectedTheme.name); setIsRenamingTheme(true); } }} title="Rename" style={{ padding: "5px 10px", backgroundColor: "transparent", border: "1px solid #d1d5db", borderRadius: "5px", cursor: "pointer", color: "#4b5563", fontSize: "12px" }}>Rename</button>
+                <button onClick={() => { setShowStyleWizard(true); setGenerationError(null); setGeneratedThemeCount(0); }} title="Generate with AI" style={{ padding: "5px 10px", backgroundColor: "#8b5cf6", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <MaterialIcon icon="auto_fix_high" style={{ fontSize: "13px" }} />
+                  AI
+                </button>
+                <button onClick={() => { setShowNewThemeDialog(true); setNewThemeName(""); }} title="New theme" style={{ padding: "5px 10px", backgroundColor: "#059669", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", fontSize: "12px" }}>+ New</button>
+                {selectedTheme && (
+                  <button
+                    onClick={() => {
+                      const dup: UserTheme = { ...selectedTheme, id: `theme-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, name: `${selectedTheme.name} Copy`, createdAt: new Date().toISOString() };
+                      updateStylingConfig({ ...stylingConfig, themes: [...(stylingConfig.themes ?? []), dup] });
+                      setSelectedThemeIdForEdit(dup.id);
+                    }}
+                    title="Duplicate" style={{ padding: "5px 8px", backgroundColor: "transparent", border: "1px solid #d1d5db", borderRadius: "5px", cursor: "pointer", color: "#4b5563" }}>
+                    <MaterialIcon icon="content_copy" style={{ fontSize: "13px" }} />
+                  </button>
+                )}
+                {selectedTheme && (
+                  <button
+                    onClick={() => {
+                      if ((stylingConfig.themes?.length ?? 0) <= 1) { alert("You must have at least one theme."); return; }
+                      if (!confirm(`Delete theme "${selectedTheme.name}"?`)) return;
+                      const remaining = (stylingConfig.themes ?? []).filter(t => t.id !== selectedTheme.id);
+                      const wasActive = selectedTheme.id === stylingConfig.activeThemeId;
+                      const newActiveId = wasActive ? remaining[0]?.id : stylingConfig.activeThemeId;
+                      const newActive = remaining.find(t => t.id === newActiveId);
+                      updateStylingConfig({ ...stylingConfig, themes: remaining, activeThemeId: newActiveId, ...(wasActive && newActive ? { application: { ...newActive.application }, embeddedContent: { ...stylingConfig.embeddedContent, customCSS: { ...stylingConfig.embeddedContent.customCSS, variables: { ...newActive.embeddedContentVariables } } } } : {}) });
+                      setSelectedThemeIdForEdit(newActiveId);
+                    }}
+                    title="Delete" style={{ padding: "5px 8px", backgroundColor: "transparent", border: "1px solid #fca5a5", borderRadius: "5px", cursor: "pointer", color: "#dc2626" }}>
+                    <MaterialIcon icon="delete" style={{ fontSize: "13px" }} />
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Sidebar Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Sidebar
-              </h5>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={stylingConfig.application.sidebar.backgroundColor}
-                  onChange={(value) =>
-                    updateSidebarStyles("backgroundColor", value)
-                  }
-                  label="Background Color"
-                />
-                <ColorPicker
-                  value={stylingConfig.application.sidebar.foregroundColor}
-                  onChange={(value) =>
-                    updateSidebarStyles("foregroundColor", value)
-                  }
-                  label="Foreground Color"
-                />
+            {generatedThemeCount > 0 && (
+              <div style={{ padding: "10px 14px", backgroundColor: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "6px", marginBottom: "16px", fontSize: "14px", color: "#166534" }}>
+                ✓ {generatedThemeCount} theme{generatedThemeCount > 1 ? "s" : ""} generated and added. The first one is now active.
               </div>
-            </div>
+            )}
 
-            {/* Footer Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Footer
-              </h5>
+            {!selectedTheme ? (
+              <div style={{ textAlign: "center", padding: "40px 20px", color: "#6b7280", fontSize: "14px" }}>No themes yet. Click &quot;AI&quot; or &quot;+ New&quot; to create one.</div>
+            ) : (
+              <div>
+                {/* Application Colors */}
+                <div style={{ marginBottom: "28px" }}>
+                  <h5 style={{ fontSize: "15px", fontWeight: "600", color: "#374151", borderBottom: "1px solid #e5e7eb", paddingBottom: "8px", marginBottom: "16px" }}>Application Colors</h5>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <div style={{ padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: "8px", backgroundColor: "#f9fafb" }}>
+                      <div style={{ fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>Top Bar</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                        <ColorPicker value={themeApp.topBar.backgroundColor} onChange={(v) => updateTopBarStyles("backgroundColor", v)} label="Background" />
+                        <ColorPicker value={themeApp.topBar.foregroundColor} onChange={(v) => updateTopBarStyles("foregroundColor", v)} label="Text / Icons" />
+                      </div>
+                    </div>
+                    <div style={{ padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: "8px", backgroundColor: "#f9fafb" }}>
+                      <div style={{ fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>Sidebar</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                        <ColorPicker value={themeApp.sidebar.backgroundColor} onChange={(v) => updateSidebarStyles("backgroundColor", v)} label="Background" />
+                        <ColorPicker value={themeApp.sidebar.foregroundColor} onChange={(v) => updateSidebarStyles("foregroundColor", v)} label="Text" />
+                      </div>
+                    </div>
+                    <div style={{ padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: "8px", backgroundColor: "#f9fafb" }}>
+                      <div style={{ fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>Buttons</div>
+                      <div style={{ marginBottom: "10px" }}>
+                        <div style={{ fontSize: "11px", fontWeight: "500", color: "#9ca3af", marginBottom: "6px" }}>Primary</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                          <ColorPicker value={themeApp.buttons?.primary?.backgroundColor || "#3182ce"} onChange={(v) => updateButtonStyles("primary", "backgroundColor", v)} label="Background" />
+                          <ColorPicker value={themeApp.buttons?.primary?.foregroundColor || "#ffffff"} onChange={(v) => updateButtonStyles("primary", "foregroundColor", v)} label="Text" />
+                          <ColorPicker value={themeApp.buttons?.primary?.hoverBackgroundColor || "#2c5aa0"} onChange={(v) => updateButtonStyles("primary", "hoverBackgroundColor", v)} label="Hover" />
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: "11px", fontWeight: "500", color: "#9ca3af", marginBottom: "6px" }}>Secondary</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                          <ColorPicker value={themeApp.buttons?.secondary?.backgroundColor || "#ffffff"} onChange={(v) => updateButtonStyles("secondary", "backgroundColor", v)} label="Background" />
+                          <ColorPicker value={themeApp.buttons?.secondary?.foregroundColor || "#374151"} onChange={(v) => updateButtonStyles("secondary", "foregroundColor", v)} label="Text" />
+                          <ColorPicker value={themeApp.buttons?.secondary?.hoverBackgroundColor || "#f9fafb"} onChange={(v) => updateButtonStyles("secondary", "hoverBackgroundColor", v)} label="Hover" />
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: "8px", backgroundColor: "#f9fafb" }}>
+                      <div style={{ fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>Backgrounds</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                        <ColorPicker value={themeApp.backgrounds?.mainBackground || "#f7fafc"} onChange={(v) => updateBackgroundStyles("mainBackground", v)} label="Page" />
+                        <ColorPicker value={themeApp.backgrounds?.contentBackground || "#ffffff"} onChange={(v) => updateBackgroundStyles("contentBackground", v)} label="Content" />
+                        <ColorPicker value={themeApp.backgrounds?.cardBackground || "#ffffff"} onChange={(v) => updateBackgroundStyles("cardBackground", v)} label="Card" />
+                        <ColorPicker value={themeApp.backgrounds?.borderColor || "#e2e8f0"} onChange={(v) => updateBackgroundStyles("borderColor", v)} label="Border" />
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                      <div style={{ padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: "8px", backgroundColor: "#f9fafb" }}>
+                        <div style={{ fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>Footer</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                          <ColorPicker value={themeApp.footer.backgroundColor} onChange={(v) => updateFooterStyles("backgroundColor", v)} label="Background" />
+                          <ColorPicker value={themeApp.footer.foregroundColor} onChange={(v) => updateFooterStyles("foregroundColor", v)} label="Text" />
+                        </div>
+                      </div>
+                      <div style={{ padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: "8px", backgroundColor: "#f9fafb" }}>
+                        <div style={{ fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>Dialogs</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                          <ColorPicker value={themeApp.dialogs.backgroundColor} onChange={(v) => updateDialogStyles("backgroundColor", v)} label="Background" />
+                          <ColorPicker value={themeApp.dialogs.foregroundColor} onChange={(v) => updateDialogStyles("foregroundColor", v)} label="Text" />
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: "8px", backgroundColor: "#f9fafb" }}>
+                      <div style={{ fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>Typography</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                        <ColorPicker value={themeApp.typography?.primaryColor || "#1f2937"} onChange={(v) => updateTypographyStyles("primaryColor", v)} label="Primary Text" />
+                        <ColorPicker value={themeApp.typography?.secondaryColor || "#6b7280"} onChange={(v) => updateTypographyStyles("secondaryColor", v)} label="Secondary Text" />
+                        <ColorPicker value={themeApp.typography?.linkColor || "#3182ce"} onChange={(v) => updateTypographyStyles("linkColor", v)} label="Link" />
+                        <ColorPicker value={themeApp.typography?.linkHoverColor || "#2c5aa0"} onChange={(v) => updateTypographyStyles("linkHoverColor", v)} label="Link Hover" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={stylingConfig.application.footer.backgroundColor}
-                  onChange={(value) =>
-                    updateFooterStyles("backgroundColor", value)
-                  }
-                  label="Background Color"
-                />
-                <ColorPicker
-                  value={stylingConfig.application.footer.foregroundColor}
-                  onChange={(value) =>
-                    updateFooterStyles("foregroundColor", value)
-                  }
-                  label="Foreground Color"
-                />
+                {/* ThoughtSpot Content Styling */}
+                <div style={{ marginBottom: "28px" }}>
+                  <h5 style={{ fontSize: "15px", fontWeight: "600", color: "#374151", borderBottom: "1px solid #e5e7eb", paddingBottom: "8px", marginBottom: "16px" }}>ThoughtSpot Content Styling</h5>
+                  <CSSVariablesEditor
+                    variables={selectedTheme.embeddedContentVariables || {}}
+                    onChange={updateThemeCSSVariables}
+                    title="CSS Variables"
+                    description="CSS variables applied to embedded ThoughtSpot charts and dashboards for this theme"
+                  />
+                </div>
+
+                {/* Advanced / Application-wide Settings */}
+                <div style={{ marginBottom: "24px", border: "1px solid #e5e7eb", borderRadius: "8px", overflow: "hidden" }}>
+                  <button
+                    onClick={() => setShowAdvancedSettings(v => !v)}
+                    style={{ width: "100%", padding: "14px 16px", background: "#f8fafc", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "14px", fontWeight: "600", color: "#374151" }}
+                  >
+                    <span>Advanced / Application-wide Settings</span>
+                    <MaterialIcon icon={showAdvancedSettings ? "expand_less" : "expand_more"} style={{ fontSize: "20px", color: "#6b7280" }} />
+                  </button>
+                  {showAdvancedSettings && (
+                    <div style={{ padding: "16px" }}>
+                      <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "16px", marginTop: 0 }}>These settings apply across all themes: string replacements, custom CSS rules, stylesheet URL, and icon sprite.</p>
+                      <StringMappingEditor mappings={stylingConfig.embeddedContent.strings} onChange={(v) => updateEmbeddedContent("strings", v)} title="String Mappings" description="Map ThoughtSpot strings to custom values" />
+                      <StringMappingEditor mappings={stylingConfig.embeddedContent.stringIDs} onChange={(v) => updateEmbeddedContent("stringIDs", v)} title="String ID Mappings" description="Map ThoughtSpot string IDs to custom values" />
+                      <div style={{ marginBottom: "20px" }}>
+                        <h4 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "6px" }}>Custom CSS URL</h4>
+                        <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "8px" }}>URL to an external CSS file</p>
+                        <input type="url" value={stylingConfig.embeddedContent.cssUrl || ""} onChange={(e) => updateEmbeddedContent("cssUrl", e.target.value)} placeholder="https://example.com/custom-styles.css" style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "14px", boxSizing: "border-box" }} />
+                      </div>
+                      <div style={{ marginBottom: "20px" }}>
+                        <SpotterIconPicker selectedIcon={stylingConfig.embeddedContent.iconSpriteUrl} onIconSelect={(iconUrl) => updateEmbeddedContent("iconSpriteUrl", iconUrl)} onMenuIconUpdate={(menuIconUrl) => { if (updateStandardMenu) { updateStandardMenu("spotter", "icon", menuIconUrl); } }} title="Spotter Icon" description="Choose an icon for your Spotter embed." />
+                      </div>
+                      <CSSRulesEditor rules={stylingConfig.embeddedContent.customCSS.rules_UNSTABLE || {}} onChange={(v) => updateEmbeddedContent("customCSS", { ...stylingConfig.embeddedContent.customCSS, rules_UNSTABLE: v })} title="Custom CSS Rules (rules_UNSTABLE)" description="Custom CSS rules for ThoughtSpot styling." />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Dialog Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Dialogs
-              </h5>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={stylingConfig.application.dialogs.backgroundColor}
-                  onChange={(value) =>
-                    updateDialogStyles("backgroundColor", value)
-                  }
-                  label="Background Color"
-                />
-                <ColorPicker
-                  value={stylingConfig.application.dialogs.foregroundColor}
-                  onChange={(value) =>
-                    updateDialogStyles("foregroundColor", value)
-                  }
-                  label="Foreground Color"
-                />
+            {/* New Theme Dialog */}
+            {showNewThemeDialog && (
+              <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000 }}>
+                <div style={{ backgroundColor: "white", color: "#1f2937", padding: "24px", borderRadius: "8px", minWidth: "360px", maxWidth: "440px" }}>
+                  <h3 style={{ marginBottom: "8px", fontSize: "18px", fontWeight: "bold" }}>New Theme</h3>
+                  <p style={{ marginBottom: "16px", fontSize: "14px", color: "#6b7280" }}>Creates a copy of the current active theme with a new name.</p>
+                  <input autoFocus type="text" value={newThemeName} onChange={(e) => setNewThemeName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const name = newThemeName.trim();
+                        if (!name) return;
+                        const newTheme: UserTheme = { id: `theme-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, name, application: { ...stylingConfig.application }, embeddedContentVariables: { ...(stylingConfig.embeddedContent.customCSS?.variables || {}) }, createdAt: new Date().toISOString() };
+                        updateStylingConfig({ ...stylingConfig, themes: [...(stylingConfig.themes ?? []), newTheme] });
+                        setSelectedThemeIdForEdit(newTheme.id);
+                        setShowNewThemeDialog(false); setNewThemeName("");
+                      } else if (e.key === "Escape") setShowNewThemeDialog(false);
+                    }}
+                    placeholder="e.g., Corporate Blue, Dark Mode"
+                    style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "14px", marginBottom: "16px", boxSizing: "border-box" }} />
+                  <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                    <button onClick={() => setShowNewThemeDialog(false)} style={{ padding: "8px 16px", backgroundColor: "#f3f4f6", color: "#374151", border: "1px solid #d1d5db", borderRadius: "6px", cursor: "pointer", fontSize: "14px" }}>Cancel</button>
+                    <button
+                      onClick={() => {
+                        const name = newThemeName.trim();
+                        if (!name) return;
+                        const newTheme: UserTheme = { id: `theme-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, name, application: { ...stylingConfig.application }, embeddedContentVariables: { ...(stylingConfig.embeddedContent.customCSS?.variables || {}) }, createdAt: new Date().toISOString() };
+                        updateStylingConfig({ ...stylingConfig, themes: [...(stylingConfig.themes ?? []), newTheme] });
+                        setSelectedThemeIdForEdit(newTheme.id);
+                        setShowNewThemeDialog(false); setNewThemeName("");
+                      }}
+                      disabled={!newThemeName.trim()}
+                      style={{ padding: "8px 16px", backgroundColor: !newThemeName.trim() ? "#9ca3af" : "#3182ce", color: "white", border: "none", borderRadius: "6px", cursor: !newThemeName.trim() ? "not-allowed" : "pointer", fontSize: "14px", fontWeight: "500" }}>
+                      Create
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            {/* Button Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Primary Buttons
-              </h5>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.primary
-                      ?.backgroundColor || "#3182ce"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles("primary", "backgroundColor", value)
-                  }
-                  label="Background Color"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.primary
-                      ?.foregroundColor || "#ffffff"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles("primary", "foregroundColor", value)
-                  }
-                  label="Text Color"
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.primary?.borderColor ||
-                    "#3182ce"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles("primary", "borderColor", value)
-                  }
-                  label="Border Color"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.primary
-                      ?.hoverBackgroundColor || "#2c5aa0"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles("primary", "hoverBackgroundColor", value)
-                  }
-                  label="Hover Background"
-                />
-              </div>
-
-              <ColorPicker
-                value={
-                  stylingConfig.application.buttons?.primary
-                    ?.hoverForegroundColor || "#ffffff"
-                }
-                onChange={(value) =>
-                  updateButtonStyles("primary", "hoverForegroundColor", value)
-                }
-                label="Hover Text Color"
-              />
-            </div>
-
-            {/* Secondary Button Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Secondary Buttons
-              </h5>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.secondary
-                      ?.backgroundColor || "#ffffff"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles("secondary", "backgroundColor", value)
-                  }
-                  label="Background Color"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.secondary
-                      ?.foregroundColor || "#374151"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles("secondary", "foregroundColor", value)
-                  }
-                  label="Text Color"
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.secondary?.borderColor ||
-                    "#d1d5db"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles("secondary", "borderColor", value)
-                  }
-                  label="Border Color"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.secondary
-                      ?.hoverBackgroundColor || "#f9fafb"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles(
-                      "secondary",
-                      "hoverBackgroundColor",
-                      value
-                    )
-                  }
-                  label="Hover Background"
-                />
-              </div>
-
-              <ColorPicker
-                value={
-                  stylingConfig.application.buttons?.secondary
-                    ?.hoverForegroundColor || "#374151"
-                }
-                onChange={(value) =>
-                  updateButtonStyles("secondary", "hoverForegroundColor", value)
-                }
-                label="Hover Text Color"
-              />
-            </div>
-
-            {/* Background Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Backgrounds
-              </h5>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.backgrounds?.mainBackground ||
-                    "#f7fafc"
-                  }
-                  onChange={(value) =>
-                    updateBackgroundStyles("mainBackground", value)
-                  }
-                  label="Main Background"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.backgrounds?.contentBackground ||
-                    "#ffffff"
-                  }
-                  onChange={(value) =>
-                    updateBackgroundStyles("contentBackground", value)
-                  }
-                  label="Content Background"
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.backgrounds?.cardBackground ||
-                    "#ffffff"
-                  }
-                  onChange={(value) =>
-                    updateBackgroundStyles("cardBackground", value)
-                  }
-                  label="Card Background"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.backgrounds?.borderColor ||
-                    "#e2e8f0"
-                  }
-                  onChange={(value) =>
-                    updateBackgroundStyles("borderColor", value)
-                  }
-                  label="Border Color"
-                />
-              </div>
-            </div>
-
-            {/* Typography Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Typography
-              </h5>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.typography?.primaryColor ||
-                    "#1f2937"
-                  }
-                  onChange={(value) =>
-                    updateTypographyStyles("primaryColor", value)
-                  }
-                  label="Primary Text Color"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.typography?.secondaryColor ||
-                    "#6b7280"
-                  }
-                  onChange={(value) =>
-                    updateTypographyStyles("secondaryColor", value)
-                  }
-                  label="Secondary Text Color"
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.typography?.linkColor || "#3182ce"
-                  }
-                  onChange={(value) =>
-                    updateTypographyStyles("linkColor", value)
-                  }
-                  label="Link Color"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.typography?.linkHoverColor ||
-                    "#2c5aa0"
-                  }
-                  onChange={(value) =>
-                    updateTypographyStyles("linkHoverColor", value)
-                  }
-                  label="Link Hover Color"
-                />
-              </div>
-            </div>
+            )}
           </div>
         )}
 
-        {activeSubTab === "embedded" && (
-          <div>
-            <h4
-              style={{
-                fontSize: "18px",
-                fontWeight: "600",
-                marginBottom: "20px",
-              }}
-            >
-              Embedded Content Customization
-            </h4>
-
-            {/* Strings */}
-            <StringMappingEditor
-              mappings={stylingConfig.embeddedContent.strings}
-              onChange={(value) => updateEmbeddedContent("strings", value)}
-              title="String Mappings"
-              description="Map ThoughtSpot strings to custom values"
-            />
-
-            {/* String IDs */}
-            <StringMappingEditor
-              mappings={stylingConfig.embeddedContent.stringIDs}
-              onChange={(value) => updateEmbeddedContent("stringIDs", value)}
-              title="String ID Mappings"
-              description="Map ThoughtSpot string IDs to custom values"
-            />
-
-            {/* CSS URL */}
-            <div style={{ marginBottom: "24px" }}>
-              <h4
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "8px",
-                }}
-              >
-                Custom CSS URL
-              </h4>
-              <p
-                style={{
-                  fontSize: "14px",
-                  color: "#6b7280",
-                  marginBottom: "16px",
-                }}
-              >
-                URL to an external CSS file for custom styling
-              </p>
-              <input
-                type="url"
-                value={stylingConfig.embeddedContent.cssUrl || ""}
-                onChange={(e) =>
-                  updateEmbeddedContent("cssUrl", e.target.value)
-                }
-                placeholder="https://example.com/custom-styles.css"
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "4px",
-                  fontSize: "14px",
-                }}
-              />
-            </div>
-
-            {/* Spotter Icon Selection */}
-            <div style={{ marginBottom: "24px" }}>
-              <SpotterIconPicker
-                selectedIcon={stylingConfig.embeddedContent.iconSpriteUrl}
-                onIconSelect={(iconUrl) =>
-                  updateEmbeddedContent("iconSpriteUrl", iconUrl)
-                }
-                onMenuIconUpdate={(menuIconUrl) => {
-                  if (updateStandardMenu) {
-                    updateStandardMenu("spotter", "icon", menuIconUrl);
-                  }
-                }}
-                title="Spotter Icon Selection"
-                description="Choose an icon for your Spotter embed. This will be used as the iconSpriteUrl in the embed configuration and will also update the Spotter menu icon."
-              />
-            </div>
-
-            {/* CSS Variables */}
-            <CSSVariablesEditor
-              variables={
-                stylingConfig.embeddedContent.customCSS.variables || {}
-              }
-              onChange={(value) =>
-                updateEmbeddedContent("customCSS", {
-                  ...stylingConfig.embeddedContent.customCSS,
-                  variables: value,
-                })
-              }
-              title="Custom CSS Variables"
-              description="Define custom CSS variables for ThoughtSpot styling"
-            />
-
-            {/* CSS Rules */}
-            <CSSRulesEditor
-              rules={
-                stylingConfig.embeddedContent.customCSS.rules_UNSTABLE || {}
-              }
-              onChange={(value) =>
-                updateEmbeddedContent("customCSS", {
-                  ...stylingConfig.embeddedContent.customCSS,
-                  rules_UNSTABLE: value,
-                })
-              }
-              title="Custom CSS Rules (rules_UNSTABLE)"
-              description="Define custom CSS rules for ThoughtSpot styling. Use valid JSON with CSS selectors as keys and style objects as values."
-            />
-          </div>
-        )}
-      </div>
 
       {/* Style Wizard Modal */}
       {showStyleWizard && (
@@ -6172,6 +5748,7 @@ function StylingContent({
             if (e.target === e.currentTarget && !isGeneratingStyle) {
               setShowStyleWizard(false);
               setStyleDescription("");
+              setWizardBaseThemeId("");
               setGenerationError(null);
             }
           }}
@@ -6217,7 +5794,7 @@ function StylingContent({
                     color: "#1f2937",
                   }}
                 >
-                  Style Wizard
+                  AI Theme Generator
                 </h2>
               </div>
               {!isGeneratingStyle && (
@@ -6225,6 +5802,7 @@ function StylingContent({
                   onClick={() => {
                     setShowStyleWizard(false);
                     setStyleDescription("");
+                    setWizardBaseThemeId("");
                     setGenerationError(null);
                   }}
                   style={{
@@ -6251,10 +5829,33 @@ function StylingContent({
                   lineHeight: "1.6",
                 }}
               >
-                Describe your desired style and colors, and AI will generate a
-                complete styling configuration for your application and embedded
-                ThoughtSpot content.
+                Describe the theme(s) you want. AI will generate named themes covering both
+                your application wrapper and embedded ThoughtSpot content. Generated themes are
+                added to your theme list.
               </p>
+
+              {/* Base Theme */}
+              {stylingConfig.themes && stylingConfig.themes.length > 0 && (
+                <div style={{ marginBottom: "20px" }}>
+                  <label style={{ display: "block", marginBottom: "6px", fontWeight: "500", color: "#374151", fontSize: "14px" }}>
+                    Base on existing theme <span style={{ fontWeight: "400", color: "#9ca3af" }}>(optional)</span>
+                  </label>
+                  <select
+                    value={wizardBaseThemeId}
+                    onChange={(e) => setWizardBaseThemeId(e.target.value)}
+                    disabled={isGeneratingStyle}
+                    style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", backgroundColor: "white", opacity: isGeneratingStyle ? 0.6 : 1 }}
+                  >
+                    <option value="">— None (start fresh) —</option>
+                    {[...stylingConfig.themes].sort((a, b) => a.name.localeCompare(b.name)).map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <p style={{ marginTop: "6px", fontSize: "12px", color: "#6b7280", fontStyle: "italic" }}>
+                    When set, the AI uses this theme as a starting point. e.g. &quot;Based on Default, create a dark version&quot;.
+                  </p>
+                </div>
+              )}
 
               {/* Style Description */}
               <div style={{ marginBottom: "24px" }}>
@@ -6267,12 +5868,12 @@ function StylingContent({
                     fontSize: "14px",
                   }}
                 >
-                  Style Description
+                  Description
                 </label>
                 <textarea
                   value={styleDescription}
                   onChange={(e) => setStyleDescription(e.target.value)}
-                  placeholder="Describe your desired style and colors. For example: 'Professional corporate theme with navy blue primary color (#1e3a8a), light gray backgrounds, and orange accents for buttons. Use modern, clean design with subtle shadows.'"
+                  placeholder="Examples:&#10;• 'Generate a light theme that uses purple buttons'&#10;• 'Based on the Default theme, create a dark version'&#10;• 'Generate two themes called Dark and Light using greens and yellows'"
                   rows={6}
                   disabled={isGeneratingStyle}
                   style={{
@@ -6442,6 +6043,7 @@ function StylingContent({
                 onClick={() => {
                   setShowStyleWizard(false);
                   setStyleDescription("");
+                  setWizardBaseThemeId("");
                   setGenerationError(null);
                 }}
                 disabled={isGeneratingStyle}
@@ -6484,7 +6086,7 @@ function StylingContent({
               >
                 {isGeneratingStyle ? (
                   <>
-                    <span>Updating</span>
+                    <span>Generating</span>
                     <span
                       style={{
                         display: "inline-flex",
@@ -6519,7 +6121,7 @@ function StylingContent({
                       icon="auto_fix_high"
                       style={{ fontSize: "18px" }}
                     />
-                    Generate Styles
+                    Generate Theme(s)
                   </>
                 )}
               </button>
@@ -6906,6 +6508,7 @@ function StylingContent({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -8626,7 +8229,7 @@ function ConfigurationContent({
             "Click OK to continue with default styles.\n" +
             "Click Cancel to abort the configuration wizard and try again.\n\n" +
             "Note: Make sure your Anthropic API key is configured correctly.\n" +
-            "For local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
+            "For local development: Create a .env.local file with TSE_DEMO_ANTHROPIC_KEY=your_key_here"
         );
 
         if (!continueWithDefault) {
@@ -8690,7 +8293,7 @@ function ConfigurationContent({
             "Click OK to continue with default home page.\n" +
             "Click Cancel to abort the configuration wizard and try again.\n\n" +
             "Note: Make sure your Anthropic API key is configured correctly.\n" +
-            "For local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
+            "For local development: Create a .env.local file with TSE_DEMO_ANTHROPIC_KEY=your_key_here"
         );
 
         if (!continueWithDefault) {

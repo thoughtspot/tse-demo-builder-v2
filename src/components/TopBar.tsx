@@ -35,6 +35,9 @@ interface TopBarProps {
   hideBorders?: boolean;
   showHelpButton?: boolean;
   onLogout?: () => void;
+  themes?: Array<{ id: string; name: string }>;
+  activeThemeId?: string;
+  onThemeSwitch?: (themeId: string) => void;
 }
 
 function isLightColor(color: string): boolean {
@@ -90,6 +93,9 @@ export default function TopBar({
   hideBorders = false,
   showHelpButton = false,
   onLogout,
+  themes,
+  activeThemeId,
+  onThemeSwitch,
 }: TopBarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -657,6 +663,69 @@ export default function TopBar({
                 <span>{user.name}</span>
               </button>
             ))}
+
+            {/* Theme switcher — only shown when themes are configured */}
+            {themes && themes.length > 0 && onThemeSwitch && (
+              <>
+                <hr
+                  style={{
+                    margin: "8px 0",
+                    border: "none",
+                    borderTop: "1px solid #e2e8f0",
+                  }}
+                />
+                <div
+                  style={{
+                    padding: "6px 16px 4px",
+                    fontSize: "11px",
+                    color: "#9ca3af",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    fontWeight: "600",
+                  }}
+                >
+                  Theme
+                </div>
+                {[...themes]
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((theme) => (
+                    <button
+                      key={theme.id}
+                      onClick={() => {
+                        onThemeSwitch(theme.id);
+                        const menu = document.getElementById("user-menu");
+                        if (menu) menu.style.display = "none";
+                      }}
+                      style={{
+                        width: "100%",
+                        padding: "10px 16px",
+                        border: "none",
+                        background:
+                          activeThemeId === theme.id ? "#eff6ff" : "transparent",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        color: activeThemeId === theme.id ? "#1e40af" : "#374151",
+                        fontWeight: activeThemeId === theme.id ? "600" : "400",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: "16px",
+                          fontSize: "12px",
+                          color: activeThemeId === theme.id ? "#3b82f6" : "transparent",
+                          flexShrink: 0,
+                        }}
+                      >
+                        ●
+                      </span>
+                      <span style={{ fontSize: "14px" }}>{theme.name}</span>
+                    </button>
+                  ))}
+              </>
+            )}
 
             {/* Logout button — only shown when a login page is configured */}
             {onLogout && (

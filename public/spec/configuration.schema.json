@@ -724,12 +724,52 @@
       "additionalProperties": false
     },
 
+    "UserTheme": {
+      "type": "object",
+      "description": "A named theme containing both application UI colors and embedded ThoughtSpot CSS variables.",
+      "required": ["id", "name", "application", "embeddedContentVariables", "createdAt"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the theme."
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name for the theme (e.g. \"Default\", \"Dark Mode\")."
+        },
+        "application": {
+          "$ref": "#/definitions/ApplicationStyles",
+          "description": "Application UI colors (top bar, sidebar, buttons, backgrounds, etc.) for this theme."
+        },
+        "embeddedContentVariables": {
+          "type": "object",
+          "description": "CSS variables applied to embedded ThoughtSpot content for this theme.",
+          "additionalProperties": { "type": "string" }
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 timestamp of when the theme was created."
+        }
+      },
+      "additionalProperties": false
+    },
+
     "StylingConfig": {
       "type": "object",
       "required": ["application", "embeddedContent"],
       "properties": {
         "application": { "$ref": "#/definitions/ApplicationStyles" },
         "embeddedContent": { "$ref": "#/definitions/EmbeddedContentCustomization" },
+        "themes": {
+          "type": "array",
+          "description": "Named themes. Each theme bundles application colors and embedded CSS variables. At least one theme (\"Default\") is created automatically.",
+          "items": { "$ref": "#/definitions/UserTheme" }
+        },
+        "activeThemeId": {
+          "type": "string",
+          "description": "ID of the currently active theme. Must match an entry in the themes array."
+        },
         "embedFlags": { "$ref": "#/definitions/EmbedFlags" },
         "doubleClickHandling": { "$ref": "#/definitions/DoubleClickHandlingConfig" },
         "sdkActions": { "$ref": "#/definitions/SDKActionsConfig" },

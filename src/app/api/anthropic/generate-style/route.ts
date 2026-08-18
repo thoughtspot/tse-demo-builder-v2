@@ -14,19 +14,20 @@ export async function POST(request: NextRequest) {
       applicationName || "Not provided"
     );
     console.log("Generate Style API - Image provided:", !!imageData);
-    console.log(
-      "Generate Style API - Has API key:",
-      !!process.env.ANTHROPIC_API_KEY
-    );
+    const rawKey = process.env.TSE_DEMO_ANTHROPIC_KEY || "";
+    console.log("Generate Style API - Key diagnostic:", {
+      length: rawKey.length,
+      preview: rawKey.length > 12 ? `${rawKey.substring(0, 8)}...${rawKey.substring(rawKey.length - 6)}` : rawKey,
+    });
 
     // Check if API key is available
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error("ANTHROPIC_API_KEY environment variable is not set");
+    if (!process.env.TSE_DEMO_ANTHROPIC_KEY) {
+      console.error("TSE_DEMO_ANTHROPIC_KEY environment variable is not set");
       return NextResponse.json(
         {
           error:
-            "Anthropic API key is not configured. Please set ANTHROPIC_API_KEY environment variable.",
-          hint: "For local development, create a .env.local file with ANTHROPIC_API_KEY=your_key_here",
+            "Anthropic API key is not configured. Please set TSE_DEMO_ANTHROPIC_KEY environment variable.",
+          hint: "For local development, create a .env.local file with TSE_DEMO_ANTHROPIC_KEY=your_key_here",
         },
         { status: 500 }
       );
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     const styleConfig = await generateStyleConfiguration(
       description || "",
       applicationName,
-      process.env.ANTHROPIC_API_KEY,
+      process.env.TSE_DEMO_ANTHROPIC_KEY,
       imageData
     );
 

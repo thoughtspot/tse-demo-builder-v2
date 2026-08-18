@@ -24,6 +24,7 @@ import SearchSidePanel, { SearchPanelType } from "./SearchSidePanel";
 import {
   CustomMenu,
   StylingConfig,
+  UserTheme,
   EmbedFlags,
   UserConfig,
   ThoughtSpotInitConfig,
@@ -1660,6 +1661,46 @@ export default function Layout({ children }: LayoutProps) {
     }
   };
 
+  // Migrate: if no themes exist yet, create a "Default" theme from the current styling config
+  useEffect(() => {
+    if (!stylingConfig.themes || stylingConfig.themes.length === 0) {
+      const defaultTheme: UserTheme = {
+        id: `theme-${Date.now()}`,
+        name: "Default",
+        application: { ...stylingConfig.application },
+        embeddedContentVariables: { ...(stylingConfig.embeddedContent.customCSS?.variables || {}) },
+        createdAt: new Date().toISOString(),
+      };
+      setStylingConfig((prev) => ({
+        ...prev,
+        themes: [defaultTheme],
+        activeThemeId: defaultTheme.id,
+      }));
+    }
+  // Run once after initial load completes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialLoadInProgress]);
+
+  const handleThemeSwitch = useCallback(
+    (themeId: string) => {
+      const theme = stylingConfig.themes?.find((t) => t.id === themeId);
+      if (!theme) return;
+      setStylingConfig((prev) => ({
+        ...prev,
+        activeThemeId: themeId,
+        application: { ...theme.application },
+        embeddedContent: {
+          ...prev.embeddedContent,
+          customCSS: {
+            ...prev.embeddedContent.customCSS,
+            variables: { ...theme.embeddedContentVariables },
+          },
+        },
+      }));
+    },
+    [stylingConfig.themes]
+  );
+
   const openSettingsWithTab = (tab?: string, subTab?: string) => {
     setSettingsInitialTab(tab);
     setSettingsInitialSubTab(subTab);
@@ -2901,6 +2942,9 @@ export default function Layout({ children }: LayoutProps) {
                         sessionStorage.removeItem("demo-logged-in");
                         setIsLoggedIn(false);
                       } : undefined}
+                      themes={stylingConfig.themes?.map((t) => ({ id: t.id, name: t.name })) ?? []}
+                      activeThemeId={stylingConfig.activeThemeId}
+                      onThemeSwitch={handleThemeSwitch}
                     />
                   </Suspense>
 

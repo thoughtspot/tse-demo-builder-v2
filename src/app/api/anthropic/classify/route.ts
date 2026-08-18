@@ -8,12 +8,12 @@ export async function POST(request: NextRequest) {
     console.log("API Route - Question:", question);
     console.log("API Route - Available models count:", availableModels?.length);
     console.log(
-      "API Route - ANTHROPIC_API_KEY exists:",
-      !!process.env.ANTHROPIC_API_KEY
+      "API Route - TSE_DEMO_ANTHROPIC_KEY exists:",
+      !!process.env.TSE_DEMO_ANTHROPIC_KEY
     );
     console.log(
-      "API Route - ANTHROPIC_API_KEY length:",
-      process.env.ANTHROPIC_API_KEY?.length
+      "API Route - TSE_DEMO_ANTHROPIC_KEY length:",
+      process.env.TSE_DEMO_ANTHROPIC_KEY?.length
     );
 
     if (!question) {
@@ -31,8 +31,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if API key is available
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error("ANTHROPIC_API_KEY environment variable is not set");
+    if (!process.env.TSE_DEMO_ANTHROPIC_KEY) {
+      console.error("TSE_DEMO_ANTHROPIC_KEY environment variable is not set");
       console.error(
         "Available environment variables:",
         Object.keys(process.env).filter((key) => key.includes("ANTHROPIC"))
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Anthropic API key is not configured. Please set ANTHROPIC_API_KEY environment variable in your Vercel deployment settings.",
+            "Anthropic API key is not configured. Please set TSE_DEMO_ANTHROPIC_KEY environment variable in your Vercel deployment settings.",
           fallback: true,
           debug: {
             availableEnvVars: Object.keys(process.env).filter((key) =>
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const classification = await classifyQuestion(
       question,
       availableModels,
-      process.env.ANTHROPIC_API_KEY
+      process.env.TSE_DEMO_ANTHROPIC_KEY
     );
 
     console.log("API Route - Classification result:", classification);

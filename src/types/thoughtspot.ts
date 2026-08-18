@@ -469,9 +469,19 @@ export interface EmbeddedContentCustomization {
   };
 }
 
+export interface UserTheme {
+  id: string;
+  name: string;
+  application: ApplicationStyles;
+  embeddedContentVariables: Record<string, string>;
+  createdAt: string;
+}
+
 export interface StylingConfig {
   application: ApplicationStyles;
   embeddedContent: EmbeddedContentCustomization;
+  themes?: UserTheme[];
+  activeThemeId?: string;
   embedFlags?: EmbedFlags;
   doubleClickHandling?: DoubleClickHandlingConfig;
   sdkActions?: SDKActionsConfig;
