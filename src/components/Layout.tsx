@@ -313,6 +313,22 @@ function ChatBubbleConditional() {
   return null;
 }
 
+// Spotter SVGs use a proprietary format that browsers can't render.
+// The -preview- variants are standard SVGs safe for <img> and favicons.
+function toSpotterPreviewUrl(url: string): string {
+  if (!url || url.includes("-preview-")) return url;
+  if (url.includes("cdn.jsdelivr.net") && url.includes("/icons/spotter/")) {
+    return url.replace(/(.+?)-(\d+\.svg)$/, "$1-preview-$2");
+  }
+  return url;
+}
+
+// CDN spotter URLs in logoUrl came from an old code path and should not act
+// as custom logo overrides — fall back to appConfig.favicon instead.
+function isSpotterIconUrl(url: string): boolean {
+  return !!(url?.includes("cdn.jsdelivr.net") && url?.includes("/icons/spotter/"));
+}
+
 interface LayoutProps {
   children: React.ReactNode;
 }
@@ -1214,7 +1230,8 @@ export default function Layout({ children }: LayoutProps) {
     if (
       appConfig.faviconSyncEnabled &&
       stylingConfig.application.topBar.logoUrl &&
-      stylingConfig.application.topBar.logoUrl !== "/ts.svg"
+      stylingConfig.application.topBar.logoUrl !== "/ts.svg" &&
+      !isSpotterIconUrl(stylingConfig.application.topBar.logoUrl)
     ) {
       console.log(
         "[Layout] Auto-syncing favicon with logo:",
@@ -1225,19 +1242,7 @@ export default function Layout({ children }: LayoutProps) {
         "favicon"
       ) as HTMLLinkElement;
       if (faviconElement) {
-        faviconElement.href = stylingConfig.application.topBar.logoUrl;
-      }
-      // Update favicon in DOM only, don't modify React state to avoid loops
-    } else if (
-      !appConfig.faviconSyncEnabled &&
-      appConfig.favicon !== "/ts.svg"
-    ) {
-      // Reset favicon to default when sync is disabled
-      const faviconElement = document.getElementById(
-        "favicon"
-      ) as HTMLLinkElement;
-      if (faviconElement) {
-        faviconElement.href = "/ts.svg";
+        faviconElement.href = toSpotterPreviewUrl(stylingConfig.application.topBar.logoUrl);
       }
       // Update favicon in DOM only, don't modify React state to avoid loops
     }
@@ -1272,7 +1277,7 @@ export default function Layout({ children }: LayoutProps) {
           return;
         }
 
-        let favicon = getIconImagePath(faviconValue);
+        let favicon = toSpotterPreviewUrl(getIconImagePath(faviconValue));
 
         // Handle IndexedDB references by converting them to actual image data
         if (favicon.startsWith("indexeddb://")) {
@@ -2894,7 +2899,11 @@ export default function Layout({ children }: LayoutProps) {
                   }>
                     <TopBar
                       title={appConfig.applicationName || "TSE Demo Builder"}
-                      logoUrl={stylingConfig.application.topBar.logoUrl || "/ts.svg"}
+                      logoUrl={toSpotterPreviewUrl(
+                        (!stylingConfig.application.topBar.logoUrl || isSpotterIconUrl(stylingConfig.application.topBar.logoUrl))
+                          ? (appConfig.favicon || "/ts.svg")
+                          : stylingConfig.application.topBar.logoUrl
+                      )}
                       showLogo={appConfig.showLogo !== false}
                       users={userConfig.users.map((user) => ({ id: user.id, name: user.name }))}
                       currentUser={

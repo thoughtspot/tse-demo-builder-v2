@@ -166,76 +166,67 @@ export default function TopBar({
 
   // Process logo URL to handle IndexedDB URLs
   useEffect(() => {
+    let cancelled = false;
+
     const processLogoUrl = async () => {
       console.log("[TopBar] Processing logo URL:", logoUrl);
-      setIsLogoProcessing(true);
+      if (!cancelled) setIsLogoProcessing(true);
 
       try {
         if (!logoUrl || logoUrl === "/ts.svg") {
           console.log("[TopBar] Using default logo");
-          setProcessedLogoUrl("/ts.svg");
+          if (!cancelled) setProcessedLogoUrl("/ts.svg");
           return;
         }
 
         if (logoUrl.startsWith("indexeddb://")) {
           console.log("[TopBar] Processing IndexedDB reference:", logoUrl);
           try {
-            // Extract the image ID from the IndexedDB URL
             const imageId = logoUrl.replace("indexeddb://", "");
-
-            // Get the image data from IndexedDB
             const { getImageFromIndexedDB } = await import(
               "../components/ImageUpload"
             );
             const imageData = await getImageFromIndexedDB(imageId);
 
-            if (imageData) {
-              console.log("[TopBar] Successfully loaded image from IndexedDB");
-              setProcessedLogoUrl(imageData);
-            } else {
-              console.warn(
+            if (!cancelled) {
+              if (imageData) {
+                console.log("[TopBar] Successfully loaded image from IndexedDB");
+                setProcessedLogoUrl(imageData);
+              } else {
+                console.warn(
+                  "[TopBar] Failed to load image from IndexedDB:",
+                  imageId
+                );
+                setProcessedLogoUrl("/ts.svg");
+              }
+            }
+          } catch (error) {
+            if (!cancelled) {
+              console.error(
                 "[TopBar] Failed to load image from IndexedDB:",
-                imageId
+                error
               );
               setProcessedLogoUrl("/ts.svg");
             }
-          } catch (error) {
-            console.error(
-              "[TopBar] Failed to load image from IndexedDB:",
-              error
-            );
-            setProcessedLogoUrl("/ts.svg");
           }
         } else {
-          // For other URL types, validate and use as-is
           console.log("[TopBar] Using logo URL as-is:", logoUrl);
-
-          // Validate the URL to ensure it's safe
           try {
             if (
               logoUrl.startsWith("data:") ||
               logoUrl.startsWith("blob:") ||
               logoUrl.startsWith("/")
             ) {
-              // These are safe to use directly
-              setProcessedLogoUrl(logoUrl);
-            } else if (logoUrl.startsWith("indexeddb://")) {
-              // This shouldn't happen here, but just in case
-              console.warn(
-                "[TopBar] Unexpected IndexedDB reference, using default:",
-                logoUrl
-              );
-              setProcessedLogoUrl("/ts.svg");
+              if (!cancelled) setProcessedLogoUrl(logoUrl);
             } else if (logoUrl.startsWith("http")) {
-              // Validate HTTP URLs
               new URL(logoUrl);
-              setProcessedLogoUrl(logoUrl);
+              if (!cancelled) setProcessedLogoUrl(logoUrl);
             } else {
               console.warn(
                 "[TopBar] Invalid logo URL format, using default:",
                 logoUrl
               );
-              setProcessedLogoUrl("/ts.svg");
+              if (!cancelled) setProcessedLogoUrl("/ts.svg");
             }
           } catch (urlError) {
             console.error(
@@ -243,15 +234,19 @@ export default function TopBar({
               logoUrl,
               urlError
             );
-            setProcessedLogoUrl("/ts.svg");
+            if (!cancelled) setProcessedLogoUrl("/ts.svg");
           }
         }
       } finally {
-        setIsLogoProcessing(false);
+        if (!cancelled) setIsLogoProcessing(false);
       }
     };
 
     processLogoUrl();
+
+    return () => {
+      cancelled = true;
+    };
   }, [logoUrl]);
 
   // Debug: log when processedLogoUrl changes
@@ -902,6 +897,7 @@ export default function TopBar({
                     fontWeight: isActive ? "600" : "400",
                     whiteSpace: "nowrap",
                     transition: "all var(--transition-fast, 150ms) ease",
+                    outline: "none",
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
@@ -945,6 +941,7 @@ export default function TopBar({
                   fontWeight: isActive ? "600" : "400",
                   whiteSpace: "nowrap",
                   transition: "color var(--transition-fast, 150ms) ease, border-color var(--transition-fast, 150ms) ease",
+                  outline: "none",
                 }}
                 onMouseEnter={(e) => {
                   if (!isActive) e.currentTarget.style.color = foregroundColor;

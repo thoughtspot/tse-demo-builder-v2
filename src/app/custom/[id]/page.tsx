@@ -429,7 +429,7 @@ function CustomMenuPageContent() {
         <div
           style={{
             display: "flex",
-            borderBottom: "1px solid #e5e7eb",
+            borderBottom: "1px solid var(--border-color, #e5e7eb)",
             gap: "0",
           }}
         >
@@ -444,23 +444,26 @@ function CustomMenuPageContent() {
                 cursor: "pointer",
                 fontSize: "14px",
                 fontWeight: "500",
-                color: selectedContentType === tab.id ? "#1f2937" : "#6b7280",
+                color: selectedContentType === tab.id
+                  ? "var(--primary-text-color, #1f2937)"
+                  : "var(--secondary-text-color, #6b7280)",
                 borderBottom:
                   selectedContentType === tab.id
-                    ? "2px solid #3b82f6"
+                    ? "2px solid var(--primary-text-color, #1f2937)"
                     : "2px solid transparent",
                 transition: "all 0.2s ease",
                 position: "relative",
+                outline: "none",
               }}
               onMouseEnter={(e) => {
                 if (selectedContentType !== tab.id) {
-                  e.currentTarget.style.color = "#374151";
-                  e.currentTarget.style.borderBottomColor = "#d1d5db";
+                  e.currentTarget.style.color = "var(--primary-text-color, #374151)";
+                  e.currentTarget.style.borderBottomColor = "var(--border-color, #d1d5db)";
                 }
               }}
               onMouseLeave={(e) => {
                 if (selectedContentType !== tab.id) {
-                  e.currentTarget.style.color = "#6b7280";
+                  e.currentTarget.style.color = "var(--secondary-text-color, #6b7280)";
                   e.currentTarget.style.borderBottomColor = "transparent";
                 }
               }}
@@ -471,10 +474,10 @@ function CustomMenuPageContent() {
                   style={{
                     marginLeft: "8px",
                     padding: "2px 8px",
-                    backgroundColor: "#f3f4f6",
+                    backgroundColor: "var(--hover-bg-color, #f3f4f6)",
                     borderRadius: "12px",
                     fontSize: "12px",
-                    color: "#6b7280",
+                    color: "var(--secondary-text-color, #6b7280)",
                   }}
                 >
                   {tab.count}

@@ -17,7 +17,16 @@ export default function LoginPage({ appConfig, stylingConfig, onLogin }: LoginPa
 
   const appName = appConfig.applicationName || "TSE Demo Builder";
   const subtitle = appConfig.loginPage?.subtitle || "";
-  const logoUrl = stylingConfig.application.topBar.logoUrl || "/ts.svg";
+  const _rawLogoUrl = stylingConfig.application.topBar.logoUrl;
+  const _isSpotterUrl = (u: string) =>
+    !!(u?.includes("cdn.jsdelivr.net") && u?.includes("/icons/spotter/"));
+  const _effectiveUrl =
+    !_rawLogoUrl || _isSpotterUrl(_rawLogoUrl)
+      ? appConfig.favicon || "/ts.svg"
+      : _rawLogoUrl;
+  const logoUrl = _effectiveUrl.includes("cdn.jsdelivr.net") && _effectiveUrl.includes("/icons/spotter/") && !_effectiveUrl.includes("-preview-")
+    ? _effectiveUrl.replace(/(.+?)-(\d+\.svg)$/, "$1-preview-$2")
+    : _effectiveUrl;
   const primaryBg = stylingConfig.application.buttons.primary.backgroundColor || "#3182ce";
   const primaryFg = stylingConfig.application.buttons.primary.foregroundColor || "#ffffff";
   const primaryHoverBg = stylingConfig.application.buttons.primary.hoverBackgroundColor || "#2c5aa0";

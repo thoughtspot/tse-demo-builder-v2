@@ -13,6 +13,7 @@ import IconPicker from "./IconPicker";
 import MaterialIcon from "./MaterialIcon";
 import ColorPicker from "./ColorPicker";
 import ImageUpload from "./ImageUpload";
+import FaviconPicker from "./FaviconPicker";
 import StringMappingEditor from "./StringMappingEditor";
 import CSSVariablesEditor from "./CSSVariablesEditor";
 import CSSRulesEditor from "./CSSRulesEditor";
@@ -9110,31 +9111,24 @@ function ConfigurationContent({
                 </div>
 
                 <div style={{ marginBottom: "24px" }}>
-                  <ImageUpload
-                    value={appConfig.favicon || ""}
+                  <FaviconPicker
+                    value={appConfig.favicon || "/ts.svg"}
                     onChange={(url) =>
                       updateAppConfig({
                         ...appConfig,
                         favicon: url,
                       })
                     }
-                    label="Favicon"
-                    placeholder="https://example.com/favicon.ico"
-                    accept="image/*"
-                    maxSizeMB={1}
-                    maxWidth={64}
-                    maxHeight={64}
-                    useIndexedDB={true}
                   />
                   <p
                     style={{
-                      margin: "4px 0 0 0",
+                      margin: "8px 0 0 0",
                       fontSize: "12px",
                       color: "#6b7280",
                     }}
                   >
-                    Upload an image or provide a URL for your browser tab icon.
-                    Leave empty to use the default.
+                    Choose a built-in icon, upload an image, or paste a URL for
+                    your browser tab icon.
                   </p>
 
                   <div style={{ marginTop: "8px" }}>
