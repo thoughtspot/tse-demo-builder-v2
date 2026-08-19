@@ -317,8 +317,16 @@ export default function SearchSidePanel({
             );
             return;
           }
+          const rawSpotterFlags = context.stylingConfig.embedFlags?.spotterEmbed || {};
+          const {
+            visibleActions: _va,
+            hiddenActions: _ha,
+            disabledActions: _da,
+            ...spotterFlags
+          } = rawSpotterFlags as Record<string, unknown>;
           const cfg = {
             ...baseConfig,
+            ...spotterFlags,
             worksheetId: spotterModelId,
             frameParams: { width: "100%", height: "100%" },
           };

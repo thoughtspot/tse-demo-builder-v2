@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { clearAllConfigurations } from "@/services/configurationService";
 
 const spinKeyframes = `@keyframes tsd-spin { to { transform: rotate(360deg); } }`;
 
@@ -34,7 +35,9 @@ export default function DemoLoader({ demo }: { demo: string }) {
     // schedules is abandoned when we navigate away.
     if (demo === "manual") {
       sessionStorage.setItem("currentDemo", "manual");
-      window.location.href = `/?demo=manual&loaded=1`;
+      clearAllConfigurations().finally(() => {
+        window.location.href = `/?demo=manual&loaded=1`;
+      });
       return;
     }
 

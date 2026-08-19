@@ -63,6 +63,7 @@ interface NavItem {
 
 interface SideNavProps {
   onSettingsClick?: () => void;
+  onNavigate?: () => void;
   standardMenus: StandardMenu[];
   customMenus: CustomMenu[];
   menuOrder?: string[];
@@ -79,6 +80,7 @@ interface SideNavProps {
 
 export default function SideNav({
   onSettingsClick,
+  onNavigate,
   standardMenus,
   customMenus,
   menuOrder,
@@ -263,6 +265,7 @@ export default function SideNav({
   // }
 
   const handleNavClick = (route: string) => {
+    onNavigate?.();
     const demo =
       searchParams.get("demo") ||
       (typeof window !== "undefined"

@@ -10,7 +10,7 @@ import React, {
   startTransition,
   Suspense,
 } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import TopBar from "./TopBar";
 import SideNav from "./SideNav";
 import SettingsModal from "./SettingsModal";
@@ -319,6 +319,7 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const router = useRouter();
+  const pathname = usePathname();
 
   // Fix hydration issues and suppress third-party console errors (like Mixpanel)
   useEffect(() => {
@@ -419,7 +420,16 @@ export default function Layout({ children }: LayoutProps) {
   const triggerLiveboardRefresh = useCallback(() => setLiveboardRefreshKey((k) => k + 1), []);
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [searchPanelType, setSearchPanelType] = useState<SearchPanelType>("search");
+  useEffect(() => {
+    setSearchPanelOpen(false);
+  }, [pathname]);
   const [searchPanelError, setSearchPanelError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!activeLiveboardId) {
+      setSearchPanelOpen(false);
+      setSearchPanelError(null);
+    }
+  }, [activeLiveboardId]);
   const [leftPanelWidthPct, setLeftPanelWidthPct] = useState(50);
   const splitContainerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
@@ -2945,6 +2955,7 @@ export default function Layout({ children }: LayoutProps) {
                       themes={stylingConfig.themes?.map((t) => ({ id: t.id, name: t.name })) ?? []}
                       activeThemeId={stylingConfig.activeThemeId}
                       onThemeSwitch={handleThemeSwitch}
+                      onNavigate={() => setSearchPanelOpen(false)}
                     />
                   </Suspense>
 
@@ -2967,6 +2978,7 @@ export default function Layout({ children }: LayoutProps) {
                           selectedTextColor={stylingConfig.application.sidebar.selectedTextColor}
                           behavior={sideNavBehavior}
                           hideBorders={hideBorders}
+                          onNavigate={() => setSearchPanelOpen(false)}
                         />
                       </Suspense>
                     )}
@@ -3015,7 +3027,7 @@ export default function Layout({ children }: LayoutProps) {
                       {/* Main page content */}
                       <div
                         style={{
-                          flex: searchPanelOpen ? `0 0 ${leftPanelWidthPct}%` : "1 1 0",
+                          flex: (searchPanelOpen && activeLiveboardId) ? `0 0 ${leftPanelWidthPct}%` : "1 1 0",
                           minWidth: 0,
                           backgroundColor:
                             stylingConfig.application.backgrounds?.contentBackground || "#ffffff",
@@ -3023,7 +3035,7 @@ export default function Layout({ children }: LayoutProps) {
                           overflow: "hidden",
                           display: "flex",
                           flexDirection: "column",
-                          transition: searchPanelOpen ? "none" : "flex var(--transition-base, 250ms) ease",
+                          transition: (searchPanelOpen && activeLiveboardId) ? "none" : "flex var(--transition-base, 250ms) ease",
                         }}
                       >
                         <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "auto", overflowX: "hidden" }}>
@@ -3039,7 +3051,7 @@ export default function Layout({ children }: LayoutProps) {
                       </div>
 
                       {/* Drag handle */}
-                      {searchPanelOpen && (
+                      {searchPanelOpen && activeLiveboardId && (
                         <div
                           onMouseDown={handleDragStart}
                           style={{

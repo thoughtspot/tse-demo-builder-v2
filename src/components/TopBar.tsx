@@ -27,6 +27,7 @@ interface TopBarProps {
   createLiveboardButtonLabel?: string;
   liveboardActions?: Array<{ id: string; label: string; onClick: () => void }>;
   onSettingsClick?: () => void;
+  onNavigate?: () => void;
   height?: "compact" | "default" | "tall";
   navItems?: TopBarNavItem[];
   navAlignment?: 'left' | 'center';
@@ -85,6 +86,7 @@ export default function TopBar({
   createLiveboardButtonLabel = "New Liveboard",
   liveboardActions,
   onSettingsClick,
+  onNavigate,
   height = "default",
   navItems,
   navAlignment = "left",
@@ -107,6 +109,8 @@ export default function TopBar({
   const [isLogoProcessing, setIsLogoProcessing] = useState<boolean>(false);
   const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
   const newMenuRef = useRef<HTMLDivElement>(null);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Compute the effective action list: prefer liveboardActions prop, otherwise
   // build from the legacy onCreateLiveboardClick + createLiveboardButtonLabel.
@@ -127,6 +131,17 @@ export default function TopBar({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isNewMenuOpen]);
+
+  useEffect(() => {
+    if (!isUserMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isUserMenuOpen]);
 
   useEffect(() => {
     if (!thoughtspotUrl) {
@@ -245,6 +260,7 @@ export default function TopBar({
   }, [processedLogoUrl]);
 
   const handleNavClick = (route: string) => {
+    onNavigate?.();
     const demo =
       searchParams.get("demo") ||
       (typeof window !== "undefined" ? sessionStorage.getItem("currentDemo") : null);
@@ -258,6 +274,7 @@ export default function TopBar({
   };
 
   const isTopbarLight = isLightColor(backgroundColor);
+  const helpButtonColor = isTopbarLight ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.7)";
   const NAV_BUTTON_GAP: Record<string, string> = { none: "0", tight: "2px", normal: "6px", relaxed: "12px" };
   const resolvedButtonGap = navStyle === "push-buttons" ? (NAV_BUTTON_GAP[navButtonGap] ?? "0") : "0";
   const hasTopNav = navItems && navItems.length > 0;
@@ -557,39 +574,32 @@ export default function TopBar({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              width: "36px",
-              height: "36px",
+              width: "40px",
+              height: "40px",
               borderRadius: "50%",
-              border: "2px solid",
-              borderColor: "var(--secondary-button-border, #d1d5db)",
-              backgroundColor: "transparent",
+              border: "none",
+              backgroundColor: "#e2e8f0",
               cursor: "pointer",
-              color: "inherit",
               textDecoration: "none",
+              flexShrink: 0,
               fontSize: "16px",
               fontWeight: "bold",
-              flexShrink: 0,
+              color: "#1a202c",
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(0,0,0,0.08)";
+              e.currentTarget.style.backgroundColor = "#cbd5e0";
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent";
+              e.currentTarget.style.backgroundColor = "#e2e8f0";
             }}
           >
             ?
           </a>
         )}
 
-        <div style={{ position: "relative" }}>
+        <div style={{ position: "relative" }} ref={userMenuRef}>
           <button
-            onClick={() => {
-              const menu = document.getElementById("user-menu");
-              if (menu) {
-                menu.style.display =
-                  menu.style.display === "block" ? "none" : "block";
-              }
-            }}
+            onClick={() => setIsUserMenuOpen((prev) => !prev)}
             style={{
               background: "none",
               border: "none",
@@ -610,9 +620,8 @@ export default function TopBar({
           </button>
 
           <div
-            id="user-menu"
             style={{
-              display: "none",
+              display: isUserMenuOpen ? "block" : "none",
               position: "absolute",
               right: 0,
               top: "100%",
@@ -629,8 +638,7 @@ export default function TopBar({
                 key={user.id}
                 onClick={() => {
                   onUserChange?.(user.id);
-                  const menu = document.getElementById("user-menu");
-                  if (menu) menu.style.display = "none";
+                  setIsUserMenuOpen(false);
                 }}
                 style={{
                   width: "100%",
@@ -693,8 +701,7 @@ export default function TopBar({
                       key={theme.id}
                       onClick={() => {
                         onThemeSwitch(theme.id);
-                        const menu = document.getElementById("user-menu");
-                        if (menu) menu.style.display = "none";
+                        setIsUserMenuOpen(false);
                       }}
                       style={{
                         width: "100%",
@@ -739,8 +746,7 @@ export default function TopBar({
                 />
                 <button
                   onClick={() => {
-                    const menu = document.getElementById("user-menu");
-                    if (menu) menu.style.display = "none";
+                    setIsUserMenuOpen(false);
                     onLogout();
                   }}
                   style={{
@@ -915,7 +921,7 @@ export default function TopBar({
                   }}
                 >
                   <MaterialIcon icon={item.icon} size={18} color="currentColor" />
-                  <span>{item.name}</span>
+                  {item.icon !== "settings" && <span>{item.name}</span>}
                 </button>
               );
             }
@@ -948,7 +954,7 @@ export default function TopBar({
                 }}
               >
                 <MaterialIcon icon={item.icon} size={18} color="currentColor" />
-                <span>{item.name}</span>
+                {item.icon !== "settings" && <span>{item.name}</span>}
               </button>
             );
           })}
@@ -962,7 +968,6 @@ export default function TopBar({
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "6px",
                 padding: navStyle === "push-buttons" ? "7px 14px" : "10px 16px",
                 border: navStyle === "push-buttons" ? "1px solid rgba(0,0,0,0.15)" : "none",
                 borderBottom: navStyle === "push-buttons" ? undefined : "2px solid transparent",
@@ -983,7 +988,6 @@ export default function TopBar({
               onMouseLeave={(e) => { e.currentTarget.style.color = `${foregroundColor}99`; }}
             >
               <MaterialIcon icon="settings" size={18} color="currentColor" />
-              <span>Settings</span>
             </button>
           )}
         </div>

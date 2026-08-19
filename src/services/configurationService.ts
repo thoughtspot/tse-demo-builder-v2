@@ -2304,6 +2304,29 @@ export const applyImportedStyle = (
     };
   }
 
+  // Sync the active theme so the Settings panel reflects the import and
+  // subsequent theme edits don't overwrite the imported values.
+  if (result.themes && result.activeThemeId) {
+    const importedApp = options.appStyle && styleData.application
+      ? (styleData.application as StylingConfig["application"])
+      : undefined;
+    const importedVars = options.cssStyle && styleData.embeddedContent
+      ? ((styleData.embeddedContent as Record<string, unknown>).customCSS as StylingConfig["embeddedContent"]["customCSS"] | undefined)?.variables
+      : undefined;
+
+    result = {
+      ...result,
+      themes: result.themes.map((t) => {
+        if (t.id !== result.activeThemeId) return t;
+        return {
+          ...t,
+          ...(importedApp ? { application: importedApp } : {}),
+          ...(importedVars ? { embeddedContentVariables: importedVars } : {}),
+        };
+      }),
+    };
+  }
+
   return result;
 };
 
@@ -2335,6 +2358,21 @@ export const loadConfigurationSimplified = async (
     }
 
     onProgress?.("Validating configuration...", 60);
+
+    // Detect accidental style-export uploads and fail fast with a clear message
+    // instead of silently loading with default styles.
+    if (configData.type === "style" || (configData.application && configData.embeddedContent && !configData.stylingConfig)) {
+      console.error(
+        "[loadConfiguration] Received a style export, not a full configuration.",
+        "Top-level keys:", Object.keys(configData),
+        "Hint: use 'Import Style' (Settings → Layout & Style) instead of 'Import Configuration'."
+      );
+      return {
+        success: false,
+        error: "This looks like a style export file, not a full configuration. Use the 'Import Style' button instead.",
+      };
+    }
+    console.log("[loadConfiguration] configData keys:", Object.keys(configData), "| has stylingConfig:", !!configData.stylingConfig);
 
     // Step 3: Validate and merge configuration
     const importedStandardMenus =

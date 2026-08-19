@@ -4658,12 +4658,14 @@ function StylingContent({
     try {
       const text = await file.text();
       const data = JSON.parse(text);
+      console.log("[ImportStyle] Parsed file:", file.name, "| top-level keys:", Object.keys(data));
+      console.log("[ImportStyle] Has application:", !!data.application, "| Has embeddedContent:", !!data.embeddedContent, "| type field:", data.type);
       setPendingStyleData(data);
       setPendingStyleSource(file.name);
       setImportOptions({ appStyle: true, cssStyle: true, strings: true });
       setShowImportStyleDialog(true);
     } catch (error) {
-      console.error("Failed to read style file:", error);
+      console.error("[ImportStyle] Failed to read style file:", error);
       setStyleImportStatus({
         message: "Failed to read style file. Make sure it is valid JSON.",
         type: "error",
@@ -4692,7 +4694,10 @@ function StylingContent({
 
   const handleApplyImportedStyle = () => {
     if (!pendingStyleData) return;
+    console.log("[ImportStyle] Applying import | options:", importOptions);
+    console.log("[ImportStyle] pendingStyleData keys:", Object.keys(pendingStyleData));
     const updated = applyImportedStyle(stylingConfig, pendingStyleData, importOptions);
+    console.log("[ImportStyle] Result — application topBar bg:", updated.application?.topBar?.backgroundColor, "| activeThemeId:", updated.activeThemeId, "| themes:", updated.themes?.length);
     updateStylingConfig(updated);
     setShowImportStyleDialog(false);
     setPendingStyleData(null);
