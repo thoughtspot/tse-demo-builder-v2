@@ -4601,6 +4601,7 @@ function StylingContent({
   const [isGeneratingStyle, setIsGeneratingStyle] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [wizardBaseThemeId, setWizardBaseThemeId] = useState<string>("");
+  const [wizardEditInPlace, setWizardEditInPlace] = useState(false);
   const [generatedThemeCount, setGeneratedThemeCount] = useState(0);
 
   // Theme management state
@@ -4895,25 +4896,41 @@ function StylingContent({
       const firstNewTheme = newUserThemes[0];
       const existingThemes = stylingConfig.themes ?? [];
 
+      let updatedThemes: UserTheme[];
+      let activeId: string;
+      let themeForStyles: UserTheme;
+
+      if (wizardEditInPlace && wizardBaseThemeId) {
+        // Replace the base theme in place, preserving its ID and name
+        themeForStyles = { ...firstNewTheme, id: wizardBaseThemeId, name: baseTheme?.name ?? firstNewTheme.name };
+        updatedThemes = existingThemes.map(t => t.id === wizardBaseThemeId ? themeForStyles : t);
+        activeId = stylingConfig.activeThemeId ?? wizardBaseThemeId;
+      } else {
+        themeForStyles = firstNewTheme;
+        updatedThemes = [...existingThemes, ...newUserThemes];
+        activeId = firstNewTheme.id;
+      }
+
       const updatedStylingConfig: StylingConfig = {
         ...stylingConfig,
-        themes: [...existingThemes, ...newUserThemes],
-        activeThemeId: firstNewTheme.id,
-        application: { ...firstNewTheme.application },
+        themes: updatedThemes,
+        activeThemeId: activeId,
+        application: { ...themeForStyles.application },
         embeddedContent: {
           ...stylingConfig.embeddedContent,
           customCSS: {
             ...stylingConfig.embeddedContent.customCSS,
-            variables: { ...firstNewTheme.embeddedContentVariables },
+            variables: { ...themeForStyles.embeddedContentVariables },
           },
         },
       };
 
       updateStylingConfig(updatedStylingConfig);
-      setGeneratedThemeCount(newUserThemes.length);
+      setGeneratedThemeCount(wizardEditInPlace ? 0 : newUserThemes.length);
       setShowStyleWizard(false);
       setStyleDescription("");
       setWizardBaseThemeId("");
+      setWizardEditInPlace(false);
     } catch (error) {
       console.error("Error generating theme:", error);
       setGenerationError(
@@ -5533,7 +5550,7 @@ function StylingContent({
               )}
               <div style={{ display: "flex", gap: "6px", marginLeft: "auto" }}>
                 <button onClick={() => { if (selectedTheme) { setRenamingThemeValue(selectedTheme.name); setIsRenamingTheme(true); } }} title="Rename" style={{ padding: "5px 10px", backgroundColor: "transparent", border: "1px solid #d1d5db", borderRadius: "5px", cursor: "pointer", color: "#4b5563", fontSize: "12px" }}>Rename</button>
-                <button onClick={() => { setShowStyleWizard(true); setGenerationError(null); setGeneratedThemeCount(0); }} title="Generate with AI" style={{ padding: "5px 10px", backgroundColor: "#8b5cf6", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}>
+                <button onClick={() => { setShowStyleWizard(true); setGenerationError(null); setGeneratedThemeCount(0); if (selectedTheme) { setWizardBaseThemeId(selectedTheme.id); setWizardEditInPlace(true); } }} title="Edit with AI" style={{ padding: "5px 10px", backgroundColor: "#8b5cf6", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}>
                   <MaterialIcon icon="auto_fix_high" style={{ fontSize: "13px" }} />
                   AI
                 </button>
@@ -5755,6 +5772,7 @@ function StylingContent({
               setShowStyleWizard(false);
               setStyleDescription("");
               setWizardBaseThemeId("");
+              setWizardEditInPlace(false);
               setGenerationError(null);
             }
           }}
@@ -5800,7 +5818,7 @@ function StylingContent({
                     color: "#1f2937",
                   }}
                 >
-                  AI Theme Generator
+                  {wizardEditInPlace ? "AI Theme Editor" : "AI Theme Generator"}
                 </h2>
               </div>
               {!isGeneratingStyle && (
@@ -5809,6 +5827,7 @@ function StylingContent({
                     setShowStyleWizard(false);
                     setStyleDescription("");
                     setWizardBaseThemeId("");
+                    setWizardEditInPlace(false);
                     setGenerationError(null);
                   }}
                   style={{
@@ -5835,9 +5854,10 @@ function StylingContent({
                   lineHeight: "1.6",
                 }}
               >
-                Describe the theme(s) you want. AI will generate named themes covering both
-                your application wrapper and embedded ThoughtSpot content. Generated themes are
-                added to your theme list.
+                {wizardEditInPlace
+                  ? `Describe the changes you want to make. AI will update "${stylingConfig.themes?.find(t => t.id === wizardBaseThemeId)?.name ?? "the selected theme"}" in place.`
+                  : "Describe the theme(s) you want. AI will generate named themes covering both your application wrapper and embedded ThoughtSpot content. Generated themes are added to your theme list."
+                }
               </p>
 
               {/* Base Theme */}
@@ -5860,6 +5880,18 @@ function StylingContent({
                   <p style={{ marginTop: "6px", fontSize: "12px", color: "#6b7280", fontStyle: "italic" }}>
                     When set, the AI uses this theme as a starting point. e.g. &quot;Based on Default, create a dark version&quot;.
                   </p>
+                  {wizardBaseThemeId && (
+                    <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", fontSize: "14px", color: "#374151" }}>
+                      <input
+                        type="checkbox"
+                        checked={wizardEditInPlace}
+                        onChange={(e) => setWizardEditInPlace(e.target.checked)}
+                        disabled={isGeneratingStyle}
+                        style={{ width: "16px", height: "16px", cursor: "pointer" }}
+                      />
+                      Edit selected theme in place <span style={{ color: "#6b7280", fontWeight: 400 }}>(replaces instead of creating new)</span>
+                    </label>
+                  )}
                 </div>
               )}
 
@@ -6023,8 +6055,7 @@ function StylingContent({
                           marginTop: "4px",
                         }}
                       >
-                        This may take a moment. AI is creating your custom
-                        theme.
+                        This may take a moment. AI is {wizardEditInPlace ? "updating your theme" : "creating your custom theme"}.
                       </div>
                     </div>
                   </div>
@@ -6050,6 +6081,7 @@ function StylingContent({
                   setShowStyleWizard(false);
                   setStyleDescription("");
                   setWizardBaseThemeId("");
+                  setWizardEditInPlace(false);
                   setGenerationError(null);
                 }}
                 disabled={isGeneratingStyle}
@@ -6092,7 +6124,7 @@ function StylingContent({
               >
                 {isGeneratingStyle ? (
                   <>
-                    <span>Generating</span>
+                    <span>{wizardEditInPlace ? "Updating" : "Generating"}</span>
                     <span
                       style={{
                         display: "inline-flex",
@@ -6127,7 +6159,7 @@ function StylingContent({
                       icon="auto_fix_high"
                       style={{ fontSize: "18px" }}
                     />
-                    Generate Theme(s)
+                    {wizardEditInPlace ? "Update Theme" : "Generate Theme(s)"}
                   </>
                 )}
               </button>
