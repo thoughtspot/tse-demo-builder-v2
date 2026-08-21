@@ -6,6 +6,7 @@ interface IconPickerProps {
   onChange: (icon: string) => void;
   label?: string;
   placeholder?: string;
+  customImages?: Array<{name: string; label: string; previewUrl: string}>;
 }
 
 // Available Material Icons for selection - Expanded list with categories
@@ -560,6 +561,7 @@ const IconPicker: React.FC<IconPickerProps> = ({
   onChange,
   label = "Icon",
   placeholder = "Search icons...",
+  customImages,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -590,7 +592,10 @@ const IconPicker: React.FC<IconPickerProps> = ({
   const selectedIcon = availableIcons.find((icon) => icon.name === value);
 
   // Check if current value is an image
-  const isImageValue = value && value.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i);
+  const isImageValue = value && (
+    value.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i) ||
+    value.startsWith("data:")
+  );
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -961,96 +966,68 @@ const IconPicker: React.FC<IconPickerProps> = ({
                 </button>
               </div>
 
-              {/* Predefined custom images */}
+              {/* Predefined Custom Images */}
               <div style={{ marginBottom: "16px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "8px",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: "#374151",
-                  }}
-                >
-                  Predefined Custom Images
+                <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: "500", color: "#374151" }}>
+                  {customImages && customImages.length > 0 ? "Available Icons" : "Predefined Custom Images"}
                 </label>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))",
-                    gap: "8px",
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onChange("spotter-custom.svg");
-                      setIsOpen(false);
-                    }}
-                    style={{
-                      padding: "8px",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "6px",
-                      backgroundColor:
-                        value === "spotter-custom.svg" ? "#ebf8ff" : "white",
-                      cursor: "pointer",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "4px",
-                      fontSize: "10px",
-                      color: "#374151",
-                      transition: "all 0.2s",
-                      minHeight: "60px",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (value !== "spotter-custom.svg") {
-                        e.currentTarget.style.backgroundColor = "#f3f4f6";
-                        e.currentTarget.style.borderColor = "#d1d5db";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (value !== "spotter-custom.svg") {
-                        e.currentTarget.style.backgroundColor = "white";
-                        e.currentTarget.style.borderColor = "#e5e7eb";
-                      }
-                    }}
-                    title="Spotter Icon"
-                  >
-                    <img
-                      src="/icons/spotter-custom.svg"
-                      alt="Spotter"
-                      style={{
-                        width: 24,
-                        height: 24,
-                        objectFit: "contain",
-                      }}
-                    />
-                    <span style={{ textAlign: "center", lineHeight: "1.2" }}>
-                      Spotter
-                    </span>
-                    {value === "spotter-custom.svg" && (
-                      <span
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))", gap: "8px", maxHeight: "200px", overflowY: "auto" }}>
+                  {customImages && customImages.length > 0 ? (
+                    customImages.map((img) => (
+                      <button
+                        key={img.name}
+                        type="button"
+                        onClick={() => { onChange(img.name); setIsOpen(false); }}
                         style={{
-                          position: "absolute",
-                          top: "2px",
-                          right: "2px",
-                          color: "#3b82f6",
-                          fontSize: "8px",
-                          backgroundColor: "white",
-                          borderRadius: "50%",
-                          width: "12px",
-                          height: "12px",
+                          padding: "8px 4px",
+                          border: value === img.name ? "2px solid #3b82f6" : "1px solid #e5e7eb",
+                          borderRadius: "6px",
+                          backgroundColor: value === img.name ? "#eff6ff" : "white",
+                          cursor: "pointer",
                           display: "flex",
+                          flexDirection: "column",
                           alignItems: "center",
-                          justifyContent: "center",
-                          border: "1px solid #3b82f6",
+                          gap: "4px",
+                          fontSize: "10px",
+                          color: value === img.name ? "#1d4ed8" : "#374151",
+                          minHeight: "60px",
                         }}
+                        title={img.label}
                       >
-                        ✓
-                      </span>
-                    )}
-                  </button>
+                        <img
+                          src={img.previewUrl}
+                          alt={img.label}
+                          style={{ width: 32, height: 32, objectFit: "contain" }}
+                          onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0.25"; }}
+                        />
+                        <span style={{ textAlign: "center", lineHeight: "1.2", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{img.label}</span>
+                      </button>
+                    ))
+                  ) : (
+                    /* Original hardcoded spotter-custom.svg tile */
+                    <button
+                      type="button"
+                      onClick={() => { onChange("spotter-custom.svg"); setIsOpen(false); }}
+                      style={{
+                        padding: "8px",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "6px",
+                        backgroundColor: value === "spotter-custom.svg" ? "#ebf8ff" : "white",
+                        cursor: "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "4px",
+                        fontSize: "10px",
+                        color: "#374151",
+                        minHeight: "60px",
+                      }}
+                      title="Spotter Icon"
+                    >
+                      <img src="/icons/spotter-custom.svg" alt="Spotter" style={{ width: 24, height: 24, objectFit: "contain" }} />
+                      <span style={{ textAlign: "center", lineHeight: "1.2" }}>Spotter</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1112,7 +1089,7 @@ const IconPicker: React.FC<IconPickerProps> = ({
                     Current Image:
                   </div>
                   <img
-                    src={value.startsWith("data:") ? value : `/icons/${value}`}
+                    src={value.startsWith("data:") || value.startsWith("http") || value.startsWith("/") ? value : `/icons/${value}`}
                     alt="Current icon"
                     style={{
                       width: 48,

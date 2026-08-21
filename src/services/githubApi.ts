@@ -5,6 +5,67 @@ interface GitHubConfig {
   filename: string;
 }
 
+export interface DemoListing {
+  name: string;
+  filename: string;
+}
+
+export interface IconFile {
+  name: string;
+  downloadUrl: string;
+}
+
+const REPO_OWNER_PREBUILT = "thoughtspot";
+const REPO_NAME_PREBUILT = "tse-demo-builders-pre-built";
+
+export async function listConfigurations(): Promise<DemoListing[]> {
+  const response = await fetch(
+    `https://api.github.com/repos/${REPO_OWNER_PREBUILT}/${REPO_NAME_PREBUILT}/contents/configs`,
+    {
+      headers: {
+        Accept: "application/vnd.github.v3+json",
+        "User-Agent": "TSE-Demo-Builder",
+      },
+      mode: "cors",
+    }
+  );
+  if (!response.ok) throw new Error(`Failed to list configurations: ${response.statusText}`);
+  const contents: GitHubApiResponse[] = await response.json();
+  return contents
+    .filter((item) => item.type === "file" && item.name.endsWith(".json"))
+    .map((item) => ({
+      name: item.name.replace(".json", ""),
+      filename: item.name,
+    }));
+}
+
+export function getPreviewUrl(configName: string): string {
+  return `https://raw.githubusercontent.com/${REPO_OWNER_PREBUILT}/${REPO_NAME_PREBUILT}/main/configs/previews/${configName}.png`;
+}
+
+export async function fetchSpotterIcons(): Promise<IconFile[]> {
+  const response = await fetch(
+    `https://api.github.com/repos/${REPO_OWNER_PREBUILT}/${REPO_NAME_PREBUILT}/contents/icons/spotter`,
+    {
+      headers: {
+        Accept: "application/vnd.github.v3+json",
+        "User-Agent": "TSE-Demo-Builder",
+      },
+      mode: "cors",
+    }
+  );
+  if (!response.ok) {
+    if (response.status === 404) return [];
+    throw new Error(`Failed to fetch icons: ${response.statusText}`);
+  }
+  const contents: GitHubApiResponse[] = await response.json();
+  return contents
+    .filter(
+      (item) => item.type === "file" && item.name.includes("-preview-")
+    )
+    .map((item) => ({ name: item.name, downloadUrl: item.download_url }));
+}
+
 export interface GitHubStyle {
   name: string;
   description?: string;

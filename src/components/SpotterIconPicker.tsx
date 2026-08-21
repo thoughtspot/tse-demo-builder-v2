@@ -1,6 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import {
+  getImageFromIndexedDB,
+  saveImageToIndexedDB,
+  generateImageId,
+} from "./ImageUpload";
 
 interface SpotterIcon {
   name: string;
@@ -28,6 +33,9 @@ export default function SpotterIconPicker({
   const [icons, setIcons] = useState<SpotterIcon[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [customPreview, setCustomPreview] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchIcons = async () => {
@@ -35,7 +43,6 @@ export default function SpotterIconPicker({
         setLoading(true);
         setError(null);
 
-        // Fetch the list of icons from GitHub API
         const response = await fetch(
           "https://api.github.com/repos/thoughtspot/tse-demo-builders-pre-built/contents/icons/spotter"
         );
@@ -46,15 +53,12 @@ export default function SpotterIconPicker({
 
         const data = await response.json();
 
-        // Process the icons - exclude preview files from the selectable list
         const customIcons = data
           .filter(
             (item: { name: string }) =>
               item.name.endsWith(".svg") && !item.name.includes("-preview-")
           )
           .map((item: { name: string }) => {
-            // Convert filename to display name
-            // Remove .svg extension and version numbers (-01, -02, etc.)
             const displayName = item.name
               .replace(/\.svg$/, "")
               .replace(/-\d+$/, "")
@@ -65,8 +69,7 @@ export default function SpotterIconPicker({
               )
               .join(" ");
 
-            // Create preview URL for standalone version and original URL for embed
-            // Convert "generic-02.svg" to "generic-preview-02.svg"
+            // Build preview URL (-preview- variant shown in UI) and actual URL (used by Spotter embed)
             const previewName = item.name.replace(
               /(\w+)-(\d+)\.svg/,
               "$1-preview-$2.svg"
@@ -77,26 +80,25 @@ export default function SpotterIconPicker({
             return {
               name: item.name,
               displayName,
-              url: originalUrl, // This will be used for the actual embed configuration
-              previewUrl: previewUrl, // This will be used for display in the picker
+              url: originalUrl,
+              previewUrl,
               filename: item.name,
             };
           });
 
         const processedIcons: SpotterIcon[] = [
-          // Add a default "None" option first
           {
             name: "Default",
             displayName: "Default (No Custom Icon)",
-            url: "", // Empty URL means no custom icon
-            previewUrl: "", // No preview for default
+            url: "",
+            previewUrl: "",
+            filename: "",
           },
           ...customIcons,
         ].sort((a: SpotterIcon, b: SpotterIcon) =>
           a.displayName.localeCompare(b.displayName)
         );
 
-        console.log("Processed icons:", processedIcons);
         setIcons(processedIcons);
       } catch (err) {
         console.error("Failed to fetch Spotter icons:", err);
@@ -109,22 +111,30 @@ export default function SpotterIconPicker({
     fetchIcons();
   }, []);
 
-  // Check if current selectedIcon is a custom image (not one of our predefined icons)
+  // Resolve IndexedDB preview for uploaded images
+  useEffect(() => {
+    if (selectedIcon?.startsWith("indexeddb://")) {
+      const id = selectedIcon.replace("indexeddb://", "");
+      getImageFromIndexedDB(id)
+        .then((data) => setCustomPreview(data))
+        .catch(() => setCustomPreview(null));
+    } else {
+      setCustomPreview(null);
+    }
+  }, [selectedIcon]);
+
+  const isIndexedDB = selectedIcon?.startsWith("indexeddb://");
   const isCustomImage =
     selectedIcon && !icons.find((icon) => icon.url === selectedIcon);
-  const isImageValue =
-    selectedIcon && selectedIcon.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i);
 
   const handleIconSelect = (icon: SpotterIcon) => {
     onIconSelect(icon.url);
 
-    // Also update the navigation menu icon if callback is provided
     if (onMenuIconUpdate) {
       if (icon.url === "") {
-        // Default option - use the default spotter icon
         onMenuIconUpdate("/icons/spotter-custom.svg");
       } else {
-        // Convert the original URL to preview URL for menu display
+        // Convert the actual URL to preview URL for menu display
         const menuIconUrl = icon.url.replace(
           /(\w+)-(\d+)\.svg/,
           "$1-preview-$2.svg"
@@ -132,6 +142,40 @@ export default function SpotterIconPicker({
         onMenuIconUpdate(menuIconUrl);
       }
     }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadError(null);
+    if (file.size > 1024 * 1024) {
+      setUploadError("File too large (max 1 MB).");
+      e.target.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string;
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement("canvas");
+        const max = 128;
+        const scale = Math.min(max / img.width, max / img.height, 1);
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const resized = canvas.toDataURL("image/png");
+        const id = generateImageId();
+        await saveImageToIndexedDB(id, resized);
+        onIconSelect(`indexeddb://${id}`);
+        if (onMenuIconUpdate) {
+          onMenuIconUpdate(resized);
+        }
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
   if (loading) {
@@ -194,7 +238,7 @@ export default function SpotterIconPicker({
         }}
       >
         {icons.map((icon) => {
-          const isSelected = selectedIcon === icon.url;
+          const isSelected = !isIndexedDB && selectedIcon === icon.url;
 
           return (
             <div
@@ -246,7 +290,6 @@ export default function SpotterIconPicker({
                       objectFit: "contain",
                     }}
                     onError={(e) => {
-                      // Fallback to letter if preview image fails to load
                       const target = e.target as HTMLImageElement;
                       target.style.display = "none";
                       const parent = target.parentElement;
@@ -258,7 +301,6 @@ export default function SpotterIconPicker({
                     }}
                   />
                 ) : (
-                  // Default option - show a "no icon" indicator
                   <div
                     style={{
                       width: "100%",
@@ -292,9 +334,113 @@ export default function SpotterIconPicker({
             </div>
           );
         })}
+
+        {/* Custom uploaded image tile */}
+        {isIndexedDB && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              padding: "12px 8px",
+              border: "2px solid #3b82f6",
+              borderRadius: "8px",
+              backgroundColor: "#eff6ff",
+              cursor: "default",
+              minHeight: "80px",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              style={{
+                width: "32px",
+                height: "32px",
+                marginBottom: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {customPreview ? (
+                <img
+                  src={customPreview}
+                  alt="Custom"
+                  style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    backgroundColor: "#e0e7ff",
+                    borderRadius: "4px",
+                    fontSize: "10px",
+                    color: "#4338ca",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  ...
+                </div>
+              )}
+            </div>
+            <div
+              style={{
+                fontSize: "12px",
+                fontWeight: "600",
+                color: "#1d4ed8",
+                textAlign: "center",
+                lineHeight: "1.2",
+              }}
+            >
+              Custom
+            </div>
+          </div>
+        )}
       </div>
 
-      {selectedIcon && (
+      {/* Upload button */}
+      <div
+        style={{
+          marginTop: "12px",
+          display: "flex",
+          gap: "8px",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          onClick={() => fileRef.current?.click()}
+          style={{
+            padding: "5px 12px",
+            fontSize: "13px",
+            border: "1px solid #e5e7eb",
+            borderRadius: "6px",
+            background: "transparent",
+            color: "#374151",
+            cursor: "pointer",
+            outline: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Upload Image
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={handleFileUpload}
+        />
+      </div>
+      {uploadError && (
+        <div style={{ fontSize: "12px", color: "#ef4444", marginTop: "4px" }}>
+          {uploadError}
+        </div>
+      )}
+
+      {selectedIcon && !isIndexedDB && (
         <div
           style={{
             marginTop: "12px",
@@ -307,30 +453,6 @@ export default function SpotterIconPicker({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {isCustomImage && isImageValue ? (
-              <img
-                src={
-                  selectedIcon.startsWith("data:")
-                    ? selectedIcon
-                    : `/icons/${selectedIcon}`
-                }
-                alt="Custom icon"
-                style={{
-                  width: 24,
-                  height: 24,
-                  objectFit: "contain",
-                }}
-                onError={(e) => {
-                  // Fallback if custom image fails to load
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = "none";
-                  const parent = target.parentElement;
-                  if (parent) {
-                    parent.innerHTML = `<div style="background-color: #f3f4f6; border-radius: 4px; font-size: 10px; color: #6b7280; font-weight: bold; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;">?</div>`;
-                  }
-                }}
-              />
-            ) : null}
             <div>
               <strong>Selected:</strong>{" "}
               {isCustomImage

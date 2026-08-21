@@ -14,8 +14,8 @@ export async function POST(request: NextRequest) {
 
     // Enhanced debugging for Vercel
     console.log("Anthropic Chat API Debug Info:", {
-      hasApiKey: !!process.env.ANTHROPIC_API_KEY,
-      apiKeyLength: process.env.ANTHROPIC_API_KEY?.length || 0,
+      hasApiKey: !!process.env.TSE_DEMO_ANTHROPIC_KEY,
+      apiKeyLength: process.env.TSE_DEMO_ANTHROPIC_KEY?.length || 0,
       nodeEnv: process.env.NODE_ENV,
       vercelEnv: process.env.VERCEL_ENV,
       isVercel: !!process.env.VERCEL,
@@ -27,8 +27,8 @@ export async function POST(request: NextRequest) {
     });
 
     // Check if API key is available
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error("ANTHROPIC_API_KEY environment variable is not set");
+    if (!process.env.TSE_DEMO_ANTHROPIC_KEY) {
+      console.error("TSE_DEMO_ANTHROPIC_KEY environment variable is not set");
       console.error(
         "Available environment variables:",
         Object.keys(process.env).filter((key) => key.includes("ANTHROPIC"))
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Anthropic API key is not configured. Please set ANTHROPIC_API_KEY environment variable in your Vercel deployment settings.",
+            "Anthropic API key is not configured. Please set TSE_DEMO_ANTHROPIC_KEY environment variable in your Vercel deployment settings.",
           fallback: true,
           debug: {
             availableEnvVars: Object.keys(process.env).filter((key) =>
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     // Use environment variable for API key
     const response = await generateGeneralResponse(
       question,
-      process.env.ANTHROPIC_API_KEY
+      process.env.TSE_DEMO_ANTHROPIC_KEY
     );
 
     return NextResponse.json(response);

@@ -11,11 +11,13 @@ import { useAppContext } from "./Layout";
 interface FooterProps {
   backgroundColor?: string;
   foregroundColor?: string;
+  hideBorders?: boolean;
 }
 
 export default function Footer({
   backgroundColor = "#f7fafc",
   foregroundColor = "#4a5568",
+  hideBorders = false,
 }: FooterProps = {}) {
   const [user, setUser] = useState<ThoughtSpotUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,7 +74,7 @@ export default function Footer({
       style={{
         padding: "8px 16px",
         backgroundColor: backgroundColor,
-        borderTop: "1px solid #e2e8f0",
+        borderTop: hideBorders ? "none" : "1px solid #e2e8f0",
         fontSize: "12px",
         color: foregroundColor,
         display: "flex",

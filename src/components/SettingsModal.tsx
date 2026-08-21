@@ -13,6 +13,7 @@ import IconPicker from "./IconPicker";
 import MaterialIcon from "./MaterialIcon";
 import ColorPicker from "./ColorPicker";
 import ImageUpload from "./ImageUpload";
+import FaviconPicker from "./FaviconPicker";
 import StringMappingEditor from "./StringMappingEditor";
 import CSSVariablesEditor from "./CSSVariablesEditor";
 import CSSRulesEditor from "./CSSRulesEditor";
@@ -24,6 +25,7 @@ import RuntimeFiltersEditor from "./RuntimeFiltersEditor";
 import {
   User,
   UserConfig,
+  UserTheme,
   SavedConfiguration,
   CustomMenu,
   StylingConfig,
@@ -37,6 +39,8 @@ import {
   SpotterVizConfig,
   StarterPrompt,
   SDKActionsConfig,
+  RuntimeFilter,
+  SpotterPricingConfig,
 } from "../types/thoughtspot";
 import HiddenActionsEditor from "./HiddenActionsEditor";
 import SDKActionsEditor from "./SDKActionsEditor";
@@ -478,6 +482,7 @@ function StandardMenusContent({
   appConfig,
   updateAppConfig,
   stylingConfig,
+  updateStylingConfig,
 }: {
   standardMenus: StandardMenu[];
   updateStandardMenu: (
@@ -493,8 +498,34 @@ function StandardMenusContent({
   appConfig: AppConfig;
   updateAppConfig: (config: AppConfig, bypassClusterWarning?: boolean) => void;
   stylingConfig: StylingConfig;
+  updateStylingConfig: (config: StylingConfig) => void;
 }) {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "home");
+  const [spotterIcons, setSpotterIcons] = useState<Array<{name: string; label: string; previewUrl: string; actualUrl: string}>>([]);
+
+  useEffect(() => {
+    fetch("https://api.github.com/repos/thoughtspot/tse-demo-builders-pre-built/contents/icons/spotter")
+      .then((r) => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+      .then((data: {name: string}[]) => {
+        const icons = data
+          .filter((item) => item.name.endsWith(".svg") && !item.name.includes("-preview-"))
+          .map((item) => {
+            const displayName = item.name
+              .replace(/\.svg$/, "")
+              .replace(/-\d+$/, "")
+              .replace(/-/g, " ")
+              .split(" ")
+              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(" ");
+            const previewName = item.name.replace(/(\w+)-(\d+)\.svg/, "$1-preview-$2.svg");
+            const previewUrl = `https://cdn.jsdelivr.net/gh/thoughtspot/tse-demo-builders-pre-built/icons/spotter/${previewName}`;
+            const actualUrl = `https://cdn.jsdelivr.net/gh/thoughtspot/tse-demo-builders-pre-built/icons/spotter/${item.name}`;
+            return { name: previewUrl, label: displayName, previewUrl, actualUrl };
+          });
+        setSpotterIcons(icons);
+      })
+      .catch(() => {});
+  }, []);
 
   // Validate initial state on mount
   useEffect(() => {
@@ -781,9 +812,9 @@ function StandardMenusContent({
                 No Preview Available
               </div>
               <div style={{ fontSize: "14px", color: "#9ca3af" }}>
-                SpotterViz configuration does not have a preview.
+                New Content configuration does not have a preview.
                 <br />
-                The New Liveboard button will appear in the top bar when enabled.
+                The New Content button will appear in the top bar when enabled.
               </div>
             </div>
           </div>
@@ -836,7 +867,7 @@ function StandardMenusContent({
     },
     {
       id: "spotter-viz",
-      name: "SpotterViz",
+      name: "New Content",
       icon: "✨",
     },
   ];
@@ -1556,7 +1587,7 @@ function StandardMenusContent({
                   return (
                     <div>
                       <h4 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "8px" }}>
-                        SpotterViz Configuration
+                        New Content Configuration
                       </h4>
                       <div
                         style={{
@@ -1572,15 +1603,14 @@ function StandardMenusContent({
                         ⚠️ Requires ThoughtSpot version <strong>26.7+</strong>.
                       </div>
                       <p style={{ marginBottom: "20px", color: "#6b7280", fontSize: "14px" }}>
-                        Configure the SpotterViz experience for new liveboards created via the
-                        New Liveboard button.
+                        Configure the New Content button and its search and AI search options.
                       </p>
 
                       {/* Enable / Disable */}
                       <div style={sectionStyle}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
                           <label style={{ fontSize: "16px", fontWeight: "500", color: "#374151" }}>
-                            Enable New Liveboard (SpotterViz)
+                            Enable New Content Button
                           </label>
                           <input
                             type="checkbox"
@@ -1590,7 +1620,7 @@ function StandardMenusContent({
                           />
                         </div>
                         <p style={hintStyle}>
-                          Show or hide the New Liveboard button in the top bar.
+                          Show or hide the New Content button in the top bar.
                         </p>
                       </div>
 
@@ -1644,6 +1674,184 @@ function StandardMenusContent({
                           style={fieldStyle}
                         />
                         <p style={hintStyle}>Placeholder text shown in the question input field.</p>
+                      </div>
+
+                      {/* Create Liveboard Button Label */}
+                      <div style={sectionStyle}>
+                        <label style={labelStyle}>Create Button Label</label>
+                        <input
+                          type="text"
+                          value={appConfig.spotterViz?.createLiveboardButtonLabel || ""}
+                          onChange={(e) => updateSpotterViz({ createLiveboardButtonLabel: e.target.value })}
+                          placeholder="New Liveboard"
+                          style={fieldStyle}
+                        />
+                        <p style={hintStyle}>Label for the create button in the top bar (e.g. "New Dashboard").</p>
+                      </div>
+
+                      {/* ── Search Panel Options ── */}
+                      <div style={{ ...sectionStyle, borderTop: "1px solid #e5e7eb", paddingTop: "20px", marginTop: "4px" }}>
+                        <label style={{ ...labelStyle, fontSize: "15px", fontWeight: "600", marginBottom: "4px" }}>
+                          New Liveboard Button Options
+                        </label>
+                        <p style={hintStyle}>
+                          Each option can be enabled independently and given a custom label. "New Search" and
+                          "New AI Search" only appear when the user is viewing a liveboard.
+                        </p>
+                      </div>
+
+                      {/* New Liveboard option */}
+                      <div style={sectionStyle}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                          <label style={{ fontSize: "14px", fontWeight: "500", color: "#374151" }}>
+                            Enable "New Liveboard" option
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={appConfig.spotterViz?.newLiveboard?.enabled !== false}
+                            onChange={(e) => updateSpotterViz({
+                              newLiveboard: { ...appConfig.spotterViz?.newLiveboard, enabled: e.target.checked }
+                            })}
+                            style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={appConfig.spotterViz?.newLiveboard?.label || ""}
+                          onChange={(e) => updateSpotterViz({
+                            newLiveboard: { ...appConfig.spotterViz?.newLiveboard, label: e.target.value }
+                          })}
+                          placeholder="New Liveboard"
+                          style={fieldStyle}
+                        />
+                        <p style={hintStyle}>Label shown for the "New Liveboard" option.</p>
+                      </div>
+
+                      {/* New Search option */}
+                      <div style={sectionStyle}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                          <label style={{ fontSize: "14px", fontWeight: "600", color: "#374151" }}>
+                            Enable "New Search" option
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={appConfig.spotterViz?.newSearch?.enabled ?? false}
+                            onChange={(e) => updateSpotterViz({
+                              newSearch: { ...appConfig.spotterViz?.newSearch, enabled: e.target.checked }
+                            })}
+                            style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                          />
+                        </div>
+                        <p style={hintStyle}>Opens a SearchEmbed side panel for pinning to the current liveboard.</p>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "6px" }}>
+                          {/* Label */}
+                          <div>
+                            <label style={{ display: "block", fontSize: "13px", fontWeight: "500", color: "#6b7280", marginBottom: "4px" }}>Button Label</label>
+                            <input
+                              type="text"
+                              value={appConfig.spotterViz?.newSearch?.label || ""}
+                              onChange={(e) => updateSpotterViz({
+                                newSearch: { ...appConfig.spotterViz?.newSearch, label: e.target.value }
+                              })}
+                              placeholder="New Search"
+                              style={fieldStyle}
+                            />
+                          </div>
+
+                          {/* Data source model picker */}
+                          <div>
+                            <label style={{ display: "block", fontSize: "13px", fontWeight: "500", color: "#6b7280", marginBottom: "4px" }}>
+                              Data Source (Model)
+                            </label>
+                            <SearchableDropdown
+                              value={appConfig.spotterViz?.newSearch?.searchDataSource || ""}
+                              onChange={(value) => updateSpotterViz({
+                                newSearch: { ...appConfig.spotterViz?.newSearch, searchDataSource: value }
+                              })}
+                              options={combinedOptions}
+                              placeholder="Select a model (optional)"
+                              searchPlaceholder="Search models..."
+                              label=""
+                              isLoading={isLoadingModels || isLoadingWorksheets}
+                              error={modelsError || worksheetsError}
+                            />
+                            <p style={hintStyle}>Pre-selects this worksheet as the data source in the search panel.</p>
+                          </div>
+
+                          {/* Search token string */}
+                          <div>
+                            <label style={{ display: "block", fontSize: "13px", fontWeight: "500", color: "#6b7280", marginBottom: "4px" }}>
+                              Starting Search Query (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={appConfig.spotterViz?.newSearch?.searchTokenString || ""}
+                              onChange={(e) => updateSpotterViz({
+                                newSearch: { ...appConfig.spotterViz?.newSearch, searchTokenString: e.target.value }
+                              })}
+                              placeholder="e.g. revenue by region"
+                              style={fieldStyle}
+                            />
+                            <p style={hintStyle}>Pre-fills the search bar when the panel opens.</p>
+                          </div>
+
+                        </div>
+                      </div>
+
+                      {/* New AI Search option */}
+                      <div style={sectionStyle}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                          <label style={{ fontSize: "14px", fontWeight: "600", color: "#374151" }}>
+                            Enable "New AI Search" option
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={appConfig.spotterViz?.newAISearch?.enabled ?? false}
+                            onChange={(e) => updateSpotterViz({
+                              newAISearch: { ...appConfig.spotterViz?.newAISearch, enabled: e.target.checked }
+                            })}
+                            style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                          />
+                        </div>
+                        <p style={hintStyle}>Opens a Spotter (AI) side panel for pinning to the current liveboard.</p>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "6px" }}>
+                          {/* Label */}
+                          <div>
+                            <label style={{ display: "block", fontSize: "13px", fontWeight: "500", color: "#6b7280", marginBottom: "4px" }}>Button Label</label>
+                            <input
+                              type="text"
+                              value={appConfig.spotterViz?.newAISearch?.label || ""}
+                              onChange={(e) => updateSpotterViz({
+                                newAISearch: { ...appConfig.spotterViz?.newAISearch, label: e.target.value }
+                              })}
+                              placeholder="New AI Search"
+                              style={fieldStyle}
+                            />
+                          </div>
+
+                          {/* Spotter model picker */}
+                          <div>
+                            <label style={{ display: "block", fontSize: "13px", fontWeight: "500", color: "#6b7280", marginBottom: "4px" }}>
+                              Spotter Model
+                            </label>
+                            <SearchableDropdown
+                              value={appConfig.spotterViz?.newAISearch?.spotterModelId || ""}
+                              onChange={(value) => updateSpotterViz({
+                                newAISearch: { ...appConfig.spotterViz?.newAISearch, spotterModelId: value }
+                              })}
+                              options={combinedOptions}
+                              placeholder="Select a model"
+                              searchPlaceholder="Search models..."
+                              label=""
+                              isLoading={isLoadingModels || isLoadingWorksheets}
+                              error={modelsError || worksheetsError}
+                            />
+                            <p style={hintStyle}>Required — the worksheet loaded into the Spotter embed.</p>
+                          </div>
+
+                        </div>
                       </div>
 
                       {/* Hide Starter Prompts */}
@@ -1768,11 +1976,21 @@ function StandardMenusContent({
                       <div style={{ minWidth: "200px" }}>
                         <IconPicker
                           value={menu.icon}
-                          onChange={(icon) =>
-                            updateStandardMenu(menu.id, "icon", icon)
-                          }
+                          onChange={(icon) => {
+                            updateStandardMenu(menu.id, "icon", icon);
+                            if (menu.id === "spotter") {
+                              const spotterIcon = spotterIcons.find((i) => i.name === icon);
+                              if (spotterIcon) {
+                                updateStylingConfig({
+                                  ...stylingConfig,
+                                  embeddedContent: { ...stylingConfig.embeddedContent, iconSpriteUrl: spotterIcon.actualUrl },
+                                });
+                              }
+                            }
+                          }}
                           label="Icon"
                           placeholder="Search icons..."
+                          customImages={menu.id === "spotter" && spotterIcons.length > 0 ? spotterIcons : undefined}
                         />
                       </div>
 
@@ -2565,7 +2783,244 @@ function StandardMenusContent({
                               Leave empty to start with a blank search interface
                             </p>
                           </div>
+                          <div>
+                            <label style={{ display: "block", marginBottom: "4px", fontWeight: "500", fontSize: "14px" }}>
+                              Spotter Embed Icon (iconSpriteUrl)
+                            </label>
+                            <p style={{ color: "#718096", fontSize: "12px", marginTop: "0", marginBottom: "8px" }}>
+                              Upload your Spotter-format SVG, or provide a URL. This is separate from the nav icon above.
+                            </p>
+                            {stylingConfig.embeddedContent.iconSpriteUrl && (
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", padding: "8px", background: "#f0f9ff", borderRadius: "6px", border: "1px solid #0ea5e9" }}>
+                                <img
+                                  src={stylingConfig.embeddedContent.iconSpriteUrl.startsWith("data:") || stylingConfig.embeddedContent.iconSpriteUrl.startsWith("http") || stylingConfig.embeddedContent.iconSpriteUrl.startsWith("/") ? stylingConfig.embeddedContent.iconSpriteUrl : `/icons/${stylingConfig.embeddedContent.iconSpriteUrl}`}
+                                  alt="Embed icon"
+                                  style={{ width: 32, height: 32, objectFit: "contain" }}
+                                  onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0.3"; }}
+                                />
+                                <span style={{ fontSize: "12px", color: "#0369a1", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {stylingConfig.embeddedContent.iconSpriteUrl.startsWith("data:") ? "Uploaded SVG" : stylingConfig.embeddedContent.iconSpriteUrl}
+                                </span>
+                                <button
+                                  onClick={() => updateStylingConfig({ ...stylingConfig, embeddedContent: { ...stylingConfig.embeddedContent, iconSpriteUrl: "" } })}
+                                  style={{ padding: "2px 8px", fontSize: "12px", border: "1px solid #ef4444", borderRadius: "4px", background: "white", color: "#ef4444", cursor: "pointer" }}
+                                >
+                                  Clear
+                                </button>
+                              </div>
+                            )}
+                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                              <label style={{ cursor: "pointer" }}>
+                                <span style={{ padding: "5px 12px", fontSize: "13px", border: "1px solid #e5e7eb", borderRadius: "6px", background: "transparent", color: "#374151", cursor: "pointer", display: "inline-block" }}>
+                                  Upload SVG
+                                </span>
+                                <input
+                                  type="file"
+                                  accept=".svg,image/svg+xml"
+                                  style={{ display: "none" }}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.onload = (ev) => {
+                                      const dataUrl = ev.target?.result as string;
+                                      if (dataUrl) {
+                                        updateStylingConfig({ ...stylingConfig, embeddedContent: { ...stylingConfig.embeddedContent, iconSpriteUrl: dataUrl } });
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                    e.target.value = "";
+                                  }}
+                                />
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="or paste a URL…"
+                                defaultValue=""
+                                style={{ flex: 1, minWidth: "180px", padding: "5px 10px", fontSize: "13px", border: "1px solid #e5e7eb", borderRadius: "6px", background: "transparent", color: "#374151", outline: "none" }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    const url = (e.target as HTMLInputElement).value.trim();
+                                    if (url) {
+                                      updateStylingConfig({ ...stylingConfig, embeddedContent: { ...stylingConfig.embeddedContent, iconSpriteUrl: url } });
+                                      (e.target as HTMLInputElement).value = "";
+                                    }
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
                         </div>
+                      </div>
+                    )}
+
+                    {menu.id === "spotter" && (
+                      <div style={{ marginBottom: "16px" }}>
+                        <hr style={{ border: "none", borderTop: "1px solid #e5e7eb", margin: "0 0 16px 0" }} />
+                        <div style={{ marginBottom: "12px" }}>
+                          <h5 style={{ fontSize: "14px", fontWeight: "600", color: "#374151", margin: "0 0 4px 0" }}>
+                            Query Pricing Emulation
+                          </h5>
+                          <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>
+                            Simulate per-query billing by limiting queries and showing a payment prompt when the limit is reached.
+                          </p>
+                        </div>
+                        {/* Enable toggle */}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "12px",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: "8px",
+                            backgroundColor: "#f9fafb",
+                            marginBottom: "12px",
+                          }}
+                        >
+                          <label style={{ fontSize: "14px", fontWeight: "500", color: "#374151" }}>
+                            Enable Pricing Emulation
+                          </label>
+                          <input
+                            type="checkbox"
+                            checked={appConfig.spotterPricing?.enabled ?? false}
+                            onChange={(e) => {
+                              const updated: SpotterPricingConfig = {
+                                enabled: e.target.checked,
+                                initialQueries: appConfig.spotterPricing?.initialQueries ?? 500,
+                                queriesPerPack: appConfig.spotterPricing?.queriesPerPack ?? 500,
+                                label: appConfig.spotterPricing?.label ?? "Spotter Queries",
+                                planName: appConfig.spotterPricing?.planName ?? "Starter",
+                                pricePerPack: appConfig.spotterPricing?.pricePerPack ?? 500,
+                                currency: appConfig.spotterPricing?.currency ?? "$",
+                              };
+                              updateAppConfig({ ...appConfig, spotterPricing: updated });
+                            }}
+                            style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                          />
+                        </div>
+                        {(appConfig.spotterPricing?.enabled) && (
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                            <div>
+                              <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "4px" }}>
+                                Initial Queries
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={appConfig.spotterPricing?.initialQueries ?? 500}
+                                onChange={(e) => {
+                                  const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                  updateAppConfig({
+                                    ...appConfig,
+                                    spotterPricing: { ...appConfig.spotterPricing!, initialQueries: val },
+                                  });
+                                }}
+                                style={{ width: "100%", padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "4px" }}>
+                                Queries per Pack
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={appConfig.spotterPricing?.queriesPerPack ?? 500}
+                                onChange={(e) => {
+                                  const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                  updateAppConfig({
+                                    ...appConfig,
+                                    spotterPricing: { ...appConfig.spotterPricing!, queriesPerPack: val },
+                                  });
+                                }}
+                                style={{ width: "100%", padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "4px" }}>
+                                Price per Pack
+                              </label>
+                              <div style={{ display: "flex", gap: "4px" }}>
+                                <input
+                                  type="text"
+                                  value={appConfig.spotterPricing?.currency ?? "$"}
+                                  onChange={(e) => {
+                                    updateAppConfig({
+                                      ...appConfig,
+                                      spotterPricing: { ...appConfig.spotterPricing!, currency: e.target.value },
+                                    });
+                                  }}
+                                  style={{ width: "36px", padding: "8px 6px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", textAlign: "center" }}
+                                />
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={appConfig.spotterPricing?.pricePerPack ?? 500}
+                                  onChange={(e) => {
+                                    const val = Math.max(0, parseFloat(e.target.value) || 0);
+                                    updateAppConfig({
+                                      ...appConfig,
+                                      spotterPricing: { ...appConfig.spotterPricing!, pricePerPack: val },
+                                    });
+                                  }}
+                                  style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" }}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "4px" }}>
+                                Label
+                              </label>
+                              <input
+                                type="text"
+                                value={appConfig.spotterPricing?.label ?? "Spotter Queries"}
+                                onChange={(e) => {
+                                  updateAppConfig({
+                                    ...appConfig,
+                                    spotterPricing: { ...appConfig.spotterPricing!, label: e.target.value },
+                                  });
+                                }}
+                                placeholder="e.g. Spotter Queries"
+                                style={{ width: "100%", padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "4px" }}>
+                                Account Manager
+                              </label>
+                              <input
+                                type="text"
+                                value={appConfig.spotterPricing?.accountManager ?? "Brian"}
+                                onChange={(e) => {
+                                  updateAppConfig({
+                                    ...appConfig,
+                                    spotterPricing: { ...appConfig.spotterPricing!, accountManager: e.target.value },
+                                  });
+                                }}
+                                placeholder="e.g. Brian"
+                                style={{ width: "100%", padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" }}
+                              />
+                            </div>
+                            <div style={{ gridColumn: "1 / -1" }}>
+                              <label style={{ display: "block", fontSize: "12px", fontWeight: "500", color: "#374151", marginBottom: "4px" }}>
+                                Plan Name (shown in payment modal)
+                              </label>
+                              <input
+                                type="text"
+                                value={appConfig.spotterPricing?.planName ?? "Starter"}
+                                onChange={(e) => {
+                                  updateAppConfig({
+                                    ...appConfig,
+                                    spotterPricing: { ...appConfig.spotterPricing!, planName: e.target.value },
+                                  });
+                                }}
+                                placeholder="e.g. Starter, Pro, Enterprise"
+                                style={{ width: "100%", padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" }}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -4244,11 +4699,22 @@ function StylingContent({
     value: string | boolean
   ) => void;
 }) {
-  const [activeSubTab, setActiveSubTab] = useState("application");
+  const [activeSubTab, setActiveSubTab] = useState("theme");
   const [showStyleWizard, setShowStyleWizard] = useState(false);
   const [styleDescription, setStyleDescription] = useState("");
   const [isGeneratingStyle, setIsGeneratingStyle] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [wizardBaseThemeId, setWizardBaseThemeId] = useState<string>("");
+  const [wizardEditInPlace, setWizardEditInPlace] = useState(false);
+  const [generatedThemeCount, setGeneratedThemeCount] = useState(0);
+
+  // Theme management state
+  const [selectedThemeIdForEdit, setSelectedThemeIdForEdit] = useState<string | undefined>(undefined);
+  const [isRenamingTheme, setIsRenamingTheme] = useState(false);
+  const [renamingThemeValue, setRenamingThemeValue] = useState("");
+  const [showNewThemeDialog, setShowNewThemeDialog] = useState(false);
+  const [newThemeName, setNewThemeName] = useState("");
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
   // Style save/load state
   const [showExportStyleDialog, setShowExportStyleDialog] = useState(false);
@@ -4272,9 +4738,9 @@ function StylingContent({
 
   // Ensure we always have a valid sub-tab selected
   useEffect(() => {
-    const validSubTabs = ["application", "embedded"];
+    const validSubTabs = ["layout", "theme"];
     if (!validSubTabs.includes(activeSubTab)) {
-      setActiveSubTab("application");
+      setActiveSubTab("theme");
     }
   }, [activeSubTab]);
 
@@ -4298,12 +4764,14 @@ function StylingContent({
     try {
       const text = await file.text();
       const data = JSON.parse(text);
+      console.log("[ImportStyle] Parsed file:", file.name, "| top-level keys:", Object.keys(data));
+      console.log("[ImportStyle] Has application:", !!data.application, "| Has embeddedContent:", !!data.embeddedContent, "| type field:", data.type);
       setPendingStyleData(data);
       setPendingStyleSource(file.name);
       setImportOptions({ appStyle: true, cssStyle: true, strings: true });
       setShowImportStyleDialog(true);
     } catch (error) {
-      console.error("Failed to read style file:", error);
+      console.error("[ImportStyle] Failed to read style file:", error);
       setStyleImportStatus({
         message: "Failed to read style file. Make sure it is valid JSON.",
         type: "error",
@@ -4332,7 +4800,10 @@ function StylingContent({
 
   const handleApplyImportedStyle = () => {
     if (!pendingStyleData) return;
+    console.log("[ImportStyle] Applying import | options:", importOptions);
+    console.log("[ImportStyle] pendingStyleData keys:", Object.keys(pendingStyleData));
     const updated = applyImportedStyle(stylingConfig, pendingStyleData, importOptions);
+    console.log("[ImportStyle] Result — application topBar bg:", updated.application?.topBar?.backgroundColor, "| activeThemeId:", updated.activeThemeId, "| themes:", updated.themes?.length);
     updateStylingConfig(updated);
     setShowImportStyleDialog(false);
     setPendingStyleData(null);
@@ -4345,151 +4816,87 @@ function StylingContent({
   };
 
   const subTabs = [
-    { id: "application", name: "Application Styles", icon: "🎨" },
-    { id: "embedded", name: "Embedded Content", icon: "🔧" },
+    { id: "layout", name: "Layout & Style", icon: "⬜" },
+    { id: "theme", name: "Theme", icon: "🎨" },
   ];
 
-  const updateApplicationStyles = (field: string, value: string) => {
+  // Resolve which theme is currently shown in the editor dropdown
+  const selectedTheme = (
+    stylingConfig.themes?.find(t => t.id === (selectedThemeIdForEdit ?? stylingConfig.activeThemeId))
+    ?? stylingConfig.themes?.[0]
+  );
+
+  // Alias for reading — color pickers read from here
+  const themeApp = selectedTheme?.application ?? stylingConfig.application;
+
+  // Update a theme in the themes list and, if it's active, sync live styles too
+  const applyThemeUpdate = (updatedTheme: UserTheme) => {
+    const isActive = updatedTheme.id === stylingConfig.activeThemeId;
+    const updatedThemes = (stylingConfig.themes ?? []).map(t =>
+      t.id === updatedTheme.id ? updatedTheme : t
+    );
     updateStylingConfig({
       ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        [field]: value,
-      },
+      themes: updatedThemes,
+      ...(isActive ? {
+        application: updatedTheme.application,
+        embeddedContent: {
+          ...stylingConfig.embeddedContent,
+          customCSS: {
+            ...stylingConfig.embeddedContent.customCSS,
+            variables: updatedTheme.embeddedContentVariables,
+          },
+        },
+      } : {}),
     });
   };
 
   const updateTopBarStyles = (field: string, value: string) => {
-    updateStylingConfig({
-      ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        topBar: {
-          ...stylingConfig.application.topBar,
-          [field]: value,
-        },
-      },
-    });
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, application: { ...selectedTheme.application, topBar: { ...selectedTheme.application.topBar, [field]: value } } });
   };
 
   const updateSidebarStyles = (field: string, value: string) => {
-    updateStylingConfig({
-      ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        sidebar: {
-          ...stylingConfig.application.sidebar,
-          [field]: value,
-        },
-      },
-    });
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, application: { ...selectedTheme.application, sidebar: { ...selectedTheme.application.sidebar, [field]: value } } });
   };
 
   const updateFooterStyles = (field: string, value: string) => {
-    updateStylingConfig({
-      ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        footer: {
-          ...stylingConfig.application.footer,
-          [field]: value,
-        },
-      },
-    });
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, application: { ...selectedTheme.application, footer: { ...selectedTheme.application.footer, [field]: value } } });
   };
 
   const updateDialogStyles = (field: string, value: string) => {
-    updateStylingConfig({
-      ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        dialogs: {
-          ...stylingConfig.application.dialogs,
-          [field]: value,
-        },
-      },
-    });
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, application: { ...selectedTheme.application, dialogs: { ...selectedTheme.application.dialogs, [field]: value } } });
   };
 
-  const updateButtonStyles = (
-    buttonType: "primary" | "secondary",
-    field: string,
-    value: string
-  ) => {
-    updateStylingConfig({
-      ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        buttons: {
-          ...stylingConfig.application.buttons,
-          [buttonType]: {
-            ...stylingConfig.application.buttons?.[buttonType],
-            [field]: value,
-          },
-        },
-      },
-    });
+  const updateButtonStyles = (buttonType: "primary" | "secondary", field: string, value: string) => {
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, application: { ...selectedTheme.application, buttons: { ...selectedTheme.application.buttons, [buttonType]: { ...selectedTheme.application.buttons?.[buttonType], [field]: value } } } });
   };
 
   const updateBackgroundStyles = (field: string, value: string) => {
-    updateStylingConfig({
-      ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        backgrounds: {
-          ...stylingConfig.application.backgrounds,
-          [field]: value,
-        },
-      },
-    });
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, application: { ...selectedTheme.application, backgrounds: { ...selectedTheme.application.backgrounds, [field]: value } } });
   };
 
   const updateTypographyStyles = (field: string, value: string) => {
-    updateStylingConfig({
-      ...stylingConfig,
-      application: {
-        ...stylingConfig.application,
-        typography: {
-          ...stylingConfig.application.typography,
-          [field]: value,
-        },
-      },
-    });
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, application: { ...selectedTheme.application, typography: { ...selectedTheme.application.typography, [field]: value } } });
+  };
+
+  // CSS variables are per-theme; other embedded content (strings, cssUrl, etc.) is app-wide
+  const updateThemeCSSVariables = (variables: Record<string, string>) => {
+    if (!selectedTheme) return;
+    applyThemeUpdate({ ...selectedTheme, embeddedContentVariables: variables });
   };
 
   const updateEmbeddedContent = (field: string, value: unknown) => {
-    console.log("updateEmbeddedContent called with:", field, value);
-    console.log(
-      "Current stylingConfig.embeddedContent:",
-      stylingConfig.embeddedContent
-    );
-
-    const newConfig = {
+    updateStylingConfig({
       ...stylingConfig,
-      embeddedContent: {
-        ...stylingConfig.embeddedContent,
-        [field]: value,
-      },
-    };
-
-    console.log("New embeddedContent:", newConfig.embeddedContent);
-    console.log(
-      "updateEmbeddedContent: calling updateStylingConfig with iconSpriteUrl:",
-      newConfig.embeddedContent.iconSpriteUrl
-    );
-    console.log(
-      "updateEmbeddedContent: stringIDs after update:",
-      newConfig.embeddedContent.stringIDs
-    );
-    updateStylingConfig(newConfig);
-
-    // For iconSpriteUrl changes, the navigation menu should update immediately
-    // The user will need to click "Apply Changes" to persist the selection
-    if (field === "iconSpriteUrl") {
-      console.log(
-        "Icon selection updated - navigation menu should update immediately"
-      );
-    }
+      embeddedContent: { ...stylingConfig.embeddedContent, [field]: value },
+    });
   };
 
   const handleGenerateStyle = async () => {
@@ -4501,75 +4908,139 @@ function StylingContent({
     try {
       setIsGeneratingStyle(true);
       setGenerationError(null);
+      setGeneratedThemeCount(0);
 
-      console.log(
-        "Calling style generation API with description:",
-        styleDescription
-      );
+      const baseTheme = wizardBaseThemeId
+        ? stylingConfig.themes?.find((t) => t.id === wizardBaseThemeId)
+        : undefined;
 
-      const response = await fetch("/api/anthropic/generate-style", {
+      const baseThemePayload = baseTheme
+        ? {
+            name: baseTheme.name,
+            applicationStyles: {
+              topBar: baseTheme.application.topBar,
+              sidebar: baseTheme.application.sidebar,
+              buttons: baseTheme.application.buttons,
+              backgrounds: baseTheme.application.backgrounds,
+              typography: baseTheme.application.typography,
+            },
+            embeddedContentVariables: baseTheme.embeddedContentVariables,
+          }
+        : undefined;
+
+      const response = await fetch("/api/anthropic/generate-themes", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ description: styleDescription }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: styleDescription,
+          baseTheme: baseThemePayload,
+        }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate style");
+        throw new Error(errorData.error || "Failed to generate theme");
       }
 
-      const styleConfig = await response.json();
+      const { themes: generatedThemes } = await response.json();
 
-      console.log("Received style configuration:", styleConfig);
+      const newUserThemes: UserTheme[] = generatedThemes.map(
+        (gt: { name: string; applicationStyles: { topBar: { backgroundColor: string; foregroundColor: string }; sidebar: { backgroundColor: string; foregroundColor: string }; footer?: { backgroundColor: string; foregroundColor: string }; dialogs?: { backgroundColor: string; foregroundColor: string }; buttons: { primary: { backgroundColor: string; foregroundColor: string; borderColor?: string; hoverBackgroundColor: string; hoverForegroundColor?: string }; secondary: { backgroundColor: string; foregroundColor: string; borderColor?: string; hoverBackgroundColor: string; hoverForegroundColor?: string } }; backgrounds: { mainBackground: string; contentBackground: string; borderColor: string }; typography: { primaryColor: string; secondaryColor: string; linkColor: string; linkHoverColor?: string } }; embeddedContentVariables: Record<string, string> }) => {
+          const app = gt.applicationStyles;
+          return {
+            id: `theme-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: gt.name,
+            application: {
+              ...stylingConfig.application,
+              topBar: app.topBar,
+              sidebar: app.sidebar,
+              footer: app.footer ?? {
+                backgroundColor: app.backgrounds?.contentBackground ?? stylingConfig.application.footer.backgroundColor,
+                foregroundColor: app.typography?.secondaryColor ?? stylingConfig.application.footer.foregroundColor,
+              },
+              dialogs: app.dialogs ?? {
+                backgroundColor: app.backgrounds?.contentBackground ?? stylingConfig.application.dialogs.backgroundColor,
+                foregroundColor: app.typography?.primaryColor ?? stylingConfig.application.dialogs.foregroundColor,
+              },
+              buttons: {
+                primary: {
+                  backgroundColor: app.buttons.primary.backgroundColor,
+                  foregroundColor: app.buttons.primary.foregroundColor,
+                  borderColor: app.buttons.primary.borderColor ?? app.buttons.primary.backgroundColor,
+                  hoverBackgroundColor: app.buttons.primary.hoverBackgroundColor,
+                  hoverForegroundColor: app.buttons.primary.hoverForegroundColor ?? app.buttons.primary.foregroundColor,
+                },
+                secondary: {
+                  backgroundColor: app.buttons.secondary.backgroundColor,
+                  foregroundColor: app.buttons.secondary.foregroundColor,
+                  borderColor: app.buttons.secondary.borderColor ?? app.buttons.secondary.backgroundColor,
+                  hoverBackgroundColor: app.buttons.secondary.hoverBackgroundColor,
+                  hoverForegroundColor: app.buttons.secondary.hoverForegroundColor ?? app.buttons.secondary.foregroundColor,
+                },
+              },
+              backgrounds: {
+                mainBackground: app.backgrounds.mainBackground,
+                contentBackground: app.backgrounds.contentBackground,
+                cardBackground: (app.backgrounds as { mainBackground: string; contentBackground: string; cardBackground?: string; borderColor: string }).cardBackground ?? app.backgrounds.contentBackground,
+                borderColor: app.backgrounds.borderColor,
+              },
+              typography: {
+                primaryColor: app.typography.primaryColor,
+                secondaryColor: app.typography.secondaryColor,
+                linkColor: app.typography.linkColor,
+                linkHoverColor: app.typography.linkHoverColor ?? app.typography.linkColor,
+              },
+            },
+            embeddedContentVariables: gt.embeddedContentVariables,
+            createdAt: new Date().toISOString(),
+          } satisfies UserTheme;
+        }
+      );
 
-      // Update the styling configuration with the generated styles
-      const newStylingConfig: StylingConfig = {
+      const firstNewTheme = newUserThemes[0];
+      const existingThemes = stylingConfig.themes ?? [];
+
+      let updatedThemes: UserTheme[];
+      let activeId: string;
+      let themeForStyles: UserTheme;
+
+      if (wizardEditInPlace && wizardBaseThemeId) {
+        // Replace the base theme in place, preserving its ID and name
+        themeForStyles = { ...firstNewTheme, id: wizardBaseThemeId, name: baseTheme?.name ?? firstNewTheme.name };
+        updatedThemes = existingThemes.map(t => t.id === wizardBaseThemeId ? themeForStyles : t);
+        activeId = stylingConfig.activeThemeId ?? wizardBaseThemeId;
+      } else {
+        themeForStyles = firstNewTheme;
+        updatedThemes = [...existingThemes, ...newUserThemes];
+        activeId = firstNewTheme.id;
+      }
+
+      const updatedStylingConfig: StylingConfig = {
         ...stylingConfig,
-        application: {
-          ...stylingConfig.application,
-          topBar: styleConfig.applicationStyles.topBar,
-          sidebar: styleConfig.applicationStyles.sidebar,
-          footer: {
-            ...stylingConfig.application.footer,
-            backgroundColor:
-              styleConfig.applicationStyles.backgrounds?.contentBackground ||
-              stylingConfig.application.footer.backgroundColor,
-            foregroundColor:
-              styleConfig.applicationStyles.typography?.secondaryColor ||
-              stylingConfig.application.footer.foregroundColor,
-          },
-          dialogs: {
-            ...stylingConfig.application.dialogs,
-            backgroundColor:
-              styleConfig.applicationStyles.backgrounds?.contentBackground ||
-              stylingConfig.application.dialogs.backgroundColor,
-          },
-          buttons: styleConfig.applicationStyles.buttons,
-          backgrounds: styleConfig.applicationStyles.backgrounds,
-          typography: styleConfig.applicationStyles.typography,
-        },
+        themes: updatedThemes,
+        activeThemeId: activeId,
+        application: { ...themeForStyles.application },
         embeddedContent: {
           ...stylingConfig.embeddedContent,
           customCSS: {
             ...stylingConfig.embeddedContent.customCSS,
-            variables: styleConfig.embeddedContentVariables,
+            variables: { ...themeForStyles.embeddedContentVariables },
           },
         },
       };
 
-      updateStylingConfig(newStylingConfig);
-
-      // Close the wizard on success
+      updateStylingConfig(updatedStylingConfig);
+      setGeneratedThemeCount(wizardEditInPlace ? 0 : newUserThemes.length);
       setShowStyleWizard(false);
       setStyleDescription("");
+      setWizardBaseThemeId("");
+      setWizardEditInPlace(false);
     } catch (error) {
-      console.error("Error generating style:", error);
+      console.error("Error generating theme:", error);
       setGenerationError(
         error instanceof Error
           ? error.message
-          : "Failed to generate style. Please try again."
+          : "Failed to generate theme. Please try again."
       );
     } finally {
       setIsGeneratingStyle(false);
@@ -4625,7 +5096,7 @@ function StylingContent({
       >
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
           <button
-            onClick={() => setShowStyleWizard(true)}
+            onClick={() => { setShowStyleWizard(true); setGenerationError(null); setGeneratedThemeCount(0); }}
             style={{
               padding: "10px 20px",
               backgroundColor: "#8b5cf6",
@@ -4760,6 +5231,7 @@ function StylingContent({
           <div
             style={{
               backgroundColor: "white",
+              color: "#1f2937",
               padding: "24px",
               borderRadius: "8px",
               minWidth: "400px",
@@ -4847,6 +5319,7 @@ function StylingContent({
           <div
             style={{
               backgroundColor: "white",
+              color: "#1f2937",
               padding: "24px",
               borderRadius: "8px",
               minWidth: "500px",
@@ -4945,6 +5418,7 @@ function StylingContent({
           <div
             style={{
               backgroundColor: "white",
+              color: "#1f2937",
               padding: "24px",
               borderRadius: "8px",
               minWidth: "450px",
@@ -5129,675 +5603,257 @@ function StylingContent({
 
       {/* Content */}
       <div style={{ flex: 1, overflow: "auto" }}>
-        {activeSubTab === "application" && (
+
+        {/* ── Theme Tab ── */}
+        {activeSubTab === "theme" && (
           <div>
-            <h4
-              style={{
-                fontSize: "18px",
-                fontWeight: "600",
-                marginBottom: "20px",
-              }}
-            >
-              Application Styling
-            </h4>
-
-            {/* Theme Selector */}
-            <ThemeSelector
-              selectedTheme={
-                stylingConfig.application.selectedTheme || "default"
-              }
-              onThemeChange={(themeId) => {
-                const newStyles = applyTheme(
-                  themeId,
-                  stylingConfig.application
-                );
-                updateStylingConfig({
-                  ...stylingConfig,
-                  application: newStyles,
-                });
-              }}
-            />
-
-            {/* Top Bar Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Top Bar
-              </h5>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={stylingConfig.application.topBar.backgroundColor}
-                  onChange={(value) =>
-                    updateTopBarStyles("backgroundColor", value)
-                  }
-                  label="Background Color"
+            {/* Theme Selector Bar */}
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "14px 16px", backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", marginBottom: "24px", flexWrap: "wrap" }}>
+              <label style={{ fontWeight: "600", fontSize: "14px", color: "#374151", flexShrink: 0 }}>Theme:</label>
+              {isRenamingTheme ? (
+                <input
+                  autoFocus
+                  value={renamingThemeValue}
+                  onChange={(e) => setRenamingThemeValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const name = renamingThemeValue.trim();
+                      if (name && selectedTheme) applyThemeUpdate({ ...selectedTheme, name });
+                      setIsRenamingTheme(false);
+                    } else if (e.key === "Escape") setIsRenamingTheme(false);
+                  }}
+                  onBlur={() => {
+                    const name = renamingThemeValue.trim();
+                    if (name && selectedTheme) applyThemeUpdate({ ...selectedTheme, name });
+                    setIsRenamingTheme(false);
+                  }}
+                  style={{ padding: "6px 10px", border: "2px solid #3182ce", borderRadius: "6px", fontSize: "14px", fontWeight: "600", minWidth: "160px" }}
                 />
-                <ColorPicker
-                  value={stylingConfig.application.topBar.foregroundColor}
-                  onChange={(value) =>
-                    updateTopBarStyles("foregroundColor", value)
-                  }
-                  label="Foreground Color"
-                />
+              ) : (
+                <select
+                  value={selectedTheme?.id ?? ""}
+                  onChange={(e) => setSelectedThemeIdForEdit(e.target.value)}
+                  style={{ padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", minWidth: "160px", backgroundColor: "white" }}
+                >
+                  {(!stylingConfig.themes || stylingConfig.themes.length === 0) && <option value="">No themes yet</option>}
+                  {[...(stylingConfig.themes ?? [])].sort((a, b) => a.name.localeCompare(b.name)).map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}{t.id === stylingConfig.activeThemeId ? " ✓" : ""}</option>
+                  ))}
+                </select>
+              )}
+              {selectedTheme && selectedTheme.id !== stylingConfig.activeThemeId && (
+                <button
+                  onClick={() => {
+                    updateStylingConfig({ ...stylingConfig, activeThemeId: selectedTheme.id, application: { ...selectedTheme.application }, embeddedContent: { ...stylingConfig.embeddedContent, customCSS: { ...stylingConfig.embeddedContent.customCSS, variables: { ...selectedTheme.embeddedContentVariables } } } });
+                  }}
+                  style={{ padding: "6px 12px", backgroundColor: "#3182ce", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "500", display: "flex", alignItems: "center", gap: "4px" }}
+                >
+                  <MaterialIcon icon="check_circle" style={{ fontSize: "14px" }} />
+                  Apply
+                </button>
+              )}
+              <div style={{ display: "flex", gap: "6px", marginLeft: "auto" }}>
+                <button onClick={() => { if (selectedTheme) { setRenamingThemeValue(selectedTheme.name); setIsRenamingTheme(true); } }} title="Rename" style={{ padding: "5px 10px", backgroundColor: "transparent", border: "1px solid #d1d5db", borderRadius: "5px", cursor: "pointer", color: "#4b5563", fontSize: "12px" }}>Rename</button>
+                <button onClick={() => { setShowStyleWizard(true); setGenerationError(null); setGeneratedThemeCount(0); if (selectedTheme) { setWizardBaseThemeId(selectedTheme.id); setWizardEditInPlace(true); } }} title="Edit with AI" style={{ padding: "5px 10px", backgroundColor: "#8b5cf6", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <MaterialIcon icon="auto_fix_high" style={{ fontSize: "13px" }} />
+                  AI
+                </button>
+                <button onClick={() => { setShowNewThemeDialog(true); setNewThemeName(""); }} title="New theme" style={{ padding: "5px 10px", backgroundColor: "#059669", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", fontSize: "12px" }}>+ New</button>
+                {selectedTheme && (
+                  <button
+                    onClick={() => {
+                      const dup: UserTheme = { ...selectedTheme, id: `theme-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, name: `${selectedTheme.name} Copy`, createdAt: new Date().toISOString() };
+                      updateStylingConfig({ ...stylingConfig, themes: [...(stylingConfig.themes ?? []), dup] });
+                      setSelectedThemeIdForEdit(dup.id);
+                    }}
+                    title="Duplicate" style={{ padding: "5px 8px", backgroundColor: "transparent", border: "1px solid #d1d5db", borderRadius: "5px", cursor: "pointer", color: "#4b5563" }}>
+                    <MaterialIcon icon="content_copy" style={{ fontSize: "13px" }} />
+                  </button>
+                )}
+                {selectedTheme && (
+                  <button
+                    onClick={() => {
+                      if ((stylingConfig.themes?.length ?? 0) <= 1) { alert("You must have at least one theme."); return; }
+                      if (!confirm(`Delete theme "${selectedTheme.name}"?`)) return;
+                      const remaining = (stylingConfig.themes ?? []).filter(t => t.id !== selectedTheme.id);
+                      const wasActive = selectedTheme.id === stylingConfig.activeThemeId;
+                      const newActiveId = wasActive ? remaining[0]?.id : stylingConfig.activeThemeId;
+                      const newActive = remaining.find(t => t.id === newActiveId);
+                      updateStylingConfig({ ...stylingConfig, themes: remaining, activeThemeId: newActiveId, ...(wasActive && newActive ? { application: { ...newActive.application }, embeddedContent: { ...stylingConfig.embeddedContent, customCSS: { ...stylingConfig.embeddedContent.customCSS, variables: { ...newActive.embeddedContentVariables } } } } : {}) });
+                      setSelectedThemeIdForEdit(newActiveId);
+                    }}
+                    title="Delete" style={{ padding: "5px 8px", backgroundColor: "transparent", border: "1px solid #fca5a5", borderRadius: "5px", cursor: "pointer", color: "#dc2626" }}>
+                    <MaterialIcon icon="delete" style={{ fontSize: "13px" }} />
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Sidebar Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Sidebar
-              </h5>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={stylingConfig.application.sidebar.backgroundColor}
-                  onChange={(value) =>
-                    updateSidebarStyles("backgroundColor", value)
-                  }
-                  label="Background Color"
-                />
-                <ColorPicker
-                  value={stylingConfig.application.sidebar.foregroundColor}
-                  onChange={(value) =>
-                    updateSidebarStyles("foregroundColor", value)
-                  }
-                  label="Foreground Color"
-                />
+            {generatedThemeCount > 0 && (
+              <div style={{ padding: "10px 14px", backgroundColor: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "6px", marginBottom: "16px", fontSize: "14px", color: "#166534" }}>
+                ✓ {generatedThemeCount} theme{generatedThemeCount > 1 ? "s" : ""} generated and added. The first one is now active.
               </div>
-            </div>
+            )}
 
-            {/* Footer Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Footer
-              </h5>
+            {!selectedTheme ? (
+              <div style={{ textAlign: "center", padding: "40px 20px", color: "#6b7280", fontSize: "14px" }}>No themes yet. Click &quot;AI&quot; or &quot;+ New&quot; to create one.</div>
+            ) : (
+              <div>
+                {/* Application Colors */}
+                <div style={{ marginBottom: "28px" }}>
+                  <h5 style={{ fontSize: "15px", fontWeight: "600", color: "#374151", borderBottom: "1px solid #e5e7eb", paddingBottom: "8px", marginBottom: "16px" }}>Application Colors</h5>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <div style={{ padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: "8px", backgroundColor: "#f9fafb" }}>
+                      <div style={{ fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>Top Bar</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                        <ColorPicker value={themeApp.topBar.backgroundColor} onChange={(v) => updateTopBarStyles("backgroundColor", v)} label="Background" />
+                        <ColorPicker value={themeApp.topBar.foregroundColor} onChange={(v) => updateTopBarStyles("foregroundColor", v)} label="Text / Icons" />
+                      </div>
+                    </div>
+                    <div style={{ padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: "8px", backgroundColor: "#f9fafb" }}>
+                      <div style={{ fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>Sidebar</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                        <ColorPicker value={themeApp.sidebar.backgroundColor} onChange={(v) => updateSidebarStyles("backgroundColor", v)} label="Background" />
+                        <ColorPicker value={themeApp.sidebar.foregroundColor} onChange={(v) => updateSidebarStyles("foregroundColor", v)} label="Text" />
+                      </div>
+                    </div>
+                    <div style={{ padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: "8px", backgroundColor: "#f9fafb" }}>
+                      <div style={{ fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>Buttons</div>
+                      <div style={{ marginBottom: "10px" }}>
+                        <div style={{ fontSize: "11px", fontWeight: "500", color: "#9ca3af", marginBottom: "6px" }}>Primary</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                          <ColorPicker value={themeApp.buttons?.primary?.backgroundColor || "#3182ce"} onChange={(v) => updateButtonStyles("primary", "backgroundColor", v)} label="Background" />
+                          <ColorPicker value={themeApp.buttons?.primary?.foregroundColor || "#ffffff"} onChange={(v) => updateButtonStyles("primary", "foregroundColor", v)} label="Text" />
+                          <ColorPicker value={themeApp.buttons?.primary?.hoverBackgroundColor || "#2c5aa0"} onChange={(v) => updateButtonStyles("primary", "hoverBackgroundColor", v)} label="Hover" />
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: "11px", fontWeight: "500", color: "#9ca3af", marginBottom: "6px" }}>Secondary</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                          <ColorPicker value={themeApp.buttons?.secondary?.backgroundColor || "#ffffff"} onChange={(v) => updateButtonStyles("secondary", "backgroundColor", v)} label="Background" />
+                          <ColorPicker value={themeApp.buttons?.secondary?.foregroundColor || "#374151"} onChange={(v) => updateButtonStyles("secondary", "foregroundColor", v)} label="Text" />
+                          <ColorPicker value={themeApp.buttons?.secondary?.hoverBackgroundColor || "#f9fafb"} onChange={(v) => updateButtonStyles("secondary", "hoverBackgroundColor", v)} label="Hover" />
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: "8px", backgroundColor: "#f9fafb" }}>
+                      <div style={{ fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>Backgrounds</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                        <ColorPicker value={themeApp.backgrounds?.mainBackground || "#f7fafc"} onChange={(v) => updateBackgroundStyles("mainBackground", v)} label="Page" />
+                        <ColorPicker value={themeApp.backgrounds?.contentBackground || "#ffffff"} onChange={(v) => updateBackgroundStyles("contentBackground", v)} label="Content" />
+                        <ColorPicker value={themeApp.backgrounds?.cardBackground || "#ffffff"} onChange={(v) => updateBackgroundStyles("cardBackground", v)} label="Card" />
+                        <ColorPicker value={themeApp.backgrounds?.borderColor || "#e2e8f0"} onChange={(v) => updateBackgroundStyles("borderColor", v)} label="Border" />
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                      <div style={{ padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: "8px", backgroundColor: "#f9fafb" }}>
+                        <div style={{ fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>Footer</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                          <ColorPicker value={themeApp.footer.backgroundColor} onChange={(v) => updateFooterStyles("backgroundColor", v)} label="Background" />
+                          <ColorPicker value={themeApp.footer.foregroundColor} onChange={(v) => updateFooterStyles("foregroundColor", v)} label="Text" />
+                        </div>
+                      </div>
+                      <div style={{ padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: "8px", backgroundColor: "#f9fafb" }}>
+                        <div style={{ fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>Dialogs</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                          <ColorPicker value={themeApp.dialogs.backgroundColor} onChange={(v) => updateDialogStyles("backgroundColor", v)} label="Background" />
+                          <ColorPicker value={themeApp.dialogs.foregroundColor} onChange={(v) => updateDialogStyles("foregroundColor", v)} label="Text" />
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ padding: "14px 16px", border: "1px solid #e5e7eb", borderRadius: "8px", backgroundColor: "#f9fafb" }}>
+                      <div style={{ fontSize: "12px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>Typography</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                        <ColorPicker value={themeApp.typography?.primaryColor || "#1f2937"} onChange={(v) => updateTypographyStyles("primaryColor", v)} label="Primary Text" />
+                        <ColorPicker value={themeApp.typography?.secondaryColor || "#6b7280"} onChange={(v) => updateTypographyStyles("secondaryColor", v)} label="Secondary Text" />
+                        <ColorPicker value={themeApp.typography?.linkColor || "#3182ce"} onChange={(v) => updateTypographyStyles("linkColor", v)} label="Link" />
+                        <ColorPicker value={themeApp.typography?.linkHoverColor || "#2c5aa0"} onChange={(v) => updateTypographyStyles("linkHoverColor", v)} label="Link Hover" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={stylingConfig.application.footer.backgroundColor}
-                  onChange={(value) =>
-                    updateFooterStyles("backgroundColor", value)
-                  }
-                  label="Background Color"
-                />
-                <ColorPicker
-                  value={stylingConfig.application.footer.foregroundColor}
-                  onChange={(value) =>
-                    updateFooterStyles("foregroundColor", value)
-                  }
-                  label="Foreground Color"
-                />
+                {/* ThoughtSpot Content Styling */}
+                <div style={{ marginBottom: "28px" }}>
+                  <h5 style={{ fontSize: "15px", fontWeight: "600", color: "#374151", borderBottom: "1px solid #e5e7eb", paddingBottom: "8px", marginBottom: "16px" }}>ThoughtSpot Content Styling</h5>
+                  <CSSVariablesEditor
+                    variables={selectedTheme.embeddedContentVariables || {}}
+                    onChange={updateThemeCSSVariables}
+                    title="CSS Variables"
+                    description="CSS variables applied to embedded ThoughtSpot charts and dashboards for this theme"
+                  />
+                </div>
+
+                {/* Advanced / Application-wide Settings */}
+                <div style={{ marginBottom: "24px", border: "1px solid #e5e7eb", borderRadius: "8px", overflow: "hidden" }}>
+                  <button
+                    onClick={() => setShowAdvancedSettings(v => !v)}
+                    style={{ width: "100%", padding: "14px 16px", background: "#f8fafc", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "14px", fontWeight: "600", color: "#374151" }}
+                  >
+                    <span>Advanced / Application-wide Settings</span>
+                    <MaterialIcon icon={showAdvancedSettings ? "expand_less" : "expand_more"} style={{ fontSize: "20px", color: "#6b7280" }} />
+                  </button>
+                  {showAdvancedSettings && (
+                    <div style={{ padding: "16px" }}>
+                      <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "16px", marginTop: 0 }}>These settings apply across all themes: string replacements, custom CSS rules, stylesheet URL, and icon sprite.</p>
+                      <StringMappingEditor mappings={stylingConfig.embeddedContent.strings} onChange={(v) => updateEmbeddedContent("strings", v)} title="String Mappings" description="Map ThoughtSpot strings to custom values" />
+                      <StringMappingEditor mappings={stylingConfig.embeddedContent.stringIDs} onChange={(v) => updateEmbeddedContent("stringIDs", v)} title="String ID Mappings" description="Map ThoughtSpot string IDs to custom values" />
+                      <div style={{ marginBottom: "20px" }}>
+                        <h4 style={{ fontSize: "14px", fontWeight: "600", marginBottom: "6px" }}>Custom CSS URL</h4>
+                        <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "8px" }}>URL to an external CSS file</p>
+                        <input type="url" value={stylingConfig.embeddedContent.cssUrl || ""} onChange={(e) => updateEmbeddedContent("cssUrl", e.target.value)} placeholder="https://example.com/custom-styles.css" style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "14px", boxSizing: "border-box" }} />
+                      </div>
+                      <div style={{ marginBottom: "20px" }}>
+                        <SpotterIconPicker selectedIcon={stylingConfig.embeddedContent.iconSpriteUrl} onIconSelect={(iconUrl) => updateEmbeddedContent("iconSpriteUrl", iconUrl)} onMenuIconUpdate={(menuIconUrl) => { if (updateStandardMenu) { updateStandardMenu("spotter", "icon", menuIconUrl); } }} title="Spotter Icon" description="Choose an icon for your Spotter embed." />
+                      </div>
+                      <CSSRulesEditor rules={stylingConfig.embeddedContent.customCSS.rules_UNSTABLE || {}} onChange={(v) => updateEmbeddedContent("customCSS", { ...stylingConfig.embeddedContent.customCSS, rules_UNSTABLE: v })} title="Custom CSS Rules (rules_UNSTABLE)" description="Custom CSS rules for ThoughtSpot styling." />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Dialog Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Dialogs
-              </h5>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={stylingConfig.application.dialogs.backgroundColor}
-                  onChange={(value) =>
-                    updateDialogStyles("backgroundColor", value)
-                  }
-                  label="Background Color"
-                />
-                <ColorPicker
-                  value={stylingConfig.application.dialogs.foregroundColor}
-                  onChange={(value) =>
-                    updateDialogStyles("foregroundColor", value)
-                  }
-                  label="Foreground Color"
-                />
+            {/* New Theme Dialog */}
+            {showNewThemeDialog && (
+              <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000 }}>
+                <div style={{ backgroundColor: "white", color: "#1f2937", padding: "24px", borderRadius: "8px", minWidth: "360px", maxWidth: "440px" }}>
+                  <h3 style={{ marginBottom: "8px", fontSize: "18px", fontWeight: "bold" }}>New Theme</h3>
+                  <p style={{ marginBottom: "16px", fontSize: "14px", color: "#6b7280" }}>Creates a copy of the current active theme with a new name.</p>
+                  <input autoFocus type="text" value={newThemeName} onChange={(e) => setNewThemeName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const name = newThemeName.trim();
+                        if (!name) return;
+                        const newTheme: UserTheme = { id: `theme-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, name, application: { ...stylingConfig.application }, embeddedContentVariables: { ...(stylingConfig.embeddedContent.customCSS?.variables || {}) }, createdAt: new Date().toISOString() };
+                        updateStylingConfig({ ...stylingConfig, themes: [...(stylingConfig.themes ?? []), newTheme] });
+                        setSelectedThemeIdForEdit(newTheme.id);
+                        setShowNewThemeDialog(false); setNewThemeName("");
+                      } else if (e.key === "Escape") setShowNewThemeDialog(false);
+                    }}
+                    placeholder="e.g., Corporate Blue, Dark Mode"
+                    style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "14px", marginBottom: "16px", boxSizing: "border-box" }} />
+                  <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                    <button onClick={() => setShowNewThemeDialog(false)} style={{ padding: "8px 16px", backgroundColor: "#f3f4f6", color: "#374151", border: "1px solid #d1d5db", borderRadius: "6px", cursor: "pointer", fontSize: "14px" }}>Cancel</button>
+                    <button
+                      onClick={() => {
+                        const name = newThemeName.trim();
+                        if (!name) return;
+                        const newTheme: UserTheme = { id: `theme-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, name, application: { ...stylingConfig.application }, embeddedContentVariables: { ...(stylingConfig.embeddedContent.customCSS?.variables || {}) }, createdAt: new Date().toISOString() };
+                        updateStylingConfig({ ...stylingConfig, themes: [...(stylingConfig.themes ?? []), newTheme] });
+                        setSelectedThemeIdForEdit(newTheme.id);
+                        setShowNewThemeDialog(false); setNewThemeName("");
+                      }}
+                      disabled={!newThemeName.trim()}
+                      style={{ padding: "8px 16px", backgroundColor: !newThemeName.trim() ? "#9ca3af" : "#3182ce", color: "white", border: "none", borderRadius: "6px", cursor: !newThemeName.trim() ? "not-allowed" : "pointer", fontSize: "14px", fontWeight: "500" }}>
+                      Create
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            {/* Button Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Primary Buttons
-              </h5>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.primary
-                      ?.backgroundColor || "#3182ce"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles("primary", "backgroundColor", value)
-                  }
-                  label="Background Color"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.primary
-                      ?.foregroundColor || "#ffffff"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles("primary", "foregroundColor", value)
-                  }
-                  label="Text Color"
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.primary?.borderColor ||
-                    "#3182ce"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles("primary", "borderColor", value)
-                  }
-                  label="Border Color"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.primary
-                      ?.hoverBackgroundColor || "#2c5aa0"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles("primary", "hoverBackgroundColor", value)
-                  }
-                  label="Hover Background"
-                />
-              </div>
-
-              <ColorPicker
-                value={
-                  stylingConfig.application.buttons?.primary
-                    ?.hoverForegroundColor || "#ffffff"
-                }
-                onChange={(value) =>
-                  updateButtonStyles("primary", "hoverForegroundColor", value)
-                }
-                label="Hover Text Color"
-              />
-            </div>
-
-            {/* Secondary Button Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Secondary Buttons
-              </h5>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.secondary
-                      ?.backgroundColor || "#ffffff"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles("secondary", "backgroundColor", value)
-                  }
-                  label="Background Color"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.secondary
-                      ?.foregroundColor || "#374151"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles("secondary", "foregroundColor", value)
-                  }
-                  label="Text Color"
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.secondary?.borderColor ||
-                    "#d1d5db"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles("secondary", "borderColor", value)
-                  }
-                  label="Border Color"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.buttons?.secondary
-                      ?.hoverBackgroundColor || "#f9fafb"
-                  }
-                  onChange={(value) =>
-                    updateButtonStyles(
-                      "secondary",
-                      "hoverBackgroundColor",
-                      value
-                    )
-                  }
-                  label="Hover Background"
-                />
-              </div>
-
-              <ColorPicker
-                value={
-                  stylingConfig.application.buttons?.secondary
-                    ?.hoverForegroundColor || "#374151"
-                }
-                onChange={(value) =>
-                  updateButtonStyles("secondary", "hoverForegroundColor", value)
-                }
-                label="Hover Text Color"
-              />
-            </div>
-
-            {/* Background Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Backgrounds
-              </h5>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.backgrounds?.mainBackground ||
-                    "#f7fafc"
-                  }
-                  onChange={(value) =>
-                    updateBackgroundStyles("mainBackground", value)
-                  }
-                  label="Main Background"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.backgrounds?.contentBackground ||
-                    "#ffffff"
-                  }
-                  onChange={(value) =>
-                    updateBackgroundStyles("contentBackground", value)
-                  }
-                  label="Content Background"
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.backgrounds?.cardBackground ||
-                    "#ffffff"
-                  }
-                  onChange={(value) =>
-                    updateBackgroundStyles("cardBackground", value)
-                  }
-                  label="Card Background"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.backgrounds?.borderColor ||
-                    "#e2e8f0"
-                  }
-                  onChange={(value) =>
-                    updateBackgroundStyles("borderColor", value)
-                  }
-                  label="Border Color"
-                />
-              </div>
-            </div>
-
-            {/* Typography Styling */}
-            <div
-              style={{
-                marginBottom: "32px",
-                padding: "20px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                backgroundColor: "#f9fafb",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "16px",
-                }}
-              >
-                Typography
-              </h5>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                  marginBottom: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.typography?.primaryColor ||
-                    "#1f2937"
-                  }
-                  onChange={(value) =>
-                    updateTypographyStyles("primaryColor", value)
-                  }
-                  label="Primary Text Color"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.typography?.secondaryColor ||
-                    "#6b7280"
-                  }
-                  onChange={(value) =>
-                    updateTypographyStyles("secondaryColor", value)
-                  }
-                  label="Secondary Text Color"
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                }}
-              >
-                <ColorPicker
-                  value={
-                    stylingConfig.application.typography?.linkColor || "#3182ce"
-                  }
-                  onChange={(value) =>
-                    updateTypographyStyles("linkColor", value)
-                  }
-                  label="Link Color"
-                />
-                <ColorPicker
-                  value={
-                    stylingConfig.application.typography?.linkHoverColor ||
-                    "#2c5aa0"
-                  }
-                  onChange={(value) =>
-                    updateTypographyStyles("linkHoverColor", value)
-                  }
-                  label="Link Hover Color"
-                />
-              </div>
-            </div>
+            )}
           </div>
         )}
 
-        {activeSubTab === "embedded" && (
-          <div>
-            <h4
-              style={{
-                fontSize: "18px",
-                fontWeight: "600",
-                marginBottom: "20px",
-              }}
-            >
-              Embedded Content Customization
-            </h4>
-
-            {/* Strings */}
-            <StringMappingEditor
-              mappings={stylingConfig.embeddedContent.strings}
-              onChange={(value) => updateEmbeddedContent("strings", value)}
-              title="String Mappings"
-              description="Map ThoughtSpot strings to custom values"
-            />
-
-            {/* String IDs */}
-            <StringMappingEditor
-              mappings={stylingConfig.embeddedContent.stringIDs}
-              onChange={(value) => updateEmbeddedContent("stringIDs", value)}
-              title="String ID Mappings"
-              description="Map ThoughtSpot string IDs to custom values"
-            />
-
-            {/* CSS URL */}
-            <div style={{ marginBottom: "24px" }}>
-              <h4
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  marginBottom: "8px",
-                }}
-              >
-                Custom CSS URL
-              </h4>
-              <p
-                style={{
-                  fontSize: "14px",
-                  color: "#6b7280",
-                  marginBottom: "16px",
-                }}
-              >
-                URL to an external CSS file for custom styling
-              </p>
-              <input
-                type="url"
-                value={stylingConfig.embeddedContent.cssUrl || ""}
-                onChange={(e) =>
-                  updateEmbeddedContent("cssUrl", e.target.value)
-                }
-                placeholder="https://example.com/custom-styles.css"
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "4px",
-                  fontSize: "14px",
-                }}
-              />
-            </div>
-
-            {/* Spotter Icon Selection */}
-            <div style={{ marginBottom: "24px" }}>
-              <SpotterIconPicker
-                selectedIcon={stylingConfig.embeddedContent.iconSpriteUrl}
-                onIconSelect={(iconUrl) =>
-                  updateEmbeddedContent("iconSpriteUrl", iconUrl)
-                }
-                onMenuIconUpdate={(menuIconUrl) => {
-                  if (updateStandardMenu) {
-                    updateStandardMenu("spotter", "icon", menuIconUrl);
-                  }
-                }}
-                title="Spotter Icon Selection"
-                description="Choose an icon for your Spotter embed. This will be used as the iconSpriteUrl in the embed configuration and will also update the Spotter menu icon."
-              />
-            </div>
-
-            {/* CSS Variables */}
-            <CSSVariablesEditor
-              variables={
-                stylingConfig.embeddedContent.customCSS.variables || {}
-              }
-              onChange={(value) =>
-                updateEmbeddedContent("customCSS", {
-                  ...stylingConfig.embeddedContent.customCSS,
-                  variables: value,
-                })
-              }
-              title="Custom CSS Variables"
-              description="Define custom CSS variables for ThoughtSpot styling"
-            />
-
-            {/* CSS Rules */}
-            <CSSRulesEditor
-              rules={
-                stylingConfig.embeddedContent.customCSS.rules_UNSTABLE || {}
-              }
-              onChange={(value) =>
-                updateEmbeddedContent("customCSS", {
-                  ...stylingConfig.embeddedContent.customCSS,
-                  rules_UNSTABLE: value,
-                })
-              }
-              title="Custom CSS Rules (rules_UNSTABLE)"
-              description="Define custom CSS rules for ThoughtSpot styling. Use valid JSON with CSS selectors as keys and style objects as values."
-            />
-          </div>
-        )}
-      </div>
 
       {/* Style Wizard Modal */}
       {showStyleWizard && (
@@ -5819,6 +5875,8 @@ function StylingContent({
             if (e.target === e.currentTarget && !isGeneratingStyle) {
               setShowStyleWizard(false);
               setStyleDescription("");
+              setWizardBaseThemeId("");
+              setWizardEditInPlace(false);
               setGenerationError(null);
             }
           }}
@@ -5826,6 +5884,7 @@ function StylingContent({
           <div
             style={{
               backgroundColor: "white",
+              color: "#1f2937",
               borderRadius: "12px",
               maxWidth: "600px",
               width: "100%",
@@ -5863,7 +5922,7 @@ function StylingContent({
                     color: "#1f2937",
                   }}
                 >
-                  Style Wizard
+                  {wizardEditInPlace ? "AI Theme Editor" : "AI Theme Generator"}
                 </h2>
               </div>
               {!isGeneratingStyle && (
@@ -5871,6 +5930,8 @@ function StylingContent({
                   onClick={() => {
                     setShowStyleWizard(false);
                     setStyleDescription("");
+                    setWizardBaseThemeId("");
+                    setWizardEditInPlace(false);
                     setGenerationError(null);
                   }}
                   style={{
@@ -5897,10 +5958,46 @@ function StylingContent({
                   lineHeight: "1.6",
                 }}
               >
-                Describe your desired style and colors, and AI will generate a
-                complete styling configuration for your application and embedded
-                ThoughtSpot content.
+                {wizardEditInPlace
+                  ? `Describe the changes you want to make. AI will update "${stylingConfig.themes?.find(t => t.id === wizardBaseThemeId)?.name ?? "the selected theme"}" in place.`
+                  : "Describe the theme(s) you want. AI will generate named themes covering both your application wrapper and embedded ThoughtSpot content. Generated themes are added to your theme list."
+                }
               </p>
+
+              {/* Base Theme */}
+              {stylingConfig.themes && stylingConfig.themes.length > 0 && (
+                <div style={{ marginBottom: "20px" }}>
+                  <label style={{ display: "block", marginBottom: "6px", fontWeight: "500", color: "#374151", fontSize: "14px" }}>
+                    Base on existing theme <span style={{ fontWeight: "400", color: "#9ca3af" }}>(optional)</span>
+                  </label>
+                  <select
+                    value={wizardBaseThemeId}
+                    onChange={(e) => setWizardBaseThemeId(e.target.value)}
+                    disabled={isGeneratingStyle}
+                    style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px", fontSize: "14px", backgroundColor: "white", opacity: isGeneratingStyle ? 0.6 : 1 }}
+                  >
+                    <option value="">— None (start fresh) —</option>
+                    {[...stylingConfig.themes].sort((a, b) => a.name.localeCompare(b.name)).map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <p style={{ marginTop: "6px", fontSize: "12px", color: "#6b7280", fontStyle: "italic" }}>
+                    When set, the AI uses this theme as a starting point. e.g. &quot;Based on Default, create a dark version&quot;.
+                  </p>
+                  {wizardBaseThemeId && (
+                    <label style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "10px", cursor: "pointer", fontSize: "14px", color: "#374151" }}>
+                      <input
+                        type="checkbox"
+                        checked={wizardEditInPlace}
+                        onChange={(e) => setWizardEditInPlace(e.target.checked)}
+                        disabled={isGeneratingStyle}
+                        style={{ width: "16px", height: "16px", cursor: "pointer" }}
+                      />
+                      Edit selected theme in place <span style={{ color: "#6b7280", fontWeight: 400 }}>(replaces instead of creating new)</span>
+                    </label>
+                  )}
+                </div>
+              )}
 
               {/* Style Description */}
               <div style={{ marginBottom: "24px" }}>
@@ -5913,12 +6010,12 @@ function StylingContent({
                     fontSize: "14px",
                   }}
                 >
-                  Style Description
+                  Description
                 </label>
                 <textarea
                   value={styleDescription}
                   onChange={(e) => setStyleDescription(e.target.value)}
-                  placeholder="Describe your desired style and colors. For example: 'Professional corporate theme with navy blue primary color (#1e3a8a), light gray backgrounds, and orange accents for buttons. Use modern, clean design with subtle shadows.'"
+                  placeholder="Examples:&#10;• 'Generate a light theme that uses purple buttons'&#10;• 'Based on the Default theme, create a dark version'&#10;• 'Generate two themes called Dark and Light using greens and yellows'"
                   rows={6}
                   disabled={isGeneratingStyle}
                   style={{
@@ -6062,8 +6159,7 @@ function StylingContent({
                           marginTop: "4px",
                         }}
                       >
-                        This may take a moment. AI is creating your custom
-                        theme.
+                        This may take a moment. AI is {wizardEditInPlace ? "updating your theme" : "creating your custom theme"}.
                       </div>
                     </div>
                   </div>
@@ -6088,6 +6184,8 @@ function StylingContent({
                 onClick={() => {
                   setShowStyleWizard(false);
                   setStyleDescription("");
+                  setWizardBaseThemeId("");
+                  setWizardEditInPlace(false);
                   setGenerationError(null);
                 }}
                 disabled={isGeneratingStyle}
@@ -6130,7 +6228,7 @@ function StylingContent({
               >
                 {isGeneratingStyle ? (
                   <>
-                    <span>Updating</span>
+                    <span>{wizardEditInPlace ? "Updating" : "Generating"}</span>
                     <span
                       style={{
                         display: "inline-flex",
@@ -6165,7 +6263,7 @@ function StylingContent({
                       icon="auto_fix_high"
                       style={{ fontSize: "18px" }}
                     />
-                    Generate Styles
+                    {wizardEditInPlace ? "Update Theme" : "Generate Theme(s)"}
                   </>
                 )}
               </button>
@@ -6173,6 +6271,386 @@ function StylingContent({
           </div>
         </div>
       )}
+
+      {/* Layout & Style sub-tab */}
+      {activeSubTab === "layout" && (
+        <div>
+          <h4 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "8px" }}>
+            Layout & Style
+          </h4>
+          <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "24px" }}>
+            Control the shape, spacing, motion, and navigation structure of the app.
+          </p>
+
+          {/* Section helper */}
+          {(
+            [
+              {
+                label: "Navigation Position",
+                description: "Where the main nav lives — sidebar or horizontal top bar.",
+                field: "navPosition" as const,
+                options: [
+                  { value: "side", label: "Side", hint: "Collapsible left sidebar" },
+                  { value: "top",  label: "Top",  hint: "Horizontal bar below the header" },
+                ],
+              },
+              {
+                label: "Sidebar Behavior",
+                description: "Controls how the sidebar opens and closes (side nav only).",
+                field: "sideNavBehavior" as const,
+                options: [
+                  { value: "hover-expand",    label: "Hover to expand", hint: "Collapses to icon strip; expands on hover" },
+                  { value: "always-expanded", label: "Always expanded",  hint: "Stays fully open" },
+                  { value: "icon-only",        label: "Icon only",        hint: "Icons only, never expands" },
+                ],
+              },
+              {
+                label: "Top Nav Alignment",
+                description: "Where nav items are positioned in the top bar (top nav only).",
+                field: "topNavAlignment" as const,
+                options: [
+                  { value: "left",   label: "Left",     hint: "Items start from the left edge" },
+                  { value: "center", label: "Centered", hint: "Items are centered in the bar" },
+                ],
+              },
+              {
+                label: "Top Nav Style",
+                description: "Visual style of the navigation buttons in the top bar (top nav only).",
+                field: "topNavStyle" as const,
+                options: [
+                  { value: "tabs",         label: "Tabs",         hint: "Underline on active item" },
+                  { value: "push-buttons", label: "Push Buttons", hint: "Raised buttons; active looks pressed in" },
+                ],
+              },
+              {
+                label: "Nav Button Gap",
+                description: "Space between push-button nav items (push buttons only).",
+                field: "navButtonGap" as const,
+                options: [
+                  { value: "none",    label: "None",    hint: "0px — buttons touch" },
+                  { value: "tight",   label: "Tight",   hint: "2px — barely separated" },
+                  { value: "normal",  label: "Normal",  hint: "6px — comfortable" },
+                  { value: "relaxed", label: "Relaxed", hint: "12px — airy" },
+                ],
+              },
+              {
+                label: "Top Bar Height",
+                description: "Sets the vertical size of the header bar.",
+                field: "topBarHeight" as const,
+                options: [
+                  { value: "compact", label: "Compact", hint: "40px — tight, dense" },
+                  { value: "default", label: "Default", hint: "56px — standard" },
+                  { value: "tall",    label: "Tall",    hint: "72px — prominent branding" },
+                ],
+              },
+              {
+                label: "Border Radius",
+                description: "How rounded corners are throughout the app.",
+                field: "borderRadius" as const,
+                options: [
+                  { value: "sharp", label: "Sharp", hint: "Flat, no rounding" },
+                  { value: "soft",  label: "Soft",  hint: "Gentle curves (default)" },
+                  { value: "round", label: "Round", hint: "Pronounced rounding" },
+                ],
+              },
+              {
+                label: "Spacing Density",
+                description: "Padding scale — how tight or airy the layout feels.",
+                field: "density" as const,
+                options: [
+                  { value: "compact",     label: "Compact",     hint: "Tight — more content visible" },
+                  { value: "default",     label: "Default",     hint: "Balanced" },
+                  { value: "comfortable", label: "Comfortable", hint: "Airy — more whitespace" },
+                ],
+              },
+              {
+                label: "Shadow Style",
+                description: "Depth and elevation of panels, cards, and the top bar.",
+                field: "shadowStyle" as const,
+                options: [
+                  { value: "flat",     label: "Flat",     hint: "No shadows — ultra-clean" },
+                  { value: "subtle",   label: "Subtle",   hint: "Light shadows (default)" },
+                  { value: "elevated", label: "Elevated", hint: "Strong shadows — layered feel" },
+                ],
+              },
+              {
+                label: "Card Style",
+                description: "How content cards and panels are visually separated.",
+                field: "cardStyle" as const,
+                options: [
+                  { value: "bordered",   label: "Bordered",   hint: "Outlined with a border" },
+                  { value: "shadowed",   label: "Shadowed",   hint: "Drop shadow, no border" },
+                  { value: "borderless", label: "Borderless", hint: "Flat, no separation" },
+                ],
+              },
+              {
+                label: "Animation Speed",
+                description: "How fast transitions and hover effects play.",
+                field: "animationSpeed" as const,
+                options: [
+                  { value: "none",    label: "None",    hint: "Instant — no motion" },
+                  { value: "fast",    label: "Fast",    hint: "Snappy transitions" },
+                  { value: "default", label: "Default", hint: "Standard pacing" },
+                ],
+              },
+            ] as Array<{
+              label: string;
+              description: string;
+              field: keyof import("../types/thoughtspot").LayoutConfig;
+              options: Array<{ value: string; label: string; hint: string }>;
+            }>
+          ).map((section) => {
+            const currentValue = (stylingConfig.layout as Record<string, string> | undefined)?.[section.field] ?? "";
+            return (
+              <div
+                key={section.field}
+                style={{
+                  marginBottom: "28px",
+                  padding: "20px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "8px",
+                  backgroundColor: "#f9fafb",
+                }}
+              >
+                <div style={{ marginBottom: "12px" }}>
+                  <p style={{ fontSize: "15px", fontWeight: "600", color: "#111827", margin: 0 }}>
+                    {section.label}
+                  </p>
+                  <p style={{ fontSize: "13px", color: "#6b7280", margin: "4px 0 0 0" }}>
+                    {section.description}
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                  {section.options.map((opt) => {
+                    const selected = currentValue === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => {
+                          updateStylingConfig({
+                            ...stylingConfig,
+                            layout: {
+                              navPosition: "side",
+                              sideNavBehavior: "hover-expand",
+                              topBarHeight: "default",
+                              topNavAlignment: "left",
+                              topNavStyle: "tabs",
+                              borderRadius: "soft",
+                              density: "default",
+                              shadowStyle: "subtle",
+                              cardStyle: "bordered",
+                              animationSpeed: "default",
+                              fontFamily: "system",
+                              ...stylingConfig.layout,
+                              [section.field]: opt.value,
+                            },
+                          });
+                        }}
+                        style={{
+                          padding: "8px 16px",
+                          border: selected ? "2px solid #3182ce" : "2px solid #e5e7eb",
+                          borderRadius: "6px",
+                          background: selected ? "#ebf8ff" : "white",
+                          color: selected ? "#1e40af" : "#374151",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                          fontWeight: selected ? "600" : "400",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "flex-start",
+                          gap: "2px",
+                          minWidth: "120px",
+                          textAlign: "left",
+                        }}
+                      >
+                        <span style={{ fontSize: "14px" }}>{opt.label}</span>
+                        <span style={{ fontSize: "11px", color: selected ? "#3182ce" : "#9ca3af", fontWeight: "400" }}>
+                          {opt.hint}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Font Family — separate because it has a custom text input */}
+          <div
+            style={{
+              marginBottom: "28px",
+              padding: "20px",
+              border: "1px solid #e5e7eb",
+              borderRadius: "8px",
+              backgroundColor: "#f9fafb",
+            }}
+          >
+            <div style={{ marginBottom: "12px" }}>
+              <p style={{ fontSize: "15px", fontWeight: "600", color: "#111827", margin: 0 }}>
+                Font Family
+              </p>
+              <p style={{ fontSize: "13px", color: "#6b7280", margin: "4px 0 0 0" }}>
+                Typography used across the entire app. Web fonts load from Google Fonts automatically.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "12px" }}>
+              {(
+                [
+                  { value: "system",  label: "System",  hint: "OS default sans-serif" },
+                  { value: "inter",   label: "Inter",   hint: "Clean, readable" },
+                  { value: "roboto",  label: "Roboto",  hint: "Google's standard" },
+                  { value: "dm-sans", label: "DM Sans", hint: "Modern, geometric" },
+                  { value: "custom",  label: "Custom",  hint: "Enter your own" },
+                ] as Array<{ value: string; label: string; hint: string }>
+              ).map((opt) => {
+                const selected = (stylingConfig.layout?.fontFamily ?? "system") === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      updateStylingConfig({
+                        ...stylingConfig,
+                        layout: {
+                          navPosition: "side",
+                          sideNavBehavior: "hover-expand",
+                          topBarHeight: "default",
+                          borderRadius: "soft",
+                          density: "default",
+                          shadowStyle: "subtle",
+                          cardStyle: "bordered",
+                          animationSpeed: "default",
+                          ...stylingConfig.layout,
+                          fontFamily: opt.value as import("../types/thoughtspot").FontFamily,
+                        },
+                      });
+                    }}
+                    style={{
+                      padding: "8px 16px",
+                      border: selected ? "2px solid #3182ce" : "2px solid #e5e7eb",
+                      borderRadius: "6px",
+                      background: selected ? "#ebf8ff" : "white",
+                      color: selected ? "#1e40af" : "#374151",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      fontWeight: selected ? "600" : "400",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      gap: "2px",
+                      minWidth: "110px",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span>{opt.label}</span>
+                    <span style={{ fontSize: "11px", color: selected ? "#3182ce" : "#9ca3af", fontWeight: "400" }}>
+                      {opt.hint}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {stylingConfig.layout?.fontFamily === "custom" && (
+              <div>
+                <label style={{ fontSize: "13px", fontWeight: "500", color: "#374151" }}>
+                  Custom font name (CSS font-family value)
+                </label>
+                <input
+                  type="text"
+                  value={stylingConfig.layout?.customFontFamily ?? ""}
+                  onChange={(e) => {
+                    updateStylingConfig({
+                      ...stylingConfig,
+                      layout: {
+                        navPosition: "side",
+                        sideNavBehavior: "hover-expand",
+                        topBarHeight: "default",
+                        borderRadius: "soft",
+                        density: "default",
+                        shadowStyle: "subtle",
+                        cardStyle: "bordered",
+                        animationSpeed: "default",
+                        fontFamily: "system",
+                        ...stylingConfig.layout,
+                        customFontFamily: e.target.value,
+                      },
+                    });
+                  }}
+                  placeholder="e.g. 'Nunito', 'Poppins', 'Open Sans'"
+                  style={{
+                    width: "100%",
+                    marginTop: "6px",
+                    padding: "8px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    fontSize: "13px",
+                    outline: "none",
+                  }}
+                />
+                <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "4px" }}>
+                  Make sure the font is available via @import or a &lt;link&gt; tag if it is not a system font.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Hide Structural Borders */}
+          <div
+            style={{
+              marginBottom: "28px",
+              padding: "20px",
+              border: "1px solid #e5e7eb",
+              borderRadius: "8px",
+              backgroundColor: "#f9fafb",
+            }}
+          >
+            <div style={{ marginBottom: "4px" }}>
+              <p style={{ fontSize: "15px", fontWeight: "600", color: "#111827", margin: 0 }}>
+                Hide Structural Borders
+              </p>
+              <p style={{ fontSize: "13px", color: "#6b7280", margin: "4px 0 0 0" }}>
+                Remove the dividing lines between the header, sidebar, footer, and content area for a seamless single-page look.
+              </p>
+            </div>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                cursor: "pointer",
+                marginTop: "14px",
+                fontSize: "14px",
+                color: "#374151",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={stylingConfig.layout?.hideBorders ?? false}
+                onChange={(e) => {
+                  updateStylingConfig({
+                    ...stylingConfig,
+                    layout: {
+                      navPosition: "side",
+                      sideNavBehavior: "hover-expand",
+                      topBarHeight: "default",
+                      borderRadius: "soft",
+                      density: "default",
+                      shadowStyle: "subtle",
+                      cardStyle: "bordered",
+                      animationSpeed: "default",
+                      fontFamily: "system",
+                      ...stylingConfig.layout,
+                      hideBorders: e.target.checked,
+                    },
+                  });
+                }}
+                style={{ width: "16px", height: "16px", cursor: "pointer" }}
+              />
+              Hide borders between header, sidebar, footer, and content
+            </label>
+          </div>
+        </div>
+      )}
+      </div>
     </div>
   );
 }
@@ -7893,7 +8371,7 @@ function ConfigurationContent({
             "Click OK to continue with default styles.\n" +
             "Click Cancel to abort the configuration wizard and try again.\n\n" +
             "Note: Make sure your Anthropic API key is configured correctly.\n" +
-            "For local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
+            "For local development: Create a .env.local file with TSE_DEMO_ANTHROPIC_KEY=your_key_here"
         );
 
         if (!continueWithDefault) {
@@ -7957,7 +8435,7 @@ function ConfigurationContent({
             "Click OK to continue with default home page.\n" +
             "Click Cancel to abort the configuration wizard and try again.\n\n" +
             "Note: Make sure your Anthropic API key is configured correctly.\n" +
-            "For local development: Create a .env.local file with ANTHROPIC_API_KEY=your_key_here"
+            "For local development: Create a .env.local file with TSE_DEMO_ANTHROPIC_KEY=your_key_here"
         );
 
         if (!continueWithDefault) {
@@ -8769,31 +9247,24 @@ function ConfigurationContent({
                 </div>
 
                 <div style={{ marginBottom: "24px" }}>
-                  <ImageUpload
-                    value={appConfig.favicon || ""}
+                  <FaviconPicker
+                    value={appConfig.favicon || "/ts.svg"}
                     onChange={(url) =>
                       updateAppConfig({
                         ...appConfig,
                         favicon: url,
                       })
                     }
-                    label="Favicon"
-                    placeholder="https://example.com/favicon.ico"
-                    accept="image/*"
-                    maxSizeMB={1}
-                    maxWidth={64}
-                    maxHeight={64}
-                    useIndexedDB={true}
                   />
                   <p
                     style={{
-                      margin: "4px 0 0 0",
+                      margin: "8px 0 0 0",
                       fontSize: "12px",
                       color: "#6b7280",
                     }}
                   >
-                    Upload an image or provide a URL for your browser tab icon.
-                    Leave empty to use the default.
+                    Choose a built-in icon, upload an image, or paste a URL for
+                    your browser tab icon.
                   </p>
 
                   <div style={{ marginTop: "8px" }}>
@@ -8942,6 +9413,124 @@ function ConfigurationContent({
                     allowing visualizations to be copied between liveboards
                   </p>
                 </div>
+
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      color: "#4a5568",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={appConfig.showHelpButton ?? false}
+                      onChange={(e) =>
+                        updateAppConfig({
+                          ...appConfig,
+                          showHelpButton: e.target.checked,
+                        })
+                      }
+                      style={{ cursor: "pointer" }}
+                    />
+                    <span>Show Help Button</span>
+                  </label>
+                  <p
+                    style={{
+                      margin: "4px 0 0 0",
+                      fontSize: "12px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    When enabled, a (?) button appears in the top bar that opens
+                    the ThoughtSpot developer documentation in a new tab
+                  </p>
+                </div>
+
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      color: "#4a5568",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={appConfig.loginPage?.enabled ?? false}
+                      onChange={(e) =>
+                        updateAppConfig({
+                          ...appConfig,
+                          loginPage: {
+                            ...appConfig.loginPage,
+                            enabled: e.target.checked,
+                          },
+                        })
+                      }
+                      style={{ cursor: "pointer" }}
+                    />
+                    <span>Show Login Page</span>
+                  </label>
+                  <p
+                    style={{
+                      margin: "4px 0 0 0",
+                      fontSize: "12px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    When enabled, visitors see a login form before accessing the
+                    app. Any credentials will work — this is for demo purposes
+                    only.
+                  </p>
+                  {appConfig.loginPage?.enabled && (
+                    <div style={{ marginTop: "12px" }}>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: "13px",
+                          fontWeight: "500",
+                          color: "#4a5568",
+                          marginBottom: "6px",
+                        }}
+                      >
+                        Login Page Subtitle (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={appConfig.loginPage?.subtitle ?? ""}
+                        onChange={(e) =>
+                          updateAppConfig({
+                            ...appConfig,
+                            loginPage: {
+                              ...appConfig.loginPage,
+                              enabled: true,
+                              subtitle: e.target.value,
+                            },
+                          })
+                        }
+                        placeholder="Sign in to continue"
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          fontSize: "14px",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "6px",
+                          outline: "none",
+                          boxSizing: "border-box",
+                          color: "#1f2937",
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -9032,6 +9621,7 @@ function ConfigurationContent({
                 <div
                   style={{
                     backgroundColor: "white",
+                    color: "#1f2937",
                     padding: "24px",
                     borderRadius: "8px",
                     minWidth: "400px",
@@ -9189,6 +9779,7 @@ function ConfigurationContent({
                 <div
                   style={{
                     backgroundColor: "white",
+                    color: "#1f2937",
                     padding: "24px",
                     borderRadius: "8px",
                     minWidth: "500px",
@@ -9232,7 +9823,7 @@ function ConfigurationContent({
                         onChange={setSelectedConfiguration}
                         options={savedConfigurations.map((config) => ({
                           id: config.filename,
-                          name: `${config.name} - ${config.description}`,
+                          name: config.name,
                         }))}
                         placeholder="Choose a configuration..."
                         searchPlaceholder="Search configurations..."
@@ -9910,6 +10501,7 @@ export default function SettingsModal({
           appConfig={pendingAppConfig}
           updateAppConfig={updatePendingAppConfig}
           stylingConfig={pendingStylingConfig}
+          updateStylingConfig={updatePendingStylingConfig}
         />
       ),
     },
@@ -10000,6 +10592,7 @@ export default function SettingsModal({
       <div
         style={{
           backgroundColor: "white",
+          color: "#1f2937",
           borderRadius: "12px",
           width: "90vw",
           maxWidth: "1200px",
@@ -10239,6 +10832,7 @@ export default function SettingsModal({
           <div
             style={{
               backgroundColor: "white",
+              color: "#1f2937",
               borderRadius: "8px",
               padding: "24px",
               maxWidth: "400px",

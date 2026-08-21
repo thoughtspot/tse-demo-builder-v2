@@ -8,7 +8,9 @@ import React, {
   useRef,
   useCallback,
   startTransition,
+  Suspense,
 } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import TopBar from "./TopBar";
 import SideNav from "./SideNav";
 import SettingsModal from "./SettingsModal";
@@ -18,9 +20,11 @@ import ChatBubble from "./ChatBubble";
 import VizPickerModal from "./VizPickerModal";
 import CreateLiveboardModal from "./CreateLiveboardModal";
 import EmbedModal from "./EmbedModal";
+import SearchSidePanel, { SearchPanelType } from "./SearchSidePanel";
 import {
   CustomMenu,
   StylingConfig,
+  UserTheme,
   EmbedFlags,
   UserConfig,
   ThoughtSpotInitConfig,
@@ -36,6 +40,7 @@ import {
   fetchLiveboards,
   fetchLiveboardWithVisualizations,
   createLiveboard,
+  checkLiveboardEditPermission,
   type ThoughtSpotUser,
 } from "../services/thoughtspotApi";
 import {
@@ -62,6 +67,7 @@ import LoadingDialog from "./LoadingDialog";
 import ConfigurationLoader from "./ConfigurationLoader";
 import StylingProvider from "./StylingProvider";
 import { getImageFromIndexedDB } from "./ImageUpload";
+import LoginPage from "./pages/LoginPage";
 
 // Configuration interfaces for compatibility
 interface ConfigurationData {
@@ -106,6 +112,11 @@ interface AppContextType {
   exportConfiguration: (customName?: string) => Promise<void>;
   lastClusterChangeTime: number;
   configVersion: number;
+  isInitialLoadInProgress: boolean;
+  activeLiveboardId: string | null;
+  setActiveLiveboardId: (id: string | null) => void;
+  liveboardRefreshKey: number;
+  triggerLiveboardRefresh: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -296,11 +307,36 @@ interface ConfigurationSource {
   data: File | string; // File for local, string (filename) for GitHub
 }
 
+function ChatBubbleConditional() {
+  const searchParams = useSearchParams();
+  if (searchParams.get("demo")) return <ChatBubble />;
+  return null;
+}
+
+// Spotter SVGs use a proprietary format that browsers can't render.
+// The -preview- variants are standard SVGs safe for <img> and favicons.
+function toSpotterPreviewUrl(url: string): string {
+  if (!url || url.includes("-preview-")) return url;
+  if (url.includes("cdn.jsdelivr.net") && url.includes("/icons/spotter/")) {
+    return url.replace(/(.+?)-(\d+\.svg)$/, "$1-preview-$2");
+  }
+  return url;
+}
+
+// CDN spotter URLs in logoUrl came from an old code path and should not act
+// as custom logo overrides — fall back to appConfig.favicon instead.
+function isSpotterIconUrl(url: string): boolean {
+  return !!(url?.includes("cdn.jsdelivr.net") && url?.includes("/icons/spotter/"));
+}
+
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+
   // Fix hydration issues and suppress third-party console errors (like Mixpanel)
   useEffect(() => {
     // Fix hydration mismatches caused by browser extensions
@@ -376,6 +412,11 @@ export default function Layout({ children }: LayoutProps) {
     };
   }, []);
 
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem("demo-logged-in") === "1";
+  });
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<
     string | undefined
@@ -390,6 +431,26 @@ export default function Layout({ children }: LayoutProps) {
   >([]);
   const [isCreateLiveboardOpen, setIsCreateLiveboardOpen] = useState(false);
   const [newLiveboardContent, setNewLiveboardContent] = useState<ThoughtSpotContent | null>(null);
+  const [activeLiveboardId, setActiveLiveboardId] = useState<string | null>(null);
+  const [liveboardRefreshKey, setLiveboardRefreshKey] = useState(0);
+  const triggerLiveboardRefresh = useCallback(() => setLiveboardRefreshKey((k) => k + 1), []);
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+  const [searchPanelType, setSearchPanelType] = useState<SearchPanelType>("search");
+  useEffect(() => {
+    setSearchPanelOpen(false);
+  }, [pathname]);
+  const [searchPanelError, setSearchPanelError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!activeLiveboardId) {
+      setSearchPanelOpen(false);
+      setSearchPanelError(null);
+    }
+  }, [activeLiveboardId]);
+  const [leftPanelWidthPct, setLeftPanelWidthPct] = useState(50);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartWidthRef = useRef(50);
   const [isLoadingConfiguration, setIsLoadingConfiguration] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState(
@@ -1169,7 +1230,8 @@ export default function Layout({ children }: LayoutProps) {
     if (
       appConfig.faviconSyncEnabled &&
       stylingConfig.application.topBar.logoUrl &&
-      stylingConfig.application.topBar.logoUrl !== "/ts.svg"
+      stylingConfig.application.topBar.logoUrl !== "/ts.svg" &&
+      !isSpotterIconUrl(stylingConfig.application.topBar.logoUrl)
     ) {
       console.log(
         "[Layout] Auto-syncing favicon with logo:",
@@ -1180,19 +1242,7 @@ export default function Layout({ children }: LayoutProps) {
         "favicon"
       ) as HTMLLinkElement;
       if (faviconElement) {
-        faviconElement.href = stylingConfig.application.topBar.logoUrl;
-      }
-      // Update favicon in DOM only, don't modify React state to avoid loops
-    } else if (
-      !appConfig.faviconSyncEnabled &&
-      appConfig.favicon !== "/ts.svg"
-    ) {
-      // Reset favicon to default when sync is disabled
-      const faviconElement = document.getElementById(
-        "favicon"
-      ) as HTMLLinkElement;
-      if (faviconElement) {
-        faviconElement.href = "/ts.svg";
+        faviconElement.href = toSpotterPreviewUrl(stylingConfig.application.topBar.logoUrl);
       }
       // Update favicon in DOM only, don't modify React state to avoid loops
     }
@@ -1227,7 +1277,7 @@ export default function Layout({ children }: LayoutProps) {
           return;
         }
 
-        let favicon = getIconImagePath(faviconValue);
+        let favicon = toSpotterPreviewUrl(getIconImagePath(faviconValue));
 
         // Handle IndexedDB references by converting them to actual image data
         if (favicon.startsWith("indexeddb://")) {
@@ -1626,6 +1676,46 @@ export default function Layout({ children }: LayoutProps) {
     }
   };
 
+  // Migrate: if no themes exist yet, create a "Default" theme from the current styling config
+  useEffect(() => {
+    if (!stylingConfig.themes || stylingConfig.themes.length === 0) {
+      const defaultTheme: UserTheme = {
+        id: `theme-${Date.now()}`,
+        name: "Default",
+        application: { ...stylingConfig.application },
+        embeddedContentVariables: { ...(stylingConfig.embeddedContent.customCSS?.variables || {}) },
+        createdAt: new Date().toISOString(),
+      };
+      setStylingConfig((prev) => ({
+        ...prev,
+        themes: [defaultTheme],
+        activeThemeId: defaultTheme.id,
+      }));
+    }
+  // Run once after initial load completes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialLoadInProgress]);
+
+  const handleThemeSwitch = useCallback(
+    (themeId: string) => {
+      const theme = stylingConfig.themes?.find((t) => t.id === themeId);
+      if (!theme) return;
+      setStylingConfig((prev) => ({
+        ...prev,
+        activeThemeId: themeId,
+        application: { ...theme.application },
+        embeddedContent: {
+          ...prev.embeddedContent,
+          customCSS: {
+            ...prev.embeddedContent.customCSS,
+            variables: { ...theme.embeddedContentVariables },
+          },
+        },
+      }));
+    },
+    [stylingConfig.themes]
+  );
+
   const openSettingsWithTab = (tab?: string, subTab?: string) => {
     setSettingsInitialTab(tab);
     setSettingsInitialSubTab(subTab);
@@ -1827,6 +1917,54 @@ export default function Layout({ children }: LayoutProps) {
   const handleCreateLiveboardClick = useCallback(() => {
     setIsCreateLiveboardOpen(true);
   }, []);
+
+  const handleNewSearchClick = useCallback(async (type: SearchPanelType) => {
+    if (!activeLiveboardId) return;
+    setSearchPanelError(null);
+    const canEdit = await checkLiveboardEditPermission(activeLiveboardId);
+    if (!canEdit) {
+      setSearchPanelError("You don't have edit permission on this liveboard and cannot pin to it.");
+      return;
+    }
+    setSearchPanelType(type);
+    setLeftPanelWidthPct(50);
+    setSearchPanelOpen(true);
+  }, [activeLiveboardId]);
+
+  const handleCloseSearchPanel = useCallback(() => {
+    setSearchPanelOpen(false);
+    setSearchPanelError(null);
+  }, []);
+
+  // Drag-to-resize handlers for the split pane
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    dragStartXRef.current = e.clientX;
+    dragStartWidthRef.current = leftPanelWidthPct;
+
+    const onMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingRef.current || !splitContainerRef.current) return;
+      const containerWidth = splitContainerRef.current.getBoundingClientRect().width;
+      const delta = moveEvent.clientX - dragStartXRef.current;
+      const deltaPct = (delta / containerWidth) * 100;
+      const newPct = Math.min(80, Math.max(20, dragStartWidthRef.current + deltaPct));
+      setLeftPanelWidthPct(newPct);
+    };
+
+    const onUp = () => {
+      isDraggingRef.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [leftPanelWidthPct]);
 
   const handleLiveboardCreated = useCallback(
     (id: string, name: string, description?: string) => {
@@ -2251,6 +2389,8 @@ export default function Layout({ children }: LayoutProps) {
         users: defaultUsers,
         currentUserId: defaultUsers[0].id,
       });
+
+      router.push("/?demo=manual");
     } catch (error) {
       console.error("Failed to clear configurations:", error);
     }
@@ -2665,7 +2805,32 @@ export default function Layout({ children }: LayoutProps) {
     exportConfiguration: handleExportConfiguration,
     lastClusterChangeTime,
     configVersion,
+    isInitialLoadInProgress,
+    activeLiveboardId,
+    setActiveLiveboardId,
+    liveboardRefreshKey,
+    triggerLiveboardRefresh,
   };
+
+  const handleLogin = () => {
+    sessionStorage.setItem("demo-logged-in", "1");
+    setIsLoggedIn(true);
+  };
+
+  if (appConfig.loginPage?.enabled && !isLoggedIn && !isInitialLoadInProgress) {
+    return (
+      <AppContext.Provider value={contextValue}>
+        <link rel="icon" href="/ts.svg" id="favicon" />
+        <StylingProvider stylingConfig={stylingConfig}>
+          <LoginPage
+            appConfig={appConfig}
+            stylingConfig={stylingConfig}
+            onLogin={handleLogin}
+          />
+        </StylingProvider>
+      </AppContext.Provider>
+    );
+  }
 
   return (
     <AppContext.Provider value={contextValue}>
@@ -2692,89 +2857,258 @@ export default function Layout({ children }: LayoutProps) {
             }}
           >
             {/* Top Bar */}
-            <TopBar
-              title={appConfig.applicationName || "TSE Demo Builder"}
-              logoUrl={stylingConfig.application.topBar.logoUrl || "/ts.svg"}
-              showLogo={appConfig.showLogo !== false}
-              users={userConfig.users.map((user) => ({
-                id: user.id,
-                name: user.name,
-              }))}
-              currentUser={
-                userConfig.users.find(
-                  (u) => u.id === userConfig.currentUserId
-                ) ||
-                userConfig.users[0] || { id: "1", name: "User" }
-              }
-              onUserChange={handleUserChange}
-              backgroundColor={stylingConfig.application.topBar.backgroundColor}
-              foregroundColor={stylingConfig.application.topBar.foregroundColor}
-              thoughtspotUrl={appConfig.thoughtspotUrl}
-              onVizPickerClick={appConfig.showVizPicker ? handleVizPickerClick : undefined}
-              onCreateLiveboardClick={appConfig.spotterViz?.enabled ? handleCreateLiveboardClick : undefined}
-            />
+            {(() => {
+              const navPosition = stylingConfig.layout?.navPosition ?? "side";
+              const topBarHeight = stylingConfig.layout?.topBarHeight ?? "default";
+              const sideNavBehavior = stylingConfig.layout?.sideNavBehavior ?? "hover-expand";
+              const hideBorders = stylingConfig.layout?.hideBorders ?? false;
 
-            {/* Main Content Area */}
-            <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-              {/* Side Navigation */}
-              <SideNav
-                onSettingsClick={() => setIsSettingsOpen(true)}
-                standardMenus={accessibleStandardMenus}
-                customMenus={accessibleCustomMenus}
-                menuOrder={menuOrder}
-                onMenuOrderChange={setMenuOrder}
-                userConfig={userConfig}
-                backgroundColor={
-                  stylingConfig.application.sidebar.backgroundColor
+              // Build nav items for top-nav mode
+              const routeMap: Record<string, string> = {
+                home: "/", favorites: "/favorites", "my-reports": "/my-reports",
+                spotter: "/spotter", search: "/search", "full-app": "/full-app",
+                "all-content": "/all-content",
+              };
+              const orderedNavItems = (() => {
+                const allMenuMap = new Map<string, { name: string; icon: string; route: string }>();
+                accessibleStandardMenus.forEach((m) => {
+                  allMenuMap.set(m.id, { name: m.name, icon: m.icon, route: routeMap[m.id] ?? "/" });
+                });
+                accessibleCustomMenus.forEach((m) => {
+                  allMenuMap.set(m.id, { name: m.name, icon: m.icon, route: `/custom/${m.id}` });
+                });
+                const ordered = (menuOrder ?? [])
+                  .map((id) => allMenuMap.get(id))
+                  .filter((x): x is { name: string; icon: string; route: string } => !!x)
+                  .map((item, idx) => ({ id: String(idx), ...item }));
+                if (ordered.length === 0) {
+                  return [...accessibleStandardMenus, ...accessibleCustomMenus].map((m, idx) => ({
+                    id: m.id ?? String(idx),
+                    name: m.name,
+                    icon: m.icon,
+                    route: "id" in m && routeMap[m.id] ? routeMap[m.id] : `/custom/${m.id}`,
+                  }));
                 }
-                foregroundColor={
-                  stylingConfig.application.sidebar.foregroundColor
-                }
-                hoverColor={stylingConfig.application.sidebar.hoverColor}
-                selectedColor={stylingConfig.application.sidebar.selectedColor}
-                selectedTextColor={
-                  stylingConfig.application.sidebar.selectedTextColor
-                }
-              />
+                return ordered;
+              })();
 
-              {/* Content Area */}
-              <div
-                style={{
-                  flex: 1,
-                  backgroundColor:
-                    stylingConfig.application.backgrounds?.contentBackground ||
-                    "#ffffff",
-                  color:
-                    stylingConfig.application.typography?.primaryColor ||
-                    "#1f2937",
-                  overflow: "auto",
-                  overflowX: "hidden",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
-                <div
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    minHeight: 0,
-                  }}
-                >
-                  {children}
-                </div>
-                {(appConfig.showFooter ?? true) && (
-                  <Footer
-                    backgroundColor={
-                      stylingConfig.application.footer.backgroundColor
-                    }
-                    foregroundColor={
-                      stylingConfig.application.footer.foregroundColor
-                    }
-                  />
-                )}
-              </div>
-            </div>
+              return (
+                <>
+                  <Suspense fallback={
+                    <div style={{ height: "var(--topbar-height, 56px)", backgroundColor: stylingConfig.application.topBar.backgroundColor, borderBottom: hideBorders ? "none" : "1px solid #e2e8f0" }} />
+                  }>
+                    <TopBar
+                      title={appConfig.applicationName || "TSE Demo Builder"}
+                      logoUrl={toSpotterPreviewUrl(
+                        (!stylingConfig.application.topBar.logoUrl || isSpotterIconUrl(stylingConfig.application.topBar.logoUrl))
+                          ? (appConfig.favicon || "/ts.svg")
+                          : stylingConfig.application.topBar.logoUrl
+                      )}
+                      showLogo={appConfig.showLogo !== false}
+                      users={userConfig.users.map((user) => ({ id: user.id, name: user.name }))}
+                      currentUser={
+                        userConfig.users.find((u) => u.id === userConfig.currentUserId) ||
+                        userConfig.users[0] || { id: "1", name: "User" }
+                      }
+                      onUserChange={handleUserChange}
+                      backgroundColor={stylingConfig.application.topBar.backgroundColor}
+                      foregroundColor={stylingConfig.application.topBar.foregroundColor}
+                      thoughtspotUrl={appConfig.thoughtspotUrl}
+                      onVizPickerClick={appConfig.showVizPicker ? handleVizPickerClick : undefined}
+                      liveboardActions={(() => {
+                        const cfg = appConfig.spotterViz;
+                        if (!cfg?.enabled) return [];
+                        const actions: Array<{ id: string; label: string; onClick: () => void }> = [];
+
+                        // New Liveboard: enabled if newLiveboard.enabled !== false (backward compat)
+                        const lbEnabled = cfg.newLiveboard?.enabled !== false;
+                        if (lbEnabled) {
+                          actions.push({
+                            id: "new-liveboard",
+                            label: cfg.newLiveboard?.label || cfg.createLiveboardButtonLabel || "New Liveboard",
+                            onClick: handleCreateLiveboardClick,
+                          });
+                        }
+
+                        // Search and AI Search only show when a liveboard is active
+                        if (activeLiveboardId) {
+                          if (cfg.newSearch?.enabled) {
+                            actions.push({
+                              id: "new-search",
+                              label: cfg.newSearch.label || "New Search",
+                              onClick: () => handleNewSearchClick("search"),
+                            });
+                          }
+                          if (cfg.newAISearch?.enabled) {
+                            actions.push({
+                              id: "new-ai-search",
+                              label: cfg.newAISearch.label || "New AI Search",
+                              onClick: () => handleNewSearchClick("ai"),
+                            });
+                          }
+                        }
+                        return actions;
+                      })()}
+                      height={topBarHeight}
+                      navItems={navPosition === "top" ? orderedNavItems : undefined}
+                      navAlignment={stylingConfig.layout?.topNavAlignment ?? "left"}
+                      navStyle={stylingConfig.layout?.topNavStyle ?? "tabs"}
+                      navButtonGap={stylingConfig.layout?.navButtonGap ?? "none"}
+                      onSettingsClick={navPosition === "top" ? () => setIsSettingsOpen(true) : undefined}
+                      hideBorders={hideBorders}
+                      showHelpButton={appConfig.showHelpButton ?? false}
+                      onLogout={appConfig.loginPage?.enabled ? () => {
+                        sessionStorage.removeItem("demo-logged-in");
+                        setIsLoggedIn(false);
+                      } : undefined}
+                      themes={stylingConfig.themes?.map((t) => ({ id: t.id, name: t.name })) ?? []}
+                      activeThemeId={stylingConfig.activeThemeId}
+                      onThemeSwitch={handleThemeSwitch}
+                      onNavigate={() => setSearchPanelOpen(false)}
+                    />
+                  </Suspense>
+
+                  {/* Main Content Area */}
+                  <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+                    {/* Side Navigation — hidden in top-nav mode */}
+                    {navPosition === "side" && (
+                      <Suspense fallback={<div style={{ width: "60px", flexShrink: 0 }} />}>
+                        <SideNav
+                          onSettingsClick={() => setIsSettingsOpen(true)}
+                          standardMenus={accessibleStandardMenus}
+                          customMenus={accessibleCustomMenus}
+                          menuOrder={menuOrder}
+                          onMenuOrderChange={setMenuOrder}
+                          userConfig={userConfig}
+                          backgroundColor={stylingConfig.application.sidebar.backgroundColor}
+                          foregroundColor={stylingConfig.application.sidebar.foregroundColor}
+                          hoverColor={stylingConfig.application.sidebar.hoverColor}
+                          selectedColor={stylingConfig.application.sidebar.selectedColor}
+                          selectedTextColor={stylingConfig.application.sidebar.selectedTextColor}
+                          behavior={sideNavBehavior}
+                          hideBorders={hideBorders}
+                          onNavigate={() => setSearchPanelOpen(false)}
+                        />
+                      </Suspense>
+                    )}
+
+                    {/* Content Area — split when search panel is open */}
+                    <div
+                      ref={splitContainerRef}
+                      style={{
+                        flex: 1,
+                        overflow: "hidden",
+                        display: "flex",
+                        flexDirection: "row",
+                        minWidth: 0,
+                      }}
+                    >
+                      {/* Permission error banner (shown above content area) */}
+                      {searchPanelError && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "var(--topbar-height, 56px)",
+                            left: 0,
+                            right: 0,
+                            zIndex: 500,
+                            backgroundColor: "#fef2f2",
+                            borderBottom: "1px solid #fecaca",
+                            color: "#b91c1c",
+                            fontSize: "13px",
+                            padding: "10px 20px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "8px",
+                          }}
+                        >
+                          <span>{searchPanelError}</span>
+                          <button
+                            onClick={() => setSearchPanelError(null)}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "#b91c1c", fontSize: "16px", padding: "0 4px" }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Main page content */}
+                      <div
+                        style={{
+                          flex: (searchPanelOpen && activeLiveboardId) ? `0 0 ${leftPanelWidthPct}%` : "1 1 0",
+                          minWidth: 0,
+                          backgroundColor:
+                            stylingConfig.application.backgrounds?.contentBackground || "#ffffff",
+                          color: stylingConfig.application.typography?.primaryColor || "#1f2937",
+                          overflow: "hidden",
+                          display: "flex",
+                          flexDirection: "column",
+                          transition: (searchPanelOpen && activeLiveboardId) ? "none" : "flex var(--transition-base, 250ms) ease",
+                        }}
+                      >
+                        <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "auto", overflowX: "hidden" }}>
+                          {children}
+                        </div>
+                        {(appConfig.showFooter ?? true) && (
+                          <Footer
+                            backgroundColor={stylingConfig.application.footer.backgroundColor}
+                            foregroundColor={stylingConfig.application.footer.foregroundColor}
+                            hideBorders={hideBorders}
+                          />
+                        )}
+                      </div>
+
+                      {/* Drag handle */}
+                      {searchPanelOpen && activeLiveboardId && (
+                        <div
+                          onMouseDown={handleDragStart}
+                          style={{
+                            width: "6px",
+                            flexShrink: 0,
+                            cursor: "col-resize",
+                            backgroundColor: `var(--border-color, #e2e8f0)`,
+                            transition: "background var(--transition-fast, 150ms) ease",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = "var(--primary-button-bg, #3182ce)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = "var(--border-color, #e2e8f0)";
+                          }}
+                          title="Drag to resize"
+                        />
+                      )}
+
+                      {/* Search / AI Search side panel */}
+                      {searchPanelOpen && activeLiveboardId && (
+                        <div
+                          style={{
+                            flex: `0 0 ${100 - leftPanelWidthPct}%`,
+                            minWidth: 0,
+                            overflow: "hidden",
+                            display: "flex",
+                            flexDirection: "column",
+                          }}
+                        >
+                          <SearchSidePanel
+                            type={searchPanelType}
+                            activeLiveboardId={activeLiveboardId}
+                            searchDataSource={appConfig.spotterViz?.newSearch?.searchDataSource}
+                            spotterModelId={appConfig.spotterViz?.newAISearch?.spotterModelId}
+                            searchTokenString={searchPanelType === "search" ? appConfig.spotterViz?.newSearch?.searchTokenString : undefined}
+                            onClose={handleCloseSearchPanel}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
 
             {/* Settings Modal */}
             <SettingsModal
@@ -2996,7 +3330,9 @@ export default function Layout({ children }: LayoutProps) {
             )}
 
             {/* Chat Bubble */}
-            <ChatBubble />
+            <Suspense>
+              <ChatBubbleConditional />
+            </Suspense>
 
             {/* Loading Dialog */}
             <LoadingDialog

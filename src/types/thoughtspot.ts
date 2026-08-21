@@ -175,6 +175,17 @@ export interface StarterPrompt {
   fullPrompt: string;
 }
 
+export interface LiveboardButtonOption {
+  enabled?: boolean;
+  label?: string;
+}
+
+export interface LiveboardSearchButtonOption extends LiveboardButtonOption {
+  searchDataSource?: string;
+  spotterModelId?: string;
+  searchTokenString?: string;
+}
+
 export interface SpotterVizConfig {
   enabled: boolean;
   brandName?: string;
@@ -183,6 +194,26 @@ export interface SpotterVizConfig {
   inputChatPlaceholder?: string;
   hideStarterPrompts?: boolean;
   customStarterPrompts?: StarterPrompt[];
+  createLiveboardButtonLabel?: string;
+  newLiveboard?: LiveboardButtonOption;
+  newSearch?: LiveboardSearchButtonOption;
+  newAISearch?: LiveboardSearchButtonOption;
+}
+
+export interface LoginPageConfig {
+  enabled: boolean;
+  subtitle?: string;
+}
+
+export interface SpotterPricingConfig {
+  enabled: boolean;
+  initialQueries: number;
+  queriesPerPack: number;
+  label?: string;
+  planName?: string;
+  pricePerPack?: number;
+  currency?: string;
+  accountManager?: string;
 }
 
 export interface AppConfig {
@@ -195,6 +226,8 @@ export interface AppConfig {
   showFooter: boolean;
   showLogo?: boolean;
   showVizPicker?: boolean;
+  showHelpButton?: boolean;
+  loginPage?: LoginPageConfig;
   authConfig?: AuthConfig;
   chatbot?: {
     enabled: boolean;
@@ -205,6 +238,7 @@ export interface AppConfig {
     spotgptApiKey?: string;
   };
   spotterViz?: SpotterVizConfig;
+  spotterPricing?: SpotterPricingConfig;
 }
 
 export interface FullAppConfig {
@@ -338,6 +372,37 @@ export interface EmbedFlags {
   appEmbed?: Record<string, unknown>;
 }
 
+// Layout configuration types
+export type NavPosition = 'side' | 'top';
+export type SideNavBehavior = 'hover-expand' | 'always-expanded' | 'icon-only';
+export type TopBarHeight = 'compact' | 'default' | 'tall';
+export type TopNavAlignment = 'left' | 'center';
+export type TopNavStyle = 'tabs' | 'push-buttons';
+export type NavButtonGap = 'none' | 'tight' | 'normal' | 'relaxed';
+export type BorderRadius = 'sharp' | 'soft' | 'round';
+export type Density = 'compact' | 'default' | 'comfortable';
+export type ShadowStyle = 'flat' | 'subtle' | 'elevated';
+export type CardStyle = 'bordered' | 'shadowed' | 'borderless';
+export type AnimationSpeed = 'none' | 'fast' | 'default';
+export type FontFamily = 'system' | 'inter' | 'roboto' | 'dm-sans' | 'custom';
+
+export interface LayoutConfig {
+  navPosition: NavPosition;
+  sideNavBehavior: SideNavBehavior;
+  topBarHeight: TopBarHeight;
+  topNavAlignment?: TopNavAlignment;
+  topNavStyle?: TopNavStyle;
+  navButtonGap?: NavButtonGap;
+  borderRadius: BorderRadius;
+  density: Density;
+  shadowStyle: ShadowStyle;
+  cardStyle: CardStyle;
+  animationSpeed: AnimationSpeed;
+  fontFamily: FontFamily;
+  customFontFamily?: string;
+  hideBorders?: boolean;
+}
+
 // Styling configuration types
 export interface ApplicationStyles {
   topBar: {
@@ -404,9 +469,19 @@ export interface EmbeddedContentCustomization {
   };
 }
 
+export interface UserTheme {
+  id: string;
+  name: string;
+  application: ApplicationStyles;
+  embeddedContentVariables: Record<string, string>;
+  createdAt: string;
+}
+
 export interface StylingConfig {
   application: ApplicationStyles;
   embeddedContent: EmbeddedContentCustomization;
+  themes?: UserTheme[];
+  activeThemeId?: string;
   embedFlags?: EmbedFlags;
   doubleClickHandling?: DoubleClickHandlingConfig;
   sdkActions?: SDKActionsConfig;
@@ -416,6 +491,7 @@ export interface StylingConfig {
     hideTitle?: boolean;
     hideDescription?: boolean;
   };
+  layout?: LayoutConfig;
 }
 
 // Double-click event handling configuration

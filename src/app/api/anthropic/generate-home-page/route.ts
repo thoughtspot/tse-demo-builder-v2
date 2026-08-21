@@ -24,17 +24,17 @@ export async function POST(request: NextRequest) {
     }
     console.log(
       "Generate Home Page API - Has API key:",
-      !!process.env.ANTHROPIC_API_KEY
+      !!process.env.TSE_DEMO_ANTHROPIC_KEY
     );
 
     // Check if API key is available
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error("ANTHROPIC_API_KEY environment variable is not set");
+    if (!process.env.TSE_DEMO_ANTHROPIC_KEY) {
+      console.error("TSE_DEMO_ANTHROPIC_KEY environment variable is not set");
       return NextResponse.json(
         {
           error:
-            "Anthropic API key is not configured. Please set ANTHROPIC_API_KEY environment variable.",
-          hint: "For local development, create a .env.local file with ANTHROPIC_API_KEY=your_key_here",
+            "Anthropic API key is not configured. Please set TSE_DEMO_ANTHROPIC_KEY environment variable.",
+          hint: "For local development, create a .env.local file with TSE_DEMO_ANTHROPIC_KEY=your_key_here",
         },
         { status: 500 }
       );
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       description || "",
       applicationName,
       styleColors,
-      process.env.ANTHROPIC_API_KEY,
+      process.env.TSE_DEMO_ANTHROPIC_KEY,
       imageData
     );
 

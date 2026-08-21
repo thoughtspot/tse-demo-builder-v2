@@ -3,10 +3,10 @@ import { testAnthropicAPI } from "../../../../services/anthropicService";
 
 export async function GET() {
   try {
-    const apiKeyExists = !!process.env.ANTHROPIC_API_KEY;
-    const apiKeyLength = process.env.ANTHROPIC_API_KEY?.length || 0;
+    const apiKeyExists = !!process.env.TSE_DEMO_ANTHROPIC_KEY;
+    const apiKeyLength = process.env.TSE_DEMO_ANTHROPIC_KEY?.length || 0;
     const apiKeyPrefix =
-      process.env.ANTHROPIC_API_KEY?.substring(0, 8) || "N/A";
+      process.env.TSE_DEMO_ANTHROPIC_KEY?.substring(0, 8) || "N/A";
 
     // Get environment information
     const envInfo = {
@@ -45,13 +45,13 @@ export async function GET() {
       apiKeyPrefix,
       message: apiKeyExists
         ? "Anthropic API key is configured"
-        : "Anthropic API key is not configured. Please set ANTHROPIC_API_KEY in your Vercel deployment settings.",
+        : "Anthropic API key is not configured. Please set TSE_DEMO_ANTHROPIC_KEY in your Vercel deployment settings.",
       apiTest,
       environment: envInfo,
       deploymentInstructions: {
         vercel:
-          "Go to your Vercel dashboard > Project Settings > Environment Variables > Add ANTHROPIC_API_KEY",
-        local: "Create a .env.local file with ANTHROPIC_API_KEY=your_key_here",
+          "Go to your Vercel dashboard > Project Settings > Environment Variables > Add TSE_DEMO_ANTHROPIC_KEY",
+        local: "Create a .env.local file with TSE_DEMO_ANTHROPIC_KEY=your_key_here",
       },
     });
   } catch (error) {

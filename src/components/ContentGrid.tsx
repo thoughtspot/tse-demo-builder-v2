@@ -56,6 +56,10 @@ interface ContentGridProps {
   };
   // For tab-based filtering in custom menus
   tabContentType?: "answer" | "liveboard";
+  // Runtime client-side name filter (applied at render, no re-fetch)
+  runtimeNameFilter?: string;
+  // Suppress the "Active Filters" config banner (e.g. when the tab header already communicates the type)
+  suppressFilterBanner?: boolean;
 }
 
 export default function ContentGrid({
@@ -74,6 +78,8 @@ export default function ContentGrid({
   onBackClick,
   customContent,
   tabContentType,
+  runtimeNameFilter,
+  suppressFilterBanner = false,
 }: ContentGridProps) {
   const context = useAppContext();
   const [content, setContent] = useState<ThoughtSpotContent[]>([]);
@@ -684,6 +690,13 @@ export default function ContentGrid({
     );
   }
 
+  const displayedContent =
+    runtimeNameFilter && runtimeNameFilter.trim()
+      ? content.filter((item) =>
+          item.name.toLowerCase().includes(runtimeNameFilter.toLowerCase().trim())
+        )
+      : content;
+
   return (
     <div
       style={{
@@ -727,7 +740,8 @@ export default function ContentGrid({
           {description}
         </p>
 
-        {((fetchFavorites &&
+        {!suppressFilterBanner &&
+          ((fetchFavorites &&
           favoritesConfig &&
           (favoritesConfig.contentType ||
             favoritesConfig.namePattern ||
@@ -809,7 +823,7 @@ export default function ContentGrid({
           </div>
         )}
 
-        {content.length === 0 ? (
+        {displayedContent.length === 0 ? (
           <div style={{ textAlign: "center", padding: "40px" }}>
             <p
               style={{
@@ -819,21 +833,23 @@ export default function ContentGrid({
                 marginBottom: "16px",
               }}
             >
-              {(fetchFavorites &&
-                favoritesConfig &&
-                (favoritesConfig.contentType ||
-                  favoritesConfig.namePattern ||
-                  favoritesConfig.tagFilter)) ||
-              (fetchUserContent &&
-                userContentConfig &&
-                (userContentConfig.contentType ||
-                  userContentConfig.namePattern ||
-                  userContentConfig.tagFilter)) ||
-              (fetchAllContent &&
-                allContentConfig &&
-                (allContentConfig.contentType ||
-                  allContentConfig.namePattern ||
-                  allContentConfig.tagFilter))
+              {runtimeNameFilter && runtimeNameFilter.trim()
+                ? `No items match "${runtimeNameFilter}".`
+                : (fetchFavorites &&
+                    favoritesConfig &&
+                    (favoritesConfig.contentType ||
+                      favoritesConfig.namePattern ||
+                      favoritesConfig.tagFilter)) ||
+                  (fetchUserContent &&
+                    userContentConfig &&
+                    (userContentConfig.contentType ||
+                      userContentConfig.namePattern ||
+                      userContentConfig.tagFilter)) ||
+                  (fetchAllContent &&
+                    allContentConfig &&
+                    (allContentConfig.contentType ||
+                      allContentConfig.namePattern ||
+                      allContentConfig.tagFilter))
                 ? "No items match your current filters. Try adjusting the content type, name pattern, or tag filter in settings."
                 : emptyMessage}
             </p>
@@ -846,7 +862,7 @@ export default function ContentGrid({
               gap: "16px",
             }}
           >
-            {content.map((item) => (
+            {displayedContent.map((item) => (
               <ContentCard
                 key={item.id}
                 content={item}

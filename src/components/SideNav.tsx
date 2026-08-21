@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { CustomMenu, UserConfig, StandardMenu } from "../types/thoughtspot";
 import MaterialIcon from "./MaterialIcon";
@@ -63,6 +63,7 @@ interface NavItem {
 
 interface SideNavProps {
   onSettingsClick?: () => void;
+  onNavigate?: () => void;
   standardMenus: StandardMenu[];
   customMenus: CustomMenu[];
   menuOrder?: string[];
@@ -73,10 +74,13 @@ interface SideNavProps {
   hoverColor?: string;
   selectedColor?: string;
   selectedTextColor?: string;
+  behavior?: "hover-expand" | "always-expanded" | "icon-only";
+  hideBorders?: boolean;
 }
 
 export default function SideNav({
   onSettingsClick,
+  onNavigate,
   standardMenus,
   customMenus,
   menuOrder,
@@ -87,10 +91,18 @@ export default function SideNav({
   hoverColor,
   selectedColor,
   selectedTextColor,
+  behavior = "hover-expand",
+  hideBorders = false,
 }: SideNavProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isHovered, setIsHovered] = useState(false);
+  const searchParams = useSearchParams();
+
+  const behaviorExpanded = behavior === "always-expanded";
+  const behaviorIconOnly = behavior === "icon-only";
+  const [isHoverActive, setIsHoverActive] = useState(false);
+
+  const isHovered = behaviorExpanded || (!behaviorIconOnly && isHoverActive);
   const [isDragging, setIsDragging] = useState(false);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
@@ -253,6 +265,22 @@ export default function SideNav({
   // }
 
   const handleNavClick = (route: string) => {
+    onNavigate?.();
+    const demo =
+      searchParams.get("demo") ||
+      (typeof window !== "undefined"
+        ? sessionStorage.getItem("currentDemo")
+        : null);
+
+    if (demo) {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("currentDemo", demo);
+      }
+      const params = new URLSearchParams({ demo, loaded: "1" });
+      router.push(`${route}?${params.toString()}`);
+      return;
+    }
+
     router.push(route);
   };
 
@@ -328,7 +356,7 @@ export default function SideNav({
       style={{
         width: isHovered ? "250px" : "60px",
         backgroundColor: backgroundColor,
-        borderRight: "1px solid #e2e8f0",
+        borderRight: hideBorders ? "none" : "1px solid #e2e8f0",
         height: "100%",
         display: "flex",
         flexDirection: "column",
@@ -337,11 +365,11 @@ export default function SideNav({
         overflow: "hidden",
       }}
       onMouseEnter={() => {
-        setIsHovered(true);
+        setIsHoverActive(true);
         setShowDragHandles(true);
       }}
       onMouseLeave={() => {
-        setIsHovered(false);
+        setIsHoverActive(false);
         setShowDragHandles(false);
       }}
     >
@@ -460,7 +488,7 @@ export default function SideNav({
       <div
         style={{
           padding: isHovered ? "16px 24px" : "16px 8px",
-          borderTop: "1px solid #e2e8f0",
+          borderTop: hideBorders ? "none" : "1px solid #e2e8f0",
         }}
       >
         <button

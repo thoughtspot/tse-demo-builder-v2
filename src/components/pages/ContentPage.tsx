@@ -45,6 +45,7 @@ export default function ContentPage({
   const { standardMenus, stylingConfig } = useAppContext();
   const [selectedContentType, setSelectedContentType] =
     useState<ContentType>("all");
+  const [nameFilter, setNameFilter] = useState("");
   const [selectedContent, setSelectedContent] =
     useState<ThoughtSpotContent | null>(null);
   const [showContentDirectly, setShowContentDirectly] = useState(false);
@@ -154,7 +155,7 @@ export default function ContentPage({
                 "#f7fafc",
               padding: "24px",
               borderRadius: "8px",
-              border: `1px solid ${
+              border: stylingConfig.layout?.hideBorders ? "none" : `1px solid ${
                 stylingConfig.application.backgrounds?.borderColor || "#e2e8f0"
               }`,
               flex: 1,
@@ -191,7 +192,7 @@ export default function ContentPage({
               )}
             <div
               style={{
-                border: `1px solid var(--border-color, #e2e8f0)`,
+                border: stylingConfig.layout?.hideBorders ? "none" : `1px solid var(--border-color, #e2e8f0)`,
                 borderRadius: "8px",
                 backgroundColor: "var(--content-background, white)",
                 flex: 1,
@@ -419,6 +420,30 @@ export default function ContentPage({
         </div>
       </div>
 
+      {/* Name filter search box */}
+      <div style={{ marginBottom: "16px", paddingLeft: "24px" }}>
+        <input
+          type="search"
+          placeholder="Search by name..."
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+          style={{
+            width: "20ch",
+            padding: "8px 12px",
+            fontSize: "14px",
+            border: `1px solid ${
+              stylingConfig.application.backgrounds?.borderColor || "#e5e7eb"
+            }`,
+            borderRadius: "6px",
+            backgroundColor:
+              stylingConfig.application.backgrounds?.cardBackground || "#ffffff",
+            color:
+              stylingConfig.application.typography?.primaryColor || "#1f2937",
+            outline: "none",
+          }}
+        />
+      </div>
+
       <ContentGrid
         title={title}
         subtitle={getDynamicSubtitle()}
@@ -426,6 +451,8 @@ export default function ContentPage({
         emptyMessage={emptyMessage}
         onContentOpen={handleContentOpen}
         showDirectContent={false}
+        runtimeNameFilter={nameFilter}
+        suppressFilterBanner={selectedContentType !== "all"}
         {...fetchProp}
       />
     </div>

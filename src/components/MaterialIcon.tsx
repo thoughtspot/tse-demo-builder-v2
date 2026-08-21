@@ -6,6 +6,7 @@ import {
   Search,
   Public,
   Settings,
+  HelpOutline,
   Star,
   Dashboard,
   Analytics,
@@ -204,6 +205,12 @@ import {
   Verified,
   HourglassEmpty,
   Key,
+  CheckCircle,
+  ExpandMore,
+  ExpandLess,
+  ContentCopy,
+  Delete,
+  AutoFixHigh,
 } from "@mui/icons-material";
 
 // Icon mapping from string names to Material Icons
@@ -219,6 +226,7 @@ const iconMap: Record<
   search: Search,
   "full-app": Public,
   settings: Settings,
+  help_outline: HelpOutline,
   flag: Flag,
   lock: Lock,
   warning: Warning,
@@ -253,7 +261,12 @@ const iconMap: Record<
   "donut-large": DonutLarge,
   "donut-small": DonutSmall,
   close: Settings, // Temporary fallback
-  auto_fix_high: Star, // Temporary fallback for wizard icon
+  auto_fix_high: AutoFixHigh,
+  check_circle: CheckCircle,
+  expand_more: ExpandMore,
+  expand_less: ExpandLess,
+  content_copy: ContentCopy,
+  delete: Delete,
   assignment: Assessment,
   apps: Public,
   library_books: Assessment,

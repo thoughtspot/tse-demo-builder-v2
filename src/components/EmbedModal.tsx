@@ -187,6 +187,7 @@ export default function EmbedModal({
               console.error("Embed error:", error);
             }}
             startInEditMode={startInEditMode}
+            disableActiveLiveboardTracking
           />
         </div>
       </div>

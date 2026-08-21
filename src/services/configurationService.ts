@@ -128,7 +128,7 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     {
       id: "full-app",
       name: "Full App",
-      enabled: true,
+      enabled: false,
       icon: "full-app",
       homePageType: "html",
       homePageValue: "<h1>Full App</h1>",
@@ -136,7 +136,7 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     {
       id: "all-content",
       name: "All Content",
-      enabled: true,
+      enabled: false,
       icon: "📚",
       homePageType: "html",
       homePageValue: "<h1>All Content</h1>",
@@ -169,11 +169,16 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     showFooter: true,
     showLogo: true,
     showVizPicker: false,
+    showHelpButton: false,
+    loginPage: {
+      enabled: false,
+      subtitle: "",
+    },
     authConfig: {
       authType: "None",
     },
     chatbot: {
-      enabled: true,
+      enabled: false,
       defaultModelId: undefined,
       selectedModelIds: [],
       welcomeMessage:
@@ -240,8 +245,9 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     embeddedContent: {
       strings: {},
       stringIDs: {
-        "liveboard.highlights.title": "Shopper Highlights",
-        "convAssist.landingpage.description2": "Ask a question about sales.",
+        "liveboard.highlights.title": "Smart Highlights",
+        "convAssist.landingpage.description2":
+          "Ask a question about your data.",
       },
       cssUrl: "",
       iconSpriteUrl: "",
@@ -253,13 +259,28 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     embedFlags: {
       spotterEmbed: {
         updatedSpotterChatPrompt: true,
+        spotterSidebarConfig: {
+          enablePastConversationsSidebar: true,
+          spotterAnalystLabel: "Recent Conversations",
+          spotterSideBarDefaultExpanded: false,
+        },
+        enableStopAnswerGenerationEmbed: true,
+        spotterChatConfig: {
+          hideToolResponseCardBranding: true,
+          toolResponseCardBrandingLabel: "My AI",
+        },
       },
       liveboardEmbed: {
+        updatedSpotterChatPrompt: true,
         enable2ColumnLayout: true,
-        isLiveboardStylingAndGroupingEnabled: true,
         isLiveboardMasterpiecesEnabled: true,
+        spotterChatConfig: {
+          hideToolResponseCardBranding: true,
+          toolResponseCardBrandingLabel: "My AI",
+        },
       },
       appEmbed: {
+        updatedSpotterChatPrompt: true,
         enable2ColumnLayout: true,
         isLiveboardStylingAndGroupingEnabled: true,
         isLiveboardMasterpiecesEnabled: true,
@@ -268,6 +289,28 @@ export const DEFAULT_CONFIG: ConfigurationData = {
     embedDisplay: {
       hideTitle: false,
       hideDescription: false,
+    },
+    sdkActions: {
+      enabled: false,
+      mode: "hidden" as const,
+      actions: [],
+    },
+    doubleClickHandling: {
+      enabled: false,
+      showDefaultModal: true,
+    },
+    layout: {
+      navPosition: "side" as const,
+      sideNavBehavior: "hover-expand" as const,
+      topBarHeight: "default" as const,
+      topNavAlignment: "left" as const,
+      topNavStyle: "tabs" as const,
+      borderRadius: "soft" as const,
+      density: "default" as const,
+      shadowStyle: "subtle" as const,
+      cardStyle: "bordered" as const,
+      animationSpeed: "default" as const,
+      fontFamily: "system" as const,
     },
   },
   userConfig: {
@@ -679,6 +722,26 @@ const loadFromStorage = async (): Promise<ConfigurationData> => {
       });
 
       return mergedConfig;
+    }
+
+    // No stored config found — try to apply the standard template from public/
+    try {
+      const { fetchStandardTemplateYaml, applyStarterSettings } =
+        await import("./defaultSettingsService");
+      const yamlText = await fetchStandardTemplateYaml();
+      if (yamlText) {
+        const templateConfig = applyStarterSettings(yamlText);
+        await saveToStorage(templateConfig);
+        console.log(
+          "[ConfigService] Applied standard template for new configuration",
+        );
+        return templateConfig;
+      }
+    } catch (templateError) {
+      console.warn(
+        "[ConfigService] Could not load standard template, using built-in defaults:",
+        templateError,
+      );
     }
 
     return DEFAULT_CONFIG;
@@ -2241,6 +2304,29 @@ export const applyImportedStyle = (
     };
   }
 
+  // Sync the active theme so the Settings panel reflects the import and
+  // subsequent theme edits don't overwrite the imported values.
+  if (result.themes && result.activeThemeId) {
+    const importedApp = options.appStyle && styleData.application
+      ? (styleData.application as StylingConfig["application"])
+      : undefined;
+    const importedVars = options.cssStyle && styleData.embeddedContent
+      ? ((styleData.embeddedContent as Record<string, unknown>).customCSS as StylingConfig["embeddedContent"]["customCSS"] | undefined)?.variables
+      : undefined;
+
+    result = {
+      ...result,
+      themes: result.themes.map((t) => {
+        if (t.id !== result.activeThemeId) return t;
+        return {
+          ...t,
+          ...(importedApp ? { application: importedApp } : {}),
+          ...(importedVars ? { embeddedContentVariables: importedVars } : {}),
+        };
+      }),
+    };
+  }
+
   return result;
 };
 
@@ -2272,6 +2358,21 @@ export const loadConfigurationSimplified = async (
     }
 
     onProgress?.("Validating configuration...", 60);
+
+    // Detect accidental style-export uploads and fail fast with a clear message
+    // instead of silently loading with default styles.
+    if (configData.type === "style" || (configData.application && configData.embeddedContent && !configData.stylingConfig)) {
+      console.error(
+        "[loadConfiguration] Received a style export, not a full configuration.",
+        "Top-level keys:", Object.keys(configData),
+        "Hint: use 'Import Style' (Settings → Layout & Style) instead of 'Import Configuration'."
+      );
+      return {
+        success: false,
+        error: "This looks like a style export file, not a full configuration. Use the 'Import Style' button instead.",
+      };
+    }
+    console.log("[loadConfiguration] configData keys:", Object.keys(configData), "| has stylingConfig:", !!configData.stylingConfig);
 
     // Step 3: Validate and merge configuration
     const importedStandardMenus =

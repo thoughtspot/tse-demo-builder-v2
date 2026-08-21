@@ -13,7 +13,7 @@ touch .env.local
 
 2. Add your Anthropic API key to the file:
 ```
-ANTHROPIC_API_KEY=<anthropic-key>
+TSE_DEMO_ANTHROPIC_KEY=<anthropic-key>
 ```
 
 3. Restart your development server:
@@ -26,7 +26,7 @@ npm run dev
 1. Go to your Vercel project dashboard
 2. Click on **Settings** → **Environment Variables**
 3. Add a new variable:
-   - **Name**: `ANTHROPIC_API_KEY`
+   - **Name**: `TSE_DEMO_ANTHROPIC_KEY`
    - **Value**: Your Anthropic API key (starts with `sk-ant-api03-`)
    - **Environments**: Select all (Production, Preview, Development)
 4. Click **Save**
@@ -67,11 +67,15 @@ This will show you:
 5. Click **Create Configuration**
 6. Watch the browser console for AI generation logs
 
+## Why `TSE_DEMO_ANTHROPIC_KEY` Instead of `ANTHROPIC_API_KEY`?
+
+This project uses `TSE_DEMO_ANTHROPIC_KEY` rather than the standard `ANTHROPIC_API_KEY` name to avoid a conflict with Claude Code (the VS Code extension). Claude Code sets `ANTHROPIC_API_KEY` in the VS Code process environment, which gets inherited by any terminal or server started from within VS Code — causing your `.env.local` value to be silently overridden with a placeholder. Using a project-specific name sidesteps this entirely.
+
 ## Troubleshooting
 
 ### Error: "Anthropic API key is not configured"
 
-**Cause**: The `ANTHROPIC_API_KEY` environment variable is not set or not accessible.
+**Cause**: The `TSE_DEMO_ANTHROPIC_KEY` environment variable is not set or not accessible.
 
 **Solutions**:
 1. Check that you created `.env.local` (for local dev) or set the environment variable in Vercel
@@ -97,7 +101,7 @@ This will show you:
    cat .env.local
    
    # Should show:
-   # ANTHROPIC_API_KEY=sk-ant-api03-...
+   # TSE_DEMO_ANTHROPIC_KEY=sk-ant-api03-...
    
    # Restart the dev server
    npm run dev
