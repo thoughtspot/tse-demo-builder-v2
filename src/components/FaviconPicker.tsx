@@ -200,7 +200,7 @@ export default function FaviconPicker({ value, onChange }: FaviconPickerProps) {
           fontWeight: "500",
           fontSize: "14px",
           marginBottom: "10px",
-          color: "var(--primary-text-color, #1f2937)",
+          color: "#111827",
         }}
       >
         Favicon
@@ -241,13 +241,66 @@ export default function FaviconPicker({ value, onChange }: FaviconPickerProps) {
         {githubIcons.map((icon) =>
           renderTile(icon.id, icon.url, icon.previewUrl, icon.label)
         )}
-        {(isIndexedDB || isCustomUrl) &&
-          renderTile(
-            "custom",
-            current,
-            isIndexedDB && customPreview ? customPreview : current,
-            "Custom"
-          )}
+        {isIndexedDB && (
+          <button
+            key="custom-upload"
+            onClick={() => onChange(current)}
+            title="Uploaded image"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "5px",
+              padding: "8px 4px",
+              border: "2px solid #111827",
+              borderRadius: "8px",
+              background: "#f0f0f0",
+              cursor: "pointer",
+              outline: "none",
+              minWidth: 0,
+            }}
+          >
+            {customPreview ? (
+              <img
+                src={customPreview}
+                alt="Custom"
+                style={{ width: 32, height: 32, objectFit: "contain" }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "#e5e7eb",
+                  borderRadius: "4px",
+                  fontSize: "10px",
+                  color: "#6b7280",
+                }}
+              >
+                img
+              </div>
+            )}
+            <span
+              style={{
+                fontSize: "11px",
+                color: "#111827",
+                textAlign: "center",
+                lineHeight: "1.2",
+                width: "100%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Custom
+            </span>
+          </button>
+        )}
+        {isCustomUrl &&
+          renderTile("custom", current, current, "Custom")}
       </div>
 
       <div

@@ -482,6 +482,7 @@ function StandardMenusContent({
   appConfig,
   updateAppConfig,
   stylingConfig,
+  updateStylingConfig,
 }: {
   standardMenus: StandardMenu[];
   updateStandardMenu: (
@@ -497,8 +498,34 @@ function StandardMenusContent({
   appConfig: AppConfig;
   updateAppConfig: (config: AppConfig, bypassClusterWarning?: boolean) => void;
   stylingConfig: StylingConfig;
+  updateStylingConfig: (config: StylingConfig) => void;
 }) {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "home");
+  const [spotterIcons, setSpotterIcons] = useState<Array<{name: string; label: string; previewUrl: string; actualUrl: string}>>([]);
+
+  useEffect(() => {
+    fetch("https://api.github.com/repos/thoughtspot/tse-demo-builders-pre-built/contents/icons/spotter")
+      .then((r) => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+      .then((data: {name: string}[]) => {
+        const icons = data
+          .filter((item) => item.name.endsWith(".svg") && !item.name.includes("-preview-"))
+          .map((item) => {
+            const displayName = item.name
+              .replace(/\.svg$/, "")
+              .replace(/-\d+$/, "")
+              .replace(/-/g, " ")
+              .split(" ")
+              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(" ");
+            const previewName = item.name.replace(/(\w+)-(\d+)\.svg/, "$1-preview-$2.svg");
+            const previewUrl = `https://cdn.jsdelivr.net/gh/thoughtspot/tse-demo-builders-pre-built/icons/spotter/${previewName}`;
+            const actualUrl = `https://cdn.jsdelivr.net/gh/thoughtspot/tse-demo-builders-pre-built/icons/spotter/${item.name}`;
+            return { name: previewUrl, label: displayName, previewUrl, actualUrl };
+          });
+        setSpotterIcons(icons);
+      })
+      .catch(() => {});
+  }, []);
 
   // Validate initial state on mount
   useEffect(() => {
@@ -1949,11 +1976,21 @@ function StandardMenusContent({
                       <div style={{ minWidth: "200px" }}>
                         <IconPicker
                           value={menu.icon}
-                          onChange={(icon) =>
-                            updateStandardMenu(menu.id, "icon", icon)
-                          }
+                          onChange={(icon) => {
+                            updateStandardMenu(menu.id, "icon", icon);
+                            if (menu.id === "spotter") {
+                              const spotterIcon = spotterIcons.find((i) => i.name === icon);
+                              if (spotterIcon) {
+                                updateStylingConfig({
+                                  ...stylingConfig,
+                                  embeddedContent: { ...stylingConfig.embeddedContent, iconSpriteUrl: spotterIcon.actualUrl },
+                                });
+                              }
+                            }
+                          }}
                           label="Icon"
                           placeholder="Search icons..."
+                          customImages={menu.id === "spotter" && spotterIcons.length > 0 ? spotterIcons : undefined}
                         />
                       </div>
 
@@ -2745,6 +2782,73 @@ function StandardMenusContent({
                             >
                               Leave empty to start with a blank search interface
                             </p>
+                          </div>
+                          <div>
+                            <label style={{ display: "block", marginBottom: "4px", fontWeight: "500", fontSize: "14px" }}>
+                              Spotter Embed Icon (iconSpriteUrl)
+                            </label>
+                            <p style={{ color: "#718096", fontSize: "12px", marginTop: "0", marginBottom: "8px" }}>
+                              Upload your Spotter-format SVG, or provide a URL. This is separate from the nav icon above.
+                            </p>
+                            {stylingConfig.embeddedContent.iconSpriteUrl && (
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", padding: "8px", background: "#f0f9ff", borderRadius: "6px", border: "1px solid #0ea5e9" }}>
+                                <img
+                                  src={stylingConfig.embeddedContent.iconSpriteUrl.startsWith("data:") || stylingConfig.embeddedContent.iconSpriteUrl.startsWith("http") || stylingConfig.embeddedContent.iconSpriteUrl.startsWith("/") ? stylingConfig.embeddedContent.iconSpriteUrl : `/icons/${stylingConfig.embeddedContent.iconSpriteUrl}`}
+                                  alt="Embed icon"
+                                  style={{ width: 32, height: 32, objectFit: "contain" }}
+                                  onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0.3"; }}
+                                />
+                                <span style={{ fontSize: "12px", color: "#0369a1", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {stylingConfig.embeddedContent.iconSpriteUrl.startsWith("data:") ? "Uploaded SVG" : stylingConfig.embeddedContent.iconSpriteUrl}
+                                </span>
+                                <button
+                                  onClick={() => updateStylingConfig({ ...stylingConfig, embeddedContent: { ...stylingConfig.embeddedContent, iconSpriteUrl: "" } })}
+                                  style={{ padding: "2px 8px", fontSize: "12px", border: "1px solid #ef4444", borderRadius: "4px", background: "white", color: "#ef4444", cursor: "pointer" }}
+                                >
+                                  Clear
+                                </button>
+                              </div>
+                            )}
+                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                              <label style={{ cursor: "pointer" }}>
+                                <span style={{ padding: "5px 12px", fontSize: "13px", border: "1px solid #e5e7eb", borderRadius: "6px", background: "transparent", color: "#374151", cursor: "pointer", display: "inline-block" }}>
+                                  Upload SVG
+                                </span>
+                                <input
+                                  type="file"
+                                  accept=".svg,image/svg+xml"
+                                  style={{ display: "none" }}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.onload = (ev) => {
+                                      const dataUrl = ev.target?.result as string;
+                                      if (dataUrl) {
+                                        updateStylingConfig({ ...stylingConfig, embeddedContent: { ...stylingConfig.embeddedContent, iconSpriteUrl: dataUrl } });
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                    e.target.value = "";
+                                  }}
+                                />
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="or paste a URL…"
+                                defaultValue=""
+                                style={{ flex: 1, minWidth: "180px", padding: "5px 10px", fontSize: "13px", border: "1px solid #e5e7eb", borderRadius: "6px", background: "transparent", color: "#374151", outline: "none" }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    const url = (e.target as HTMLInputElement).value.trim();
+                                    if (url) {
+                                      updateStylingConfig({ ...stylingConfig, embeddedContent: { ...stylingConfig.embeddedContent, iconSpriteUrl: url } });
+                                      (e.target as HTMLInputElement).value = "";
+                                    }
+                                  }
+                                }}
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -10397,6 +10501,7 @@ export default function SettingsModal({
           appConfig={pendingAppConfig}
           updateAppConfig={updatePendingAppConfig}
           stylingConfig={pendingStylingConfig}
+          updateStylingConfig={updatePendingStylingConfig}
         />
       ),
     },
